@@ -131,6 +131,7 @@ EXPECTED_GAMES = frozenset([
     "stones_and_gems",
     "tarok",
     "tic_tac_toe",
+    "tic_tac_toe_general",
     "tiny_bridge_2p",
     "tiny_bridge_4p",
     "tiny_hanabi",

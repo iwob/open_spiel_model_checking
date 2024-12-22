@@ -176,6 +176,8 @@ set(GAME_SOURCES
   tarok/contracts.h
   tic_tac_toe/tic_tac_toe.cc
   tic_tac_toe/tic_tac_toe.h
+  tic_tac_toe_general/tic_tac_toe_general.cc
+  tic_tac_toe_general/tic_tac_toe_general.h
   tiny_bridge/tiny_bridge.cc
   tiny_bridge/tiny_bridge.h
   tiny_hanabi/tiny_hanabi.cc
@@ -601,6 +603,10 @@ add_test(tarok_test tarok_test)
 add_executable(tic_tac_toe_test tic_tac_toe/tic_tac_toe_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
 add_test(tic_tac_toe_test tic_tac_toe_test)
+
+add_executable(tic_tac_toe_general_test tic_tac_toe_general/tic_tac_toe_general_test.cc ${OPEN_SPIEL_OBJECTS}
+               $<TARGET_OBJECTS:tests>)
+add_test(tic_tac_toe_general_test tic_tac_toe_general_test)
 
 add_executable(laser_tag_test laser_tag/laser_tag_test.cc ${OPEN_SPIEL_OBJECTS}
                $<TARGET_OBJECTS:tests>)
