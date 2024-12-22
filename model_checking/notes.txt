@@ -1,0 +1,1 @@
+Problem with clang++ was solved by removing a folder: /usr/lib/gcc/x86_64-linux-gnu/12 (source: https://stackoverflow.com/questions/54521402/locating-iostream-in-clang-fatal-error-iostream-file-not-found, answer by suntao). Now /usr/lib/gcc/x86_64-linux-gnu/11 is used.
