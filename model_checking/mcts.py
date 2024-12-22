@@ -101,7 +101,10 @@ def parse_and_sort(data_list):
     result_list = sorted(result_list, key=lambda x: x['value'], reverse=True)
     
     return result_list
-flags.DEFINE_string("game", "tic_tac_toe_general", "Name of the game.")
+flags.DEFINE_string("game", "mnk", "Name of the game.")
+flags.DEFINE_integer("m", 5, "Number of rows.")
+flags.DEFINE_integer("n", 5, "Number of columns.")
+flags.DEFINE_integer("k", 4, "Number of elements forming a line to win.")
 flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, "Who controls player 1.")
 flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, "Who controls player 2.")  # IB: oryginalnie było random
 flags.DEFINE_string("gtp_path", None, "Where to find a binary for gtp.")
@@ -337,9 +340,9 @@ def main(argv):
   for i in range(0,10):
     start = time.time()
     global q
-    q = ["x(2,2),o(3,2)"]  #IB: jaki tu jest właściwie rozmiar planszy?
+    q = ["x(2,2),o(3,2)"]  # set of initial moves
     flag_end = False
-    game = pyspiel.load_game(FLAGS.game)
+    game = pyspiel.load_game(FLAGS.game, {"m": FLAGS.m, "n": FLAGS.n, "k": FLAGS.k})
     if game.num_players() > 2:
       sys.exit("This game requires more players than the example can handle.")
     bots = [
