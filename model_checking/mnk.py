@@ -1,4 +1,6 @@
 import re
+
+
 def generate_table(m, n):
     table = []
     for i in range(1, n+1):
@@ -87,9 +89,10 @@ def generate_board_condition(m, n, value, moves):
     
     return " and ".join(conditions)
 
-def make_whole_board(m,n,k, im):
+
+def make_whole_board(m, n, k, im):
     move = im.count('o') + im.count('x')
-    move = move %2
+    move = move % 2
     table = generate_table(m, n)
     conditions = generate_conditions(m, n)
     actions = generate_actions(m, n)
@@ -178,5 +181,7 @@ def make_whole_board(m,n,k, im):
         <cross> F (crosswins and ! noughtwins); -- TRUE
         <nought> F (noughtwins and ! crosswins); -- FALSE
       end Formulae""")
-        
-make_whole_board(5,5,5,"x(0,1),o(3,1),x(0,3),o(1,1),x(0,4),o(1,0),x(0,2)")
+
+
+if __name__ == "__main__":
+    make_whole_board(5,5,5,"x(0,1),o(3,1),x(0,3),o(1,1),x(0,4),o(1,0),x(0,2)")
