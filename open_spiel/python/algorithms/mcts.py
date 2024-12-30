@@ -254,6 +254,7 @@ class MCTSBot(pyspiel.Bot):
     self._random_state = random_state or np.random.RandomState()
     self._child_selection_fn = child_selection_fn
     self.dont_return_chance_node = dont_return_chance_node
+    self.my_policy = []  # IB: addition
 
   def restart_at(self, state):
     pass
@@ -265,6 +266,7 @@ class MCTSBot(pyspiel.Bot):
 
     best = root.best_child()
 
+    self.my_policy = root.children_str(state) #IB: addition
     if self.verbose:
       seconds = time.time() - t1
       print("Finished {} sims in {:.3f} secs, {:.1f} sims/s".format(
