@@ -41,6 +41,8 @@ import subprocess
 import os
 from dataclasses import dataclass
 from typing import Optional
+from pathlib import Path
+import shutil
 
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
@@ -195,7 +197,7 @@ class NodeData:
     children: int
 
 
-def get_value(data_str: str) -> NodeData:
+def get_value(data_str: str) -> float:
     value = float(data_str.split(':')[4].split(',')[0])
     return value
 
@@ -268,7 +270,7 @@ def _play_game(game, bots, initial_actions):
             # Decision node: sample action for the single current player
             # print("dx")
             bot = bots[current_player]
-            action = bot.step(state)
+            action = bot.step(state)  # for MCTS step() runs a given number of MCTS simulations (by default here: 60000)
             # if ra==1:
             #   moves = state.legal_actions(current_player)
             #   if q[0]=="":
@@ -303,18 +305,32 @@ def _play_game(game, bots, initial_actions):
 
             # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
             # doesn't give that information on the outside
+            # IB ---------
+            # p = bot.get_policy(state)  #return_probs=True
+            # print("policy:", p)
+            # ------------
+            #TODO: Potentially change the name of my_policy to something more informative
             actions = [field.split(":")[0] for field in bot.my_policy.split("\n")[:2]]
             print(q[0])
             # print(bot.my_policy.split("\n"))
             # my_list = parse_and_sort(bot.my_policy.split("\n"))
             # print(my_list)
+            # Example content of my_policy:
+            # x(1,1): player: 0, prior: 0.043, value:  0.405, sims: 45770, outcome: none,  22 children
+            # x(2,3): player: 0, prior: 0.043, value:  0.278, sims:  2910, outcome: none,  22 children
+            # x(3,3): player: 0, prior: 0.043, value:  0.278, sims:  2875, outcome: none,  22 children
+            # ...
+            # x(0,2): player: 0, prior: 0.043, value: -0.085, sims:    59, outcome: none,  22 children
+            # x(0,3): player: 0, prior: 0.043, value: -0.194, sims:    36, outcome: none,  22 children
+            # x(3,4): player: 0, prior: 0.043, value: -0.364, sims:    22, outcome: none,  22 children
+            # It is sorted by value, so we take the two highest values
             val1 = get_value(bot.my_policy.split("\n")[:2][0])
             val2 = get_value(bot.my_policy.split("\n")[:2][1])
             # sys.exit()
             # print(q[0],q[0].count('x'), q[0].count('o') )
             # print(actions)
             print(val1, val2)
-            if q[0] == "":
+            if q[0] == "":  # Empty initial state
                 if val1 != 0 and val2 / val1 > 0.99:
                     q.append(actions[0])
                     q.append(actions[1])
@@ -324,14 +340,17 @@ def _play_game(game, bots, initial_actions):
                     q.remove(q[0])
             else:
                 if val1 != 0 and val2 / val1 > 0.99:
+                    #TODO: Parameterize this 0.99
+                    # Investigate branches associated with both actions
                     q.append(q[0] + "," + actions[0])
                     q.append(q[0] + "," + actions[1])
                     q.remove(q[0])
                 else:
+                    # One action is much better than the other, so investigate only that one
                     q.append(q[0] + "," + actions[0])
                     q.remove(q[0])
 
-            return
+            return  #TODO: why we return here?
             action_str = state.action_to_string(current_player, action)
             _opt_print("Player {} sampled action: {}".format(current_player,
                                                              action_str))
@@ -350,14 +369,21 @@ def _play_game(game, bots, initial_actions):
     #       " ".join(history))
 
     for bot in bots:
-        bot.restart()
+        bot.restart()  # is restarting bots necessary here? Do bots accumulate knowledge during runs?
 
     return returns, history
 
 
 def main(argv):
-    for i in range(0, 10):
+    results_root = Path("results")
+    if results_root.exists():
+        shutil.rmtree(results_root)
+
+    final_log = ""
+    for i in range(FLAGS.num_games):
         start = time.time()
+        run_results_dir = results_root / f"mcts_start__{FLAGS.m}_{FLAGS.n}_{FLAGS.k}({i})"
+        run_results_dir.mkdir(parents=True, exist_ok=False)
         global q
         q = ["x(2,2),o(3,2)"]  # set of initial moves
         game = pyspiel.load_game(FLAGS.game, {"m": FLAGS.m, "n": FLAGS.n, "k": FLAGS.k})
@@ -372,17 +398,21 @@ def main(argv):
                 break
 
         counter = 0
-        os.mkdir(f"results/mcts_start__5_5_4{i}/")
         for move in q:
-            output_file_path = f"results/mcts_start__5_5_4{i}/" + f"output_{move.replace(' ', '')}.txt"
+            output_file = run_results_dir / f"output_{move.replace(' ', '')}.txt"
             counter += 1
             f = io.StringIO()
             with redirect_stdout(f):
                 make_whole_board(5, 5, 4, im=move)
-            with open(output_file_path, "w") as output_file:
-                output_file.write(f.getvalue())
+            with output_file.open("w") as of:
+                of.write(f.getvalue())
         end = time.time()
+        final_log += f"i:{i}, {end - start}\n"
         print(f"i:{i},", end - start)
+
+    print()
+    print("-" * 25)
+    print(final_log)
 
 
 if __name__ == "__main__":
