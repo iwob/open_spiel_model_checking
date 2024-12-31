@@ -222,8 +222,11 @@ def _play_game(game, bots, initial_actions):
     ra = 0  # indicates if bots are random, used in the commented code in the game loop
     state = game.new_initial_state()
     global q
-    q = sorted(q, key=len)
-    print(q[0])
+    if len(q) == 0:
+        q = [""]  # no initial moves
+    else:
+        q = sorted(q, key=len)
+    print(q[0])  # the game history to be considered in this iteration
     # _opt_print("Initial state:\n{}".format(state))
 
 
@@ -231,12 +234,8 @@ def _play_game(game, bots, initial_actions):
         assert not initial_actions
         initial_actions = [state.action_to_string(
             state.current_player(), random.choice(state.legal_actions()))]
-    if len(q) == 0:
-        return  # TODO: what is the meaning of this? Can we play game with empty q?
-        # print(q[0].count('x') + q[0].count('o'))
     if q[0].count('x') + q[0].count('o') >= q_max_len:
         return -1  # terminate run, number of moves exceeds the set limit
-    # print("q[0]:", q[0])
 
     history = []
     moves = re.findall(pattern, q[0])
@@ -248,7 +247,7 @@ def _play_game(game, bots, initial_actions):
 
     if state.is_terminal():
         print("state is terminal")
-        q.append(q[0] + "                                       ")  # what for??
+        q.append(q[0] + "                                       ")  # a dirty hack so that sorting by length will not consider this
         q.remove(q[0])
     while not state.is_terminal():
         current_player = state.current_player()
@@ -330,7 +329,7 @@ def _play_game(game, bots, initial_actions):
             # print(q[0],q[0].count('x'), q[0].count('o') )
             # print(actions)
             print(val1, val2)
-            if q[0] == "":  # Empty initial state
+            if q[0] == "":  # No initial moves
                 if val1 != 0 and val2 / val1 > 0.99:
                     q.append(actions[0])
                     q.append(actions[1])
@@ -385,7 +384,8 @@ def main(argv):
         run_results_dir = results_root / f"mcts_start__{FLAGS.m}_{FLAGS.n}_{FLAGS.k}({i})"
         run_results_dir.mkdir(parents=True, exist_ok=False)
         global q
-        q = ["x(2,2),o(3,2)"]  # set of initial moves
+        # q = ["x(2,2),o(3,2)"]  # set of initial moves
+        q = []
         game = pyspiel.load_game(FLAGS.game, {"m": FLAGS.m, "n": FLAGS.n, "k": FLAGS.k})
         if game.num_players() > 2:
             sys.exit("This game requires more players than the example can handle.")
@@ -403,7 +403,7 @@ def main(argv):
             counter += 1
             f = io.StringIO()
             with redirect_stdout(f):
-                make_whole_board(5, 5, 4, im=move)
+                make_whole_board(FLAGS.m, FLAGS.n, FLAGS.k, im=move)
             with output_file.open("w") as of:
                 of.write(f.getvalue())
         end = time.time()
