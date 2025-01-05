@@ -247,7 +247,8 @@ def _play_game(game, bots, initial_actions):
 
     if state.is_terminal():
         print("state is terminal")
-        q.append(q[0] + "                                       ")  # a dirty hack so that sorting by length will not consider this
+        # TODO: Fix this algorithm so that it works for any problem
+        q.append(q[0] + "                                       ")  # a dirty hack so that sorting by length will never consider this
         q.remove(q[0])
     while not state.is_terminal():
         current_player = state.current_player()
@@ -308,7 +309,7 @@ def _play_game(game, bots, initial_actions):
             # p = bot.get_policy(state)  #return_probs=True
             # print("policy:", p)
             # ------------
-            #TODO: Potentially change the name of my_policy to something more informative
+            # TODO: Potentially change the name of my_policy to something more informative
             actions = [field.split(":")[0] for field in bot.my_policy.split("\n")[:2]]
             print(q[0])
             # print(bot.my_policy.split("\n"))
@@ -325,6 +326,7 @@ def _play_game(game, bots, initial_actions):
             # It is sorted by value, so we take the two highest values
             val1 = get_value(bot.my_policy.split("\n")[:2][0])
             val2 = get_value(bot.my_policy.split("\n")[:2][1])
+            # TODO: parameterize the number/percent of the best policy values branches
             # sys.exit()
             # print(q[0],q[0].count('x'), q[0].count('o') )
             # print(actions)
@@ -339,7 +341,7 @@ def _play_game(game, bots, initial_actions):
                     q.remove(q[0])
             else:
                 if val1 != 0 and val2 / val1 > 0.99:
-                    #TODO: Parameterize this 0.99
+                    # TODO: Parameterize this 0.99
                     # Investigate branches associated with both actions
                     q.append(q[0] + "," + actions[0])
                     q.append(q[0] + "," + actions[1])

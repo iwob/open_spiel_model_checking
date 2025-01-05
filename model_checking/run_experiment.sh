@@ -6,3 +6,5 @@
 # Plik runner.py jest odpowiedzialny za zebranie wyników i zbudowanie drzewa gry.
 
 python3 mcts.py
+
+python3 runner.py --results_dir results
