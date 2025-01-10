@@ -1,30 +1,8 @@
-# Copyright 2019 DeepMind Technologies Limited
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-"""MCTS example."""
-
-import collections
-import random
 import sys
-
-print(sys.path)
-
 from absl import app
 from absl import flags
 import numpy as np
 import random
-import sys
 import time
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
@@ -34,9 +12,8 @@ from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
 import re
-from mnk import make_whole_board
+from game_mnk import GameMnk
 import io
-from contextlib import redirect_stdout
 import subprocess
 import os
 from dataclasses import dataclass
@@ -376,19 +353,26 @@ def _play_game(game, bots, initial_actions):
 
 
 def main(argv):
-    results_root = Path("results")
+    results_root = Path(f"results")
+    if FLAGS.game == "mnk":
+        results_root = Path(f"results__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
+
+        game_utils = GameMnk(FLAGS.m, FLAGS.n, FLAGS.k)
+    else:
+        raise Exception("Unknown game!")
+
     if results_root.exists():
         shutil.rmtree(results_root)
 
     final_log = ""
     for i in range(FLAGS.num_games):
         start = time.time()
-        run_results_dir = results_root / f"mcts_start__{FLAGS.m}_{FLAGS.n}_{FLAGS.k}({i})"
+        run_results_dir = results_root / f"mcts_{i}"
         run_results_dir.mkdir(parents=True, exist_ok=False)
         global q
         # q = ["x(2,2),o(3,2)"]  # set of initial moves
         q = []
-        game = pyspiel.load_game(FLAGS.game, {"m": FLAGS.m, "n": FLAGS.n, "k": FLAGS.k})
+        game = game_utils.load_game()
         if game.num_players() > 2:
             sys.exit("This game requires more players than the example can handle.")
         bots = [
@@ -399,13 +383,11 @@ def main(argv):
             if _play_game(game, bots, argv[1:]) == -1:
                 break
 
-        for move in q:
-            output_file = run_results_dir / f"output_{move.replace(' ', '')}.txt"
-            f = io.StringIO()
-            with redirect_stdout(f):
-                make_whole_board(FLAGS.m, FLAGS.n, FLAGS.k, im=move)
+        for moves in q:
+            output_file = run_results_dir / f"output_{moves.replace(' ', '')}.txt"
+            script = game_utils.formal_subproblem_description(history=moves)
             with output_file.open("w") as of:
-                of.write(f.getvalue())
+                of.write(script)
         end = time.time()
         final_log += f"i:{i}, {end - start}\n"
         print(f"i:{i},", end - start)

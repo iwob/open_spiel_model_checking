@@ -7,4 +7,4 @@
 
 python3 mcts.py
 
-python3 runner.py --results_dir results
+python3 runner.py --results_dir results__mnk_5_5_4

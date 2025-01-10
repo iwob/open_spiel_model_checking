@@ -155,32 +155,19 @@ def make_whole_board(m, n, k, im):
     print("end Evaluation")
     print("InitStates")
     print(generate_board_condition(m, n, "b", im))
-    if move ==0:
-      print("""  and Environment.turn = cross
-        and Nought.null = true and Cross.null = true;
-      end InitStates
+    env_turn = "cross" if move == 0 else "nought"
+    print(f"""  and Environment.turn = {env_turn}
+            and Nought.null = true and Cross.null = true;
+          end InitStates
 
-      Groups
-        nought = {Nought}; cross = {Cross};
-      end Groups
+          Groups
+            nought = {{Nought}}; cross = {{Cross}};
+          end Groups
 
-      Formulae
-        <cross> F (crosswins and ! noughtwins); -- TRUE
-        <nought> F (noughtwins and ! crosswins); -- FALSE
-      end Formulae""")
-    else:
-        print("""  and Environment.turn = nought
-        and Nought.null = true and Cross.null = true;
-      end InitStates
-
-      Groups
-        nought = {Nought}; cross = {Cross};
-      end Groups
-
-      Formulae
-        <cross> F (crosswins and ! noughtwins); -- TRUE
-        <nought> F (noughtwins and ! crosswins); -- FALSE
-      end Formulae""")
+          Formulae
+            <cross> F (crosswins and ! noughtwins); -- TRUE
+            <nought> F (noughtwins and ! crosswins); -- FALSE
+          end Formulae""")
 
 
 if __name__ == "__main__":
