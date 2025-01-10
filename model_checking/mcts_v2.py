@@ -109,7 +109,7 @@ flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
 FLAGS = flags.FLAGS
 
 q = ["x(2,2),o(3,2)"]
-q_max_len = 10
+q_max_len = 5  # originally 10
 pattern = r'[xo]\(\d+,\d+\)'
 
 
@@ -157,7 +157,7 @@ def _init_bot(bot_type, game, player_id):
 
 def _get_action(state, action_str):
     for action in state.legal_actions():
-        print("legal: ", state.action_to_string(state.current_player(), action))
+        _opt_print("legal: ", state.action_to_string(state.current_player(), action))
         if action_str == state.action_to_string(state.current_player(), action):
             return action
     return None
@@ -203,7 +203,9 @@ def _play_game(game, bots, initial_actions):
         q = [""]  # no initial moves
     else:
         q = sorted(q, key=len)
-    print(q[0])  # the game history to be considered in this iteration
+    # print("q:", q)
+    print("current q:", "\n" + "\n".join([f"\"{x}\"" for x in q]) + "\n")
+    # print(q[0])  # the game history to be considered in this iteration
     # _opt_print("Initial state:\n{}".format(state))
 
 
@@ -212,21 +214,20 @@ def _play_game(game, bots, initial_actions):
         initial_actions = [state.action_to_string(
             state.current_player(), random.choice(state.legal_actions()))]
     if q[0].count('x') + q[0].count('o') >= q_max_len:
-        return -1  # terminate run, number of moves exceeds the set limit
+        return True, False  # terminate run, number of moves exceeds the set limit
 
     history = []
     moves = re.findall(pattern, q[0])
-    print("Starting state:\n")
-    print(state)
+    # print("moves:", moves)
+    _opt_print("Starting state:\n")
+    _opt_print(state)
     _execute_initial_moves(state, bots, history, moves)
-    print("State after initial moves:\n")
-    print(state)
+    _opt_print("State after initial moves:\n")
+    _opt_print(state)
 
-    if state.is_terminal():
-        print("state is terminal")
-        # TODO: Fix this algorithm so that it works for any problem
-        q.append(q[0] + "                                       ")  # a dirty hack so that sorting by length will never consider this
-        q.remove(q[0])
+    if state.is_terminal():  # State is terminal, so we will remove it from q
+        return False, True
+
     while not state.is_terminal():
         current_player = state.current_player()
         # The state can be three different types: chance node,
@@ -288,7 +289,7 @@ def _play_game(game, bots, initial_actions):
             # ------------
             # TODO: Potentially change the name of my_policy to something more informative
             actions = [field.split(":")[0] for field in bot.my_policy.split("\n")[:2]]
-            print(q[0])
+            # print(q[0])
             # print(bot.my_policy.split("\n"))
             # my_list = parse_and_sort(bot.my_policy.split("\n"))
             # print(my_list)
@@ -328,7 +329,7 @@ def _play_game(game, bots, initial_actions):
                     q.append(q[0] + "," + actions[0])
                     q.remove(q[0])
 
-            return  #TODO: why we return here?
+            return False, False  #TODO: why we return here?
             action_str = state.action_to_string(current_player, action)
             _opt_print("Player {} sampled action: {}".format(current_player,
                                                              action_str))
@@ -379,15 +380,26 @@ def main(argv):
             _init_bot(FLAGS.player1, game, 0),
             _init_bot(FLAGS.player2, game, 1),
         ]
-        while True:
-            if _play_game(game, bots, argv[1:]) == -1:
-                break
 
-        for moves in q:
-            output_file = run_results_dir / f"output_{moves.replace(' ', '')}.txt"
+        def save_specification(path, moves):
+            output_file = run_results_dir / path
             script = game_utils.formal_subproblem_description(history=moves)
             with output_file.open("w") as of:
                 of.write(script)
+
+        while True:
+            end_analysis, is_terminal_state = _play_game(game, bots, argv[1:])
+            if is_terminal_state:
+                save_specification(f"output_{q[0]}.txt", q[0])
+                print("state is terminal")
+                print("Removing q[0]:", q[0])
+                del q[0]  # remove terminal element
+            if end_analysis:
+                break
+
+        for moves in q:
+            save_specification(f"output_{moves}.txt", moves)
+
         end = time.time()
         final_log += f"i:{i}, {end - start}\n"
         print(f"i:{i},", end - start)

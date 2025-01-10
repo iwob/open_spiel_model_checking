@@ -68,10 +68,10 @@ def generate_evaluation_conditions_win(m, n, k, player):
             diag_conditions.append(" and ".join(f"Environment.b{row - i}{col + i} = {player}" for i in range(k)) + "\n")
 
     all_conditions = row_conditions + col_conditions + diag_conditions
-    return " or ".join(all_conditions)
+    return " or ".join(all_conditions)[:-1]
 
 
-def generate_board_condition(m, n, value, history):
+def generate_board_condition(m, n, value, history, add_comment=True):
     conditions = []
     pattern = r'[xo]\(\d+,\d+\)'
     if history:
@@ -82,7 +82,6 @@ def generate_board_condition(m, n, value, history):
         for move in moves_list:
             symbol = move[0]
             coords = move[2:-1].split(',')
-
             row, col = int(coords[0]), int(coords[1])
             board[row][col] = symbol
 
@@ -91,7 +90,12 @@ def generate_board_condition(m, n, value, history):
             conditions.append(f"Environment.b{row}{col} = {board[row - 1][col - 1]}")
         conditions[-1] += "\n"
 
-    return " and ".join(conditions)
+    text = " and ".join(conditions)[:-1]
+    if history and add_comment:
+        comment = indent("\n".join(["".join(r) for r in board])+"\n", "--  ").replace('b', '.')
+        return comment + text
+    else:
+        return text
 
 
 def get_env_str(m, n):
