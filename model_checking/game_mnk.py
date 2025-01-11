@@ -92,7 +92,9 @@ def generate_board_condition(m, n, value, history, add_comment=True):
 
     text = " and ".join(conditions)[:-1]
     if history and add_comment:
-        comment = indent("\n".join(["".join(r) for r in board])+"\n", "--  ").replace('b', '.')
+        comment  = f"--  History: {history}\n"
+        comment += f"--  Game state:\n"
+        comment += indent("\n".join(["".join(r) for r in board])+"\n", "--  ").replace('b', '.')
         return comment + text
     else:
         return text
@@ -101,7 +103,7 @@ def generate_board_condition(m, n, value, history, add_comment=True):
 def get_env_str(m, n):
     board_obsvars = "\n".join(["; ".join(r) + ";" for r in generate_table(m, n)])
     board_move_conditions = "\n".join(generate_conditions(m, n))
-    return dedent(f"""\
+    return f"""\
 Agent Environment
     Obsvars:
         turn : {{nought, cross}};
@@ -110,13 +112,14 @@ Agent Environment
     Actions = {{ }}; 
     Protocol: end Protocol
     Evolution:
-        turn=nought if turn=cross; turn=cross if turn=nought;
+        turn=nought if turn=cross;
+        turn=cross if turn=nought;
 {indent(board_move_conditions, " "*8)}
     end Evolution
-end Agent""")
+end Agent"""
 
 def get_agent_str(agent_name, actions_xo, protocol_xo):
-    return dedent(f"""\
+    return f"""\
 Agent {agent_name}
     Vars:
         null : boolean; -- for syntax reasons only
@@ -129,7 +132,7 @@ Agent {agent_name}
     Evolution:
         null=true if null=true;
     end Evolution
-end Agent""")
+end Agent"""
 
 def make_whole_board(m, n, k, history, formulae=None) -> str:
     if formulae is None:
@@ -178,22 +181,58 @@ end Formulae"""
 class GameInterface:
     def load_game(self):
         """Loads OpenSpiel game implementing the game."""
-        pass
+        raise Exception("Not implemented!")
 
-    def formal_subproblem_description(self, history, formulae_to_check=None) -> str:
+    def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
         """Generates a formal description of a subproblem based on the current history of the game."""
-        pass
+        raise Exception("Not implemented!")
+
+    def termination_condition(self, c):
+        """Determines when the branching of the game search space will conclude."""
+        raise Exception("Not implemented!")
+
+    def get_num_actions(self, history):
+        """Returns a number of executed actions."""
+        raise Exception("Not implemented!")
+
+    def get_moves_from_history(self, history: str) -> list[str]:
+        """Converts a single history string to a list of successive actions."""
+        raise Exception("Not implemented!")
 
 
 class GameMnk(GameInterface):
-    def __init__(self, m, n, k):
+    def __init__(self, m, n, k, max_num_actions=10):
         self.m = m
         self.n = n
         self.k = k
+        self.max_num_actions = max_num_actions
 
     def load_game(self):
         return pyspiel.load_game("mnk", {"m": self.m, "n": self.n, "k": self.k})
 
-    def formal_subproblem_description(self, history, formulae_to_check=None) -> str:
+    def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
         return make_whole_board(self.m, self.n, self.k, history, formulae_to_check)
 
+    def get_num_actions(self, history):
+        return history.count('x') + history.count('o')
+
+    def termination_condition(self, history: str):
+        """Determines when the branching of the game search space will conclude."""
+        if history.count('x') + history.count('o') >= self.max_num_actions:
+            return True
+        return False
+
+    def get_moves_from_history(self, history: str) -> list[str]:
+        """Converts a single history string to a list of successive actions."""
+        return re.findall(r'[xo]\(\d+,\d+\)', history)
+
+
+if __name__ == "__main__":
+    # --  History: x(2,2),o(1,2),x(1,1),o(0,0),x(3,1)
+    # --  Game state:
+    # --  .....
+    # --  .xo..
+    # --  .xo..
+    # --  .xo..
+    # --  .....
+    print(make_whole_board(5, 5, 4, "x(1,1),o(1,2),x(2,1),o(2,2),x(3,1),o(3,2)"))

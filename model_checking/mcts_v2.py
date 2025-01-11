@@ -4,6 +4,7 @@ from absl import flags
 import numpy as np
 import random
 import time
+
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
 from open_spiel.python.algorithms.alpha_zero import model as az_model
@@ -12,7 +13,8 @@ from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
 import re
-from game_mnk import GameMnk
+from game_mnk import GameMnk, GameInterface
+from game_nim import GameNim
 import io
 import subprocess
 import os
@@ -20,6 +22,8 @@ from dataclasses import dataclass
 from typing import Optional
 from pathlib import Path
 import shutil
+
+_KNOWN_GAMES = ["mnk", "nim"]
 
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
@@ -86,10 +90,12 @@ def parse_and_sort(data_list):
     return result_list
 
 
-flags.DEFINE_string("game", "mnk", "Name of the game.")
-flags.DEFINE_integer("m", 5, "Number of rows.")
-flags.DEFINE_integer("n", 5, "Number of columns.")
-flags.DEFINE_integer("k", 4, "Number of elements forming a line to win.")
+flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, "Name of the game.")
+flags.DEFINE_integer("m", 5, "(Game: mnk) Number of rows.")
+flags.DEFINE_integer("n", 5, "(Game: mnk) Number of columns.")
+flags.DEFINE_integer("k", 4, "(Game: mnk) Number of elements forming a line to win.")
+flags.DEFINE_string("piles", None, "(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
+flags.DEFINE_string("initial_moves", None, "Initial actions to be specified in the game-specific format.")
 flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, "Who controls player 1.")
 flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, "Who controls player 2.")  # IB: oryginalnie było random
 flags.DEFINE_string("gtp_path", None, "Where to find a binary for gtp.")
@@ -108,9 +114,8 @@ flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
 
 FLAGS = flags.FLAGS
 
-q = ["x(2,2),o(3,2)"]
+q = [""]
 q_max_len = 5  # originally 10
-pattern = r'[xo]\(\d+,\d+\)'
 
 
 def _opt_print(*args, **kwargs):
@@ -174,74 +179,54 @@ class NodeData:
     children: int
 
 
-def get_value(data_str: str) -> float:
-    value = float(data_str.split(':')[4].split(',')[0])
-    return value
-
-
-def _execute_initial_moves(state, bots, history, moves):
+def _execute_initial_moves(state, bots, moves):
     for action_str in moves:
         action = _get_action(state, action_str)
         if action is None:
             sys.exit("Invalid action: {}".format(action_str))
 
-        history.append(action_str)
         for bot in bots:
             bot.inform_action(state, state.current_player(), action)
         state.apply_action(action)
-        # _opt_print("Forced action", action_str)
-        # _opt_print("Next state:\n{}".format(state))
 
 
-def _play_game(game, bots, initial_actions):
+def _play_game(game_utils: GameInterface, game, bots):
     """Plays one game."""
     # Probably initial_actions was intended to serve as q
     ra = 0  # indicates if bots are random, used in the commented code in the game loop
     state = game.new_initial_state()
     global q
     if len(q) == 0:
-        q = [""]  # no initial moves
+        # q = [""]  # no initial moves
+        return True, False, None
     else:
-        q = sorted(q, key=len)
+        # sorting only biases search; currently it doesn't influence the overall result, but can be used to define
+        # additional termination conditions, for example: the number of generated subproblems.
+        q = sorted(q, key=game_utils.get_num_actions)
     # print("q:", q)
     print("current q:", "\n" + "\n".join([f"\"{x}\"" for x in q]) + "\n")
     # print(q[0])  # the game history to be considered in this iteration
-    # _opt_print("Initial state:\n{}".format(state))
 
-
-    if FLAGS.random_first:
-        assert not initial_actions
-        initial_actions = [state.action_to_string(
-            state.current_player(), random.choice(state.legal_actions()))]
-    if q[0].count('x') + q[0].count('o') >= q_max_len:
-        return True, False  # terminate run, number of moves exceeds the set limit
-
-    history = []
-    moves = re.findall(pattern, q[0])
     # print("moves:", moves)
-    _opt_print("Starting state:\n")
-    _opt_print(state)
-    _execute_initial_moves(state, bots, history, moves)
-    _opt_print("State after initial moves:\n")
-    _opt_print(state)
+    print("Starting state:\n")
+    print(state)
+    _execute_initial_moves(state, bots, game_utils.get_moves_from_history(q[0]))
+    print("State after initial moves:\n")
+    print(state)
+
+    # if q[0].count('x') + q[0].count('o') >= q_max_len:
+    if game_utils.get_num_actions(q[0]) >= q_max_len:
+        return True, state  # too long sequence of moves, we will remove it from q
 
     if state.is_terminal():  # State is terminal, so we will remove it from q
-        return False, True
+        return True, state
 
     while not state.is_terminal():
         current_player = state.current_player()
         # The state can be three different types: chance node,
         # simultaneous node, or decision node
         if state.is_chance_node():
-            # Chance node: sample an outcome
-            outcomes = state.chance_outcomes()
-            num_actions = len(outcomes)
-            _opt_print("Chance node, got " + str(num_actions) + " outcomes")
-            # print(outcomes)
-            action_list, prob_list = zip(*outcomes)
-            action = np.random.choice(action_list, p=prob_list)
-            action_str = state.action_to_string(current_player, action)
-            _opt_print("Sampled action: ", action_str)
+            raise ValueError("Game cannot have chance nodes.")
         elif state.is_simultaneous_node():
             raise ValueError("Game cannot have simultaneous nodes.")
         else:
@@ -288,9 +273,9 @@ def _play_game(game, bots, initial_actions):
             # print("policy:", p)
             # ------------
             # TODO: Potentially change the name of my_policy to something more informative
-            actions = [field.split(":")[0] for field in bot.my_policy.split("\n")[:2]]
+            actions = [field.split(": player:")[0] for field in bot.my_policy.split("\n")[:2]]
             # print(q[0])
-            # print(bot.my_policy.split("\n"))
+            print(bot.my_policy.split("\n"))
             # my_list = parse_and_sort(bot.my_policy.split("\n"))
             # print(my_list)
             # Example content of my_policy:
@@ -302,6 +287,9 @@ def _play_game(game, bots, initial_actions):
             # x(0,3): player: 0, prior: 0.043, value: -0.194, sims:    36, outcome: none,  22 children
             # x(3,4): player: 0, prior: 0.043, value: -0.364, sims:    22, outcome: none,  22 children
             # It is sorted by value, so we take the two highest values
+            def get_value(data_str: str) -> float:
+                value = float(data_str.split(':')[4].split(',')[0])
+                return value
             val1 = get_value(bot.my_policy.split("\n")[:2][0])
             val2 = get_value(bot.my_policy.split("\n")[:2][1])
             # TODO: parameterize the number/percent of the best policy values branches
@@ -329,36 +317,17 @@ def _play_game(game, bots, initial_actions):
                     q.append(q[0] + "," + actions[0])
                     q.remove(q[0])
 
-            return False, False  #TODO: why we return here?
-            action_str = state.action_to_string(current_player, action)
-            _opt_print("Player {} sampled action: {}".format(current_player,
-                                                             action_str))
-
-        for i, bot in enumerate(bots):
-            if i != current_player:
-                bot.inform_action(state, current_player, action)
-        history.append(action_str)
-        state.apply_action(action)
-
-        _opt_print("Next state:\n{}".format(state))
-
-    # Game is now done. Print return for each player
-    returns = state.returns()
-    # print("Returns:", " ".join(map(str, returns)), ", Game actions:",
-    #       " ".join(history))
-
-    for bot in bots:
-        bot.restart()  # is restarting bots necessary here? Do bots accumulate knowledge during runs?
-
-    return returns, history
+            return False, None
+    return True, state
 
 
 def main(argv):
-    results_root = Path(f"results")
     if FLAGS.game == "mnk":
         results_root = Path(f"results__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
-
         game_utils = GameMnk(FLAGS.m, FLAGS.n, FLAGS.k)
+    elif FLAGS.game == "nim":
+        results_root = Path(f"results__nim_{FLAGS.piles}")
+        game_utils = GameNim(FLAGS.piles)
     else:
         raise Exception("Unknown game!")
 
@@ -372,7 +341,7 @@ def main(argv):
         run_results_dir.mkdir(parents=True, exist_ok=False)
         global q
         # q = ["x(2,2),o(3,2)"]  # set of initial moves
-        q = []
+        q = [""] if FLAGS.initial_moves is None else [FLAGS.initial_moves]
         game = game_utils.load_game()
         if game.num_players() > 2:
             sys.exit("This game requires more players than the example can handle.")
@@ -381,24 +350,23 @@ def main(argv):
             _init_bot(FLAGS.player2, game, 1),
         ]
 
-        def save_specification(path, moves):
+        def save_specification(path, moves, game_state):
             output_file = run_results_dir / path
-            script = game_utils.formal_subproblem_description(history=moves)
+            script = game_utils.formal_subproblem_description(game_state, history=moves)
             with output_file.open("w") as of:
                 of.write(script)
 
-        while True:
-            end_analysis, is_terminal_state = _play_game(game, bots, argv[1:])
+        game_state = None
+        while len(q) > 0:
+            is_terminal_state, game_state = _play_game(game_utils, game, bots)
             if is_terminal_state:
-                save_specification(f"output_{q[0]}.txt", q[0])
+                save_specification(f"output_{q[0]}.txt", q[0], game_state)
                 print("state is terminal")
                 print("Removing q[0]:", q[0])
                 del q[0]  # remove terminal element
-            if end_analysis:
-                break
 
-        for moves in q:
-            save_specification(f"output_{moves}.txt", moves)
+        # for moves in q:
+        #     save_specification(f"output_{moves}.txt", moves, game_state)
 
         end = time.time()
         final_log += f"i:{i}, {end - start}\n"
