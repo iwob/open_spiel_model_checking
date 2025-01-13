@@ -34,7 +34,6 @@ from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
 import re
-from mnk import make_whole_board
 import io
 from contextlib import redirect_stdout
 import subprocess
@@ -43,6 +42,9 @@ from dataclasses import dataclass
 from typing import Optional
 from pathlib import Path
 import shutil
+
+from mnk import make_whole_board
+import runner
 
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
@@ -413,6 +415,10 @@ def main(argv):
     print()
     print("-" * 25)
     print(final_log)
+
+    USE_RUNNER = False
+    if USE_RUNNER:
+        runner.main()
 
 
 if __name__ == "__main__":

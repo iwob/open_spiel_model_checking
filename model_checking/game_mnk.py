@@ -112,8 +112,8 @@ Agent Environment
     Actions = {{ }}; 
     Protocol: end Protocol
     Evolution:
-        turn=nought if turn=cross;
-        turn=cross if turn=nought;
+        turn=nought if turn=cross and (! Cross.Action = none);
+        turn=cross if turn=nought and (! Nought.Action = none);
 {indent(board_move_conditions, " "*8)}
     end Evolution
 end Agent"""
