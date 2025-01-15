@@ -310,7 +310,6 @@ def _play_game(game_utils: GameInterface, game, bots):
                     q.remove(q[0])
             else:
                 if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
-                    # TODO: Parameterize this 0.99
                     # Investigate branches associated with both actions
                     q.append(q[0] + "," + actions[0])
                     q.append(q[0] + "," + actions[1])
