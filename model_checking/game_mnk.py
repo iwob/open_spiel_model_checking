@@ -2,6 +2,7 @@ import re
 from textwrap import dedent, indent
 import pyspiel
 
+
 def generate_table(m, n):
     table = []
     for i in range(1, n+ 1):
@@ -74,11 +75,11 @@ def generate_evaluation_conditions_win(m, n, k, player):
 def generate_board_condition(m, n, value, history, add_comment=True):
     conditions = []
     pattern = r'[xo]\(\d+,\d+\)'
-    if history:
+    if history is not None:
         moves_list = re.findall(pattern, history)
     board = [[value for _ in range(m)] for _ in range(n)]
 
-    if history:
+    if history is not None:
         for move in moves_list:
             symbol = move[0]
             coords = move[2:-1].split(',')
@@ -91,7 +92,7 @@ def generate_board_condition(m, n, value, history, add_comment=True):
         conditions[-1] += "\n"
 
     text = " and ".join(conditions)[:-1]
-    if history and add_comment:
+    if history is not None and add_comment:
         comment  = f"--  History: {history}\n"
         comment += f"--  Game state:\n"
         comment += indent("\n".join(["".join(r) for r in board])+"\n", "--  ").replace('b', '.')
@@ -137,8 +138,8 @@ end Agent"""
 def make_whole_board(m, n, k, history, formulae=None) -> str:
     if formulae is None:
         formulae = dedent("""\
-            <cross> F (crosswins and ! noughtwins); -- TRUE
-            <nought> F (noughtwins and ! crosswins); -- FALSE""")
+            <cross> F (crosswins and ! noughtwins);
+            <nought> F (noughtwins and ! crosswins);""")
     move = (history.count('o') + history.count('x')) % 2
     actions_xo = ", ".join(generate_actions(m, n))
     protocol_xo = "\n".join(generate_environment_conditions(m, n))  # conditions on actions, the same for both players
@@ -235,4 +236,24 @@ if __name__ == "__main__":
     # --  .xo..
     # --  .xo..
     # --  .....
-    print(make_whole_board(5, 5, 4, "x(1,1),o(1,2),x(2,1),o(2,2),x(3,1),o(3,2)"))
+    # print(make_whole_board(5, 5, 4, "x(1,1),o(1,2),x(2,1),o(2,2),x(3,1),o(3,2)"))
+
+    from absl import app
+    from absl import flags
+
+    flags.DEFINE_integer("m", None, required=True, help="(Game: mnk) Number of rows.")
+    flags.DEFINE_integer("n", None, required=True, help="(Game: mnk) Number of columns.")
+    flags.DEFINE_integer("k", None, required=True, help="(Game: mnk) Number of elements forming a line to win.")
+    flags.DEFINE_string("initial_moves", "", required=False, help="Initial actions to be specified in the game-specific format.")
+    flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
+    FLAGS = flags.FLAGS
+
+    def main(argv):
+        text = make_whole_board(FLAGS.m, FLAGS.n, FLAGS.k, FLAGS.initial_moves)
+        if FLAGS.output_file is None:
+            print(text)
+        else:
+            with open(FLAGS.output_file, "w") as f:
+                f.write(text)
+
+    app.run(main)

@@ -4,7 +4,6 @@ from absl import flags
 import numpy as np
 import random
 import time
-
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
 from open_spiel.python.algorithms.alpha_zero import model as az_model
@@ -13,6 +12,7 @@ from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
 import re
+from model_checking import runner
 from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
 import io
@@ -102,6 +102,8 @@ flags.DEFINE_string("gtp_path", None, "Where to find a binary for gtp.")
 flags.DEFINE_multi_string("gtp_cmd", [], "GTP commands to run at init.")
 flags.DEFINE_string("az_path", None,
                     "Path to an alpha_zero checkpoint. Needed by an az player.")
+flags.DEFINE_string("mcmas_path", None, required=False, help="Path to the MCMAS executable.")
+flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
 flags.DEFINE_integer("uct_c", 1, "UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 1, "How many rollouts to do.")
 flags.DEFINE_integer("max_simulations", 60000, "How many simulations to run.")
@@ -111,11 +113,11 @@ flags.DEFINE_bool("random_first", False, "Play the first move randomly.")
 flags.DEFINE_bool("solve", True, "Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, "Don't show the moves as they're played.")
 flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
-
+flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
 
 q = [""]
-q_max_len = 5  # originally 10
+q_max_len = 10
 
 
 def _opt_print(*args, **kwargs):
@@ -208,11 +210,11 @@ def _play_game(game_utils: GameInterface, game, bots):
     # print(q[0])  # the game history to be considered in this iteration
 
     # print("moves:", moves)
-    print("Starting state:\n")
-    print(state)
+    _opt_print("Starting state:\n")
+    _opt_print(state)
     _execute_initial_moves(state, bots, game_utils.get_moves_from_history(q[0]))
-    print("State after initial moves:\n")
-    print(state)
+    _opt_print("State after initial moves:\n")
+    _opt_print(state)
 
     # if q[0].count('x') + q[0].count('o') >= q_max_len:
     if game_utils.get_num_actions(q[0]) >= q_max_len:
@@ -275,7 +277,7 @@ def _play_game(game_utils: GameInterface, game, bots):
             # TODO: Potentially change the name of my_policy to something more informative
             actions = [field.split(": player:")[0] for field in bot.my_policy.split("\n")[:2]]
             # print(q[0])
-            print(bot.my_policy.split("\n"))
+            # print(bot.my_policy.split("\n"))
             # my_list = parse_and_sort(bot.my_policy.split("\n"))
             # print(my_list)
             # Example content of my_policy:
@@ -296,7 +298,7 @@ def _play_game(game_utils: GameInterface, game, bots):
             # sys.exit()
             # print(q[0],q[0].count('x'), q[0].count('o') )
             # print(actions)
-            print(val1, val2)
+            # print(val1, val2)
             if q[0] == "":  # No initial moves
                 if val1 != 0 and val2 / val1 > 0.99:
                     q.append(actions[0])
@@ -322,6 +324,11 @@ def _play_game(game_utils: GameInterface, game, bots):
 
 
 def main(argv):
+    if FLAGS.mcmas_path is None:
+        mcmas_path = "/home/iwob/Programs/MCMAS/mcmas-linux64-1.3.0"
+    else:
+        mcmas_path = FLAGS.mcmas_path
+
     if FLAGS.game == "mnk":
         results_root = Path(f"results__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
         game_utils = GameMnk(FLAGS.m, FLAGS.n, FLAGS.k)
@@ -331,13 +338,23 @@ def main(argv):
     else:
         raise Exception("Unknown game!")
 
+    if FLAGS.output_file is None:
+        output_file = Path("output") / "results.txt"
+    else:
+        output_file = Path(FLAGS.output_file)
+    if output_file.exists():
+        output_file.unlink()
+
     if results_root.exists():
         shutil.rmtree(results_root)
 
     final_log = ""
+    collected_results = []
+    collected_subproblem_dirs = []
     for i in range(FLAGS.num_games):
         start = time.time()
         run_results_dir = results_root / f"mcts_{i}"
+        collected_subproblem_dirs.append(run_results_dir)
         run_results_dir.mkdir(parents=True, exist_ok=False)
         global q
         # q = ["x(2,2),o(3,2)"]  # set of initial moves
@@ -358,23 +375,58 @@ def main(argv):
 
         game_state = None
         while len(q) > 0:
-            is_terminal_state, game_state = _play_game(game_utils, game, bots)
-            if is_terminal_state:
+            is_branch_terminated, game_state = _play_game(game_utils, game, bots)
+            if is_branch_terminated:
                 save_specification(f"output_{q[0]}.txt", q[0], game_state)
-                print("state is terminal")
-                print("Removing q[0]:", q[0])
+                _opt_print("state is terminal")
+                _opt_print("Removing q[0]:", q[0])
                 del q[0]  # remove terminal element
 
-        # for moves in q:
-        #     save_specification(f"output_{moves}.txt", moves, game_state)
 
         end = time.time()
-        final_log += f"i:{i}, {end - start}\n"
+        text = f"mcts ({run_results_dir}): {end - start}\n"
+        collected_results.append({"path": run_results_dir, "time_rl": end - start})
+        final_log += text
+        # print(text)
+        # final_log += f"i:{i}, {end - start}\n"
         print(f"i:{i},", end - start)
 
     print()
     print("-" * 25)
     print(final_log)
+
+    # if not FLAGS.solve_submodels:
+    if True:
+        runner.process_experiment_with_multiple_runs(collected_subproblem_dirs,
+                                                     game_utils,
+                                                     solver_path=mcmas_path,
+                                                     collected_results=collected_results)
+
+        with output_file.open("w") as f:
+            total_times = []
+            num_result_one = 0
+            num_result_zero = 0
+            for i, result_dict in enumerate(collected_results):
+                result_dict["total_time"] = result_dict["time_rl"] + result_dict["time_solver"]
+                if str(result_dict["answer_solver"]) == "1":
+                    num_result_one += 1
+                elif str(result_dict["answer_solver"]) == "0":
+                    num_result_zero += 1
+                total_times.append(result_dict["total_time"])
+                f.write("# " + "-"*30 + "\n")
+                f.write(f"# Run {i}\n")
+                f.write("# " + "-"*30 + "\n")
+                for k, v in result_dict.items():
+                    v = str(v).replace('\n', '\t')
+                    f.write(f"{k} = {v}\n")
+
+            f.write("# " + "-" * 30 + "\n")
+            f.write(f"# Total\n")
+            f.write("# " + "-" * 30 + "\n")
+            f.write(f"avg.total_time = {sum(total_times) / len(total_times)}\n")
+            f.write(f"sum.result_0 = {num_result_zero}\n")
+            f.write(f"sum.result_1 = {num_result_one}\n")
+
 
 
 if __name__ == "__main__":
