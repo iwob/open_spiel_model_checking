@@ -90,29 +90,29 @@ def parse_and_sort(data_list):
     return result_list
 
 
-flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, "Name of the game.")
-flags.DEFINE_integer("m", 5, "(Game: mnk) Number of rows.")
-flags.DEFINE_integer("n", 5, "(Game: mnk) Number of columns.")
-flags.DEFINE_integer("k", 4, "(Game: mnk) Number of elements forming a line to win.")
-flags.DEFINE_string("piles", None, "(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
-flags.DEFINE_string("initial_moves", None, "Initial actions to be specified in the game-specific format.")
-flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, "Who controls player 1.")
-flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, "Who controls player 2.")  # IB: oryginalnie było random
-flags.DEFINE_string("gtp_path", None, "Where to find a binary for gtp.")
-flags.DEFINE_multi_string("gtp_cmd", [], "GTP commands to run at init.")
-flags.DEFINE_string("az_path", None,
-                    "Path to an alpha_zero checkpoint. Needed by an az player.")
+flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, help="Name of the game.")
+flags.DEFINE_integer("m", 5, help="(Game: mnk) Number of rows.")
+flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
+flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
+flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
+flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
+flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, help="Who controls player 1.")
+flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, help="Who controls player 2.")  # IB: oryginalnie było random
+flags.DEFINE_string("gtp_path", None, help="Where to find a binary for gtp.")
+flags.DEFINE_multi_string("gtp_cmd", [], help="GTP commands to run at init.")
+flags.DEFINE_string("az_path", None, help="Path to an alpha_zero checkpoint. Needed by an az player.")
 flags.DEFINE_string("mcmas_path", None, required=False, help="Path to the MCMAS executable.")
 flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
-flags.DEFINE_integer("uct_c", 1, "UCT's exploration constant.")
-flags.DEFINE_integer("rollout_count", 1, "How many rollouts to do.")
-flags.DEFINE_integer("max_simulations", 60000, "How many simulations to run.")
-flags.DEFINE_integer("num_games", 1, "How many games to play.")
-flags.DEFINE_integer("seed", None, "Seed for the random number generator.")
-flags.DEFINE_bool("random_first", False, "Play the first move randomly.")
-flags.DEFINE_bool("solve", True, "Whether to use MCTS-Solver.")
-flags.DEFINE_bool("quiet", False, "Don't show the moves as they're played.")
-flags.DEFINE_bool("verbose", False, "Show the MCTS stats of possible moves.")
+flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
+flags.DEFINE_integer("rollout_count", 1, help="How many rollouts to do.")
+flags.DEFINE_integer("max_simulations", 60000, help="How many simulations to run.")
+flags.DEFINE_integer("num_games", 1, help="How many games to play.")
+flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
+flags.DEFINE_float("epsilon_ratio", 0.99, required=False, help="Seed for the random number generator.")
+flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
+flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
+flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
+flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.")
 flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
 
@@ -292,8 +292,9 @@ def _play_game(game_utils: GameInterface, game, bots):
             def get_value(data_str: str) -> float:
                 value = float(data_str.split(':')[4].split(',')[0])
                 return value
-            val1 = get_value(bot.my_policy.split("\n")[:2][0])
-            val2 = get_value(bot.my_policy.split("\n")[:2][1])
+            bot_policy_lines = bot.my_policy.split("\n")
+            val1 = get_value(bot_policy_lines[:2][0])  # there should always be at least one possible action for the agent
+            val2 = get_value(bot_policy_lines[:2][1]) if len(bot_policy_lines) >= 2 else None
             # TODO: parameterize the number/percent of the best policy values branches
             # sys.exit()
             # print(q[0],q[0].count('x'), q[0].count('o') )
@@ -308,7 +309,7 @@ def _play_game(game_utils: GameInterface, game, bots):
                     q.append(actions[0])
                     q.remove(q[0])
             else:
-                if val1 != 0 and val2 / val1 > 0.99:
+                if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
                     # TODO: Parameterize this 0.99
                     # Investigate branches associated with both actions
                     q.append(q[0] + "," + actions[0])
@@ -395,8 +396,7 @@ def main(argv):
     print("-" * 25)
     print(final_log)
 
-    # if not FLAGS.solve_submodels:
-    if True:
+    if FLAGS.solve_submodels:
         runner.process_experiment_with_multiple_runs(collected_subproblem_dirs,
                                                      game_utils,
                                                      solver_path=mcmas_path,
