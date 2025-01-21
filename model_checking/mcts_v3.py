@@ -102,6 +102,7 @@ def parse_and_sort(data_list):
 
 
 flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, help="Name of the game.")
+flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
 flags.DEFINE_integer("m", 5, help="(Game: mnk) Number of rows.")
 flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
 flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
@@ -126,8 +127,6 @@ flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played."
 flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.")
 flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
-
-q_max_len = 10
 
 
 def _opt_print(*args, **kwargs):
@@ -191,7 +190,7 @@ def _execute_initial_moves(state, bots, moves):
         state.apply_action(action)
 
 
-def _play_game(game_utils: GameInterface, game, bots, nodes_queue):
+def _play_game(game_utils: GameInterface, game, bots, nodes_queue, max_game_depth):
     """Plays one game."""
     print("current nodes_queue:")
     print("\n".join([f"\"{x}\"" for x in nodes_queue]) + "\n")
@@ -208,9 +207,7 @@ def _play_game(game_utils: GameInterface, game, bots, nodes_queue):
     _opt_print("State after initial moves:\n")
     _opt_print(state)
 
-
-    # if q[0].count('x') + q[0].count('o') >= q_max_len:
-    if node.num_actions >= q_max_len:
+    if node.priority >= max_game_depth:
         return True, state  # too long sequence of moves, we will remove it from q
 
     if state.is_terminal():  # State is terminal, so we will remove it from q
@@ -366,10 +363,11 @@ def main(argv):
         collected_subproblem_dirs.append(run_results_dir)
         run_results_dir.mkdir(parents=True, exist_ok=False)
 
+        # For the initial element in the queue priority and player doesn't matter
         if FLAGS.initial_moves is None:
-            nodes_queue = [NodeData(priority=0, player=0, moves_str="")]
+            nodes_queue = [NodeData(0, player=None, moves_str="")]
         else:
-            nodes_queue = [NodeData(priority=0, player=None, moves_str=FLAGS.initial_moves)]
+            nodes_queue = [NodeData(0, player=None, moves_str=FLAGS.initial_moves)]
 
         bots = [
             _init_bot(FLAGS.player1, game, 0),
@@ -384,12 +382,12 @@ def main(argv):
 
         game_state = None
         while len(nodes_queue) > 0:
-            is_branch_terminated, game_state = _play_game(game_utils, game, bots, nodes_queue)
+            is_branch_terminated, game_state = _play_game(game_utils, game, bots, nodes_queue, max_game_depth=FLAGS.max_game_depth)
             if is_branch_terminated:
                 save_specification(f"output_{nodes_queue[0]}.txt", nodes_queue[0], game_state)
                 _opt_print("state is terminal")
                 _opt_print("Removing q[0]:", nodes_queue[0])
-                del nodes_queue[0]  # remove terminal element
+                # del nodes_queue[0]  # remove terminal element
 
 
         end = time.time()
