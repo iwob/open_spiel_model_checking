@@ -200,6 +200,13 @@ class GameInterface:
         """Converts a single history string to a list of successive actions."""
         raise Exception("Not implemented!")
 
+    def add_move_to_history(self, history: str, move: str) -> str:
+        """Adds a move to the history string."""
+        if history is None or history == "":
+            return move
+        else:
+            return history + "," + move
+
 
 class GameMnk(GameInterface):
     def __init__(self, m, n, k, max_num_actions=10):

@@ -198,23 +198,28 @@ def _play_game(game_utils: GameInterface, game, bots, nodes_queue, max_game_dept
     node = heapq.heappop(nodes_queue)
 
     ra = 0  # indicates if bots are random, used in the commented code in the game loop
-    state = game.new_initial_state()
 
     # print("moves:", moves)
+    state = game.new_initial_state()
     _opt_print("Starting state:\n")
     _opt_print(state)
+
     _execute_initial_moves(state, bots, game_utils.get_moves_from_history(node.moves_str))
     _opt_print("State after initial moves:\n")
     _opt_print(state)
 
-    if node.priority >= max_game_depth:
-        return True, state  # too long sequence of moves, we will remove it from q
+    if state.is_terminal():
+        return True, state
 
-    if state.is_terminal():  # State is terminal, so we will remove it from q
+    if node.priority >= max_game_depth:
+        # Too long sequence of moves, stop processing this sequence
+        # (it will constitute one of the subproblems)
         return True, state
 
     while not state.is_terminal():
         current_player = state.current_player()
+        if node.player is None:
+            node.player = current_player
         # The state can be three different types: chance node,
         # simultaneous node, or decision node
         if state.is_chance_node():
@@ -293,32 +298,19 @@ def _play_game(game_utils: GameInterface, game, bots, nodes_queue, max_game_dept
 
             # for bot in bots:
             #     bot.inform_action(state, state.current_player(), action)
-            state.apply_action(action)
+            # state.apply_action(action)
 
-            if node.moves_str == "":  # No initial moves
-                if val1 != 0 and val2 / val1 > 0.99:
-                    # nodes_queue.append(actions[0])
-                    # nodes_queue.append(actions[1])
-                    n0 = NodeData(game_utils.get_num_actions(actions[0]), player=state.current_player, moves_str=actions[0])
-                    n1 = NodeData(game_utils.get_num_actions(actions[1]), player=state.current_player, moves_str=actions[1])
-                    heapq.heappush(n0)
-                    heapq.heappush(n1)
-                    # nodes_queue.remove(nodes_queue[0])  # done earlier
-                else:
-                    # nodes_queue.append(actions[0])
-                    n0 = NodeData(game_utils.get_num_actions(actions[0]), player=state.current_player, moves_str=actions[0])
-                    heapq.heappush(n0)
-                    # nodes_queue.remove(nodes_queue[0])  # done earlier
-            else:
-                if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
-                    # Investigate branches associated with both actions
-                    nodes_queue.append(nodes_queue[0] + "," + actions[0])
-                    nodes_queue.append(nodes_queue[0] + "," + actions[1])
-                    nodes_queue.remove(nodes_queue[0])
-                else:
-                    # One action is much better than the other, so investigate only that one
-                    nodes_queue.append(nodes_queue[0] + "," + actions[0])
-                    nodes_queue.remove(nodes_queue[0])
+            # Add actions to the queue
+            n0 = NodeData(game_utils.get_num_actions(actions[0]),
+                          player=None,
+                          moves_str=game_utils.add_move_to_history(node.moves_str, actions[0]))
+            heapq.heappush(nodes_queue, n0)
+
+            if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
+                n1 = NodeData(game_utils.get_num_actions(actions[1]),
+                              player=None,
+                              moves_str=game_utils.add_move_to_history(node.moves_str, actions[1]))
+                heapq.heappush(nodes_queue, n1)
 
             return False, None
     return True, state
