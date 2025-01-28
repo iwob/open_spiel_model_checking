@@ -30,6 +30,8 @@ class NodeData:
     priority: int
     player: int = field(compare=False)
     moves_str: str = field(compare=False)
+    winning_player: int = field(default=None, init=False)
+    rewards: list = field(default=None, init=False)
     # prior: float
     # value: float
 
@@ -128,6 +130,27 @@ flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.
 flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
 
+TREE_RESULT_ID = "result"
+
+
+def minimax(node, is_maximizing_player):
+    if 'result' in node:
+        # If it's a leaf node, return the result for player X
+        return 1 if node['result'][0] else -1 if node['result'][1] else 0
+
+    if is_maximizing_player:
+        best_value = -float('inf')
+        for key in node:
+            value = minimax(node[key], False)
+            best_value = max(best_value, value)
+        return best_value
+    else:
+        best_value = float('inf')
+        for key in node:
+            value = minimax(node[key], True)
+            best_value = min(best_value, value)
+        return best_value
+
 
 def _opt_print(*args, **kwargs):
     if not FLAGS.quiet:
@@ -190,7 +213,15 @@ def _execute_initial_moves(state, bots, moves):
         state.apply_action(action)
 
 
-def _play_game(game_utils: GameInterface, game, bots, nodes_queue, max_game_depth):
+def _add_node_to_game_tree(game_utils, game_tree, node):
+    for m in game_utils.get_moves_from_history(node.moves_str):
+        if m not in game_tree:
+            game_tree[m] = {}
+        game_tree = game_tree[m]
+    game_tree[TREE_RESULT_ID] = node
+    return game_tree
+
+def _play_game(game_utils: GameInterface, game, bots, nodes_queue, game_tree, max_game_depth):
     """Plays one game."""
     print("current nodes_queue:")
     print("\n".join([f"\"{x}\"" for x in nodes_queue]) + "\n")
@@ -209,11 +240,22 @@ def _play_game(game_utils: GameInterface, game, bots, nodes_queue, max_game_dept
     _opt_print(state)
 
     if state.is_terminal():
+        # max_reward, max_player = None, None
+        # for i, r in enumerate(state.rewards()):
+        #     if max_reward is None or r > max_reward:
+        #         max_reward = r
+        #         max_player = i
+        # node.winning_player = max_player
+        node.winning_player = np.argmax(state.rewards())
+        node.rewards = state.rewards()
+        print("node.rewards:", node.rewards)
+        _add_node_to_game_tree(game_utils, game_tree, node)
         return True, state
 
     if node.priority >= max_game_depth:
         # Too long sequence of moves, stop processing this sequence
         # (it will constitute one of the subproblems)
+        _add_node_to_game_tree(game_utils, game_tree, node)
         return True, state
 
     while not state.is_terminal():
@@ -373,14 +415,16 @@ def main(argv):
                 of.write(script)
 
         game_state = None
+        game_tree = {}
         while len(nodes_queue) > 0:
-            is_branch_terminated, game_state = _play_game(game_utils, game, bots, nodes_queue, max_game_depth=FLAGS.max_game_depth)
-            if is_branch_terminated:
-                save_specification(f"output_{nodes_queue[0]}.txt", nodes_queue[0], game_state)
-                _opt_print("state is terminal")
-                _opt_print("Removing q[0]:", nodes_queue[0])
+            is_branch_terminated, game_state = _play_game(game_utils, game, bots, nodes_queue, game_tree, max_game_depth=FLAGS.max_game_depth)
+            # if is_branch_terminated:
+            #     save_specification(f"output_{nodes_queue[0].moves_str}.txt", game_utils.get_moves_from_history(nodes_queue[0].moves_str), game_state)
+            #     _opt_print("state is terminal")
+            #     _opt_print("Removing q[0]:", nodes_queue[0])
                 # del nodes_queue[0]  # remove terminal element
 
+        # Navigate tree and generate submodel files
 
         end = time.time()
         text = f"mcts ({run_results_dir}): {end - start}\n"
@@ -394,7 +438,7 @@ def main(argv):
     print("-" * 25)
     print(final_log)
 
-    if FLAGS.solve_submodels:
+    if False and FLAGS.solve_submodels:
         runner.process_experiment_with_multiple_runs(collected_subproblem_dirs,
                                                      game_utils,
                                                      solver_path=mcmas_path,
