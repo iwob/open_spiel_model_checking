@@ -136,6 +136,9 @@ class GameNim(GameInterface):
         self.pile_sizes_str = pile_sizes_str
         # self.pile_sizes = [int(x) for x in pile_sizes_str.split(';')]
 
+    def get_name(self):
+        return "nim"
+
     def load_game(self):
         # In combinatorial game theory, a misère game is one played according to the "misère play condition"; that is,
         # a player unable to move wins. This is in contrast to the "normal play condition" in which a player

@@ -180,6 +180,11 @@ end Formulae"""
 
 
 class GameInterface:
+
+    def get_name(self):
+        """Returns a name of the game."""
+        raise Exception("Not implemented!")
+
     def load_game(self):
         """Loads OpenSpiel game implementing the game."""
         raise Exception("Not implemented!")
@@ -214,6 +219,9 @@ class GameMnk(GameInterface):
         self.n = n
         self.k = k
         self.max_num_actions = max_num_actions
+
+    def get_name(self):
+        return "mnk"
 
     def load_game(self):
         return pyspiel.load_game("mnk", {"m": self.m, "n": self.n, "k": self.k})

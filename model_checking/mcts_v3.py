@@ -4,6 +4,8 @@ from absl import flags
 import numpy as np
 import random
 import time
+import textwrap
+
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
 from open_spiel.python.algorithms.alpha_zero import model as az_model
@@ -28,12 +30,19 @@ import shutil
 @dataclass(init=True, order=True)
 class NodeData:
     priority: int
-    player: int = field(compare=False)
     moves_str: str = field(compare=False)
-    winning_player: int = field(default=None, init=False)
-    rewards: list = field(default=None, init=False)
+    winning_player: int = field(default=None, init=False, compare=False)
+    rewards: list = field(default=None, init=False, compare=False)
+    game_state: pyspiel.State = field(default=None, init=False, compare=False)
+    specification_path: str = field(default=None, init=False, compare=False)
     # prior: float
     # value: float
+
+    def is_terminal_state(self):
+        return self.game_state.is_terminal()
+
+    def current_player(self):
+        return self.game_state.current_player()
 
 
 _KNOWN_GAMES = ["mnk", "nim"]
@@ -130,7 +139,7 @@ flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.
 flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
 
-TREE_RESULT_ID = "result"
+GAME_TREE_LEAF_ID = "result"
 
 
 def minimax(node, is_maximizing_player):
@@ -202,6 +211,11 @@ def _get_action(state, action_str):
     return None
 
 
+def _restart_bots(bots):
+    for b in bots:
+        b.restart()
+
+
 def _execute_initial_moves(state, bots, moves):
     for action_str in moves:
         action = _get_action(state, action_str)
@@ -218,52 +232,32 @@ def _add_node_to_game_tree(game_utils, game_tree, node):
         if m not in game_tree:
             game_tree[m] = {}
         game_tree = game_tree[m]
-    game_tree[TREE_RESULT_ID] = node
+    game_tree[GAME_TREE_LEAF_ID] = node
     return game_tree
 
-def _play_game(game_utils: GameInterface, game, bots, nodes_queue, game_tree, max_game_depth):
+def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots, node: NodeData, nodes_queue, game_tree, max_game_depth):
     """Plays one game."""
-    print("current nodes_queue:")
-    print("\n".join([f"\"{x}\"" for x in nodes_queue]) + "\n")
-
-    node = heapq.heappop(nodes_queue)
-
     ra = 0  # indicates if bots are random, used in the commented code in the game loop
 
-    # print("moves:", moves)
-    state = game.new_initial_state()
-    _opt_print("Starting state:\n")
-    _opt_print(state)
-
-    _execute_initial_moves(state, bots, game_utils.get_moves_from_history(node.moves_str))
-    _opt_print("State after initial moves:\n")
-    _opt_print(state)
-
     if state.is_terminal():
-        # max_reward, max_player = None, None
-        # for i, r in enumerate(state.rewards()):
-        #     if max_reward is None or r > max_reward:
-        #         max_reward = r
-        #         max_player = i
-        # node.winning_player = max_player
-        node.winning_player = np.argmax(state.rewards())
+        node.game_state = state
+        node.winning_player = np.argmax(state.rewards())  #TODO: remove?
         node.rewards = state.rewards()
         print("node.rewards:", node.rewards)
         _add_node_to_game_tree(game_utils, game_tree, node)
         return True, state
 
     if node.priority >= max_game_depth:
-        # Too long sequence of moves, stop processing this sequence
-        # (it will constitute one of the subproblems)
+        # Too long sequence of moves, stop processing this sequence (it will constitute one
+        # of the subproblem leaves in the game tree).
+        node.game_state = state
         _add_node_to_game_tree(game_utils, game_tree, node)
         return True, state
 
+    # The purpose of this loop is to potentially automatically pass over chance nodes, but
+    # this functionality is not currently implemented.
     while not state.is_terminal():
-        current_player = state.current_player()
-        if node.player is None:
-            node.player = current_player
-        # The state can be three different types: chance node,
-        # simultaneous node, or decision node
+        # The state can be three different types: chance node, simultaneous node, or decision node
         if state.is_chance_node():
             raise ValueError("Game cannot have chance nodes.")
         elif state.is_simultaneous_node():
@@ -271,6 +265,7 @@ def _play_game(game_utils: GameInterface, game, bots, nodes_queue, game_tree, ma
         else:
             # Decision node: sample action for the single current player
             # print("dx")
+            current_player = state.current_player()
             bot = bots[current_player]
             action = bot.step(state)  # for MCTS step() runs a given number of MCTS simulations (by default here: 60000)
             # if ra==1:
@@ -343,19 +338,67 @@ def _play_game(game_utils: GameInterface, game, bots, nodes_queue, game_tree, ma
             # state.apply_action(action)
 
             # Add actions to the queue
-            n0 = NodeData(game_utils.get_num_actions(actions[0]),
-                          player=None,
-                          moves_str=game_utils.add_move_to_history(node.moves_str, actions[0]))
+            new_moves_str = game_utils.add_move_to_history(node.moves_str, actions[0])
+            n0 = NodeData(game_utils.get_num_actions(new_moves_str), moves_str=new_moves_str)
             heapq.heappush(nodes_queue, n0)
 
             if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
                 n1 = NodeData(game_utils.get_num_actions(actions[1]),
-                              player=None,
                               moves_str=game_utils.add_move_to_history(node.moves_str, actions[1]))
                 heapq.heappush(nodes_queue, n1)
 
             return False, None
     return True, state
+
+
+def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, initial_moves: str = None, max_game_depth: int = 5):
+    if initial_moves is None:
+        initial_moves = ""
+    nodes_queue = [NodeData(0, moves_str=initial_moves)]
+    game_tree = {}
+    while len(nodes_queue) > 0:
+        print("current nodes_queue:")
+        print("\n".join([f"\"{x}\"" for x in nodes_queue]) + "\n")
+
+        node = heapq.heappop(nodes_queue)
+
+        # State of the game is saved in the node, however information received by the bots is not.
+        # To ensure that there will be no errors for various types of games, we create a new state
+        # and manually simulate all the moves and inform players about them.
+        state = game.new_initial_state()
+        _restart_bots(bots)
+        _execute_initial_moves(state, bots, game_utils.get_moves_from_history(node.moves_str))
+        _opt_print(f"State after initial moves:\n{state}\n")
+
+        _play_game_single_step(game_utils, state, bots, node, nodes_queue, game_tree, max_game_depth=max_game_depth)
+    return game_tree
+
+
+def generate_specification(game_utils: GameInterface, node: NodeData):
+    return game_utils.formal_subproblem_description(node.game_state, history=node.moves_str)
+
+
+def save_specification(game_utils: GameInterface, node: NodeData, output_dir, cur_index=0):
+    # save_specification(f"output_{node.moves_str}.txt", game_utils.get_moves_from_history(node.moves_str), game_state)
+    filename = f"{game_utils.get_name()}_s{cur_index}_{textwrap.shorten(node.moves_str, width=55)}.txt"
+    node.specification_path = filename
+    output_file = os.path.join(output_dir, filename)
+    script = generate_specification(game_utils, node)
+    with open(output_file, "w") as f:
+        f.write(script)
+    return cur_index + 1
+
+
+def save_specifications(game_utils: GameInterface, game_tree: dict, output_dir, exclude_terminal_states=True, cur_index=0):
+    if GAME_TREE_LEAF_ID in game_tree:
+        if exclude_terminal_states and game_tree[GAME_TREE_LEAF_ID].is_terminal_state():
+            return cur_index
+        return save_specification(game_utils, game_tree[GAME_TREE_LEAF_ID], output_dir, cur_index=cur_index)
+    else:
+        for a in game_tree:
+            cur_index = save_specifications(game_utils, game_tree[a], output_dir, cur_index=cur_index,
+                                            exclude_terminal_states=exclude_terminal_states)
+        return cur_index
 
 
 def main(argv):
@@ -391,40 +434,22 @@ def main(argv):
     if game.num_players() > 2:
         sys.exit("This game requires more players than the example can handle.")
 
+    bots = [
+        _init_bot(FLAGS.player1, game, 0),
+        _init_bot(FLAGS.player2, game, 1),
+    ]
+
     for i in range(FLAGS.num_games):
         start = time.time()
         run_results_dir = results_root / f"mcts_{i}"
         collected_subproblem_dirs.append(run_results_dir)
         run_results_dir.mkdir(parents=True, exist_ok=False)
 
-        # For the initial element in the queue priority and player doesn't matter
-        if FLAGS.initial_moves is None:
-            nodes_queue = [NodeData(0, player=None, moves_str="")]
-        else:
-            nodes_queue = [NodeData(0, player=None, moves_str=FLAGS.initial_moves)]
+        # Generate a game tree with submodels and terminal states as leaves
+        game_tree = generate_game_tree(game_utils, game, bots, initial_moves=FLAGS.initial_moves, max_game_depth=FLAGS.max_game_depth)
 
-        bots = [
-            _init_bot(FLAGS.player1, game, 0),
-            _init_bot(FLAGS.player2, game, 1),
-        ]
-
-        def save_specification(path, moves, game_state):
-            output_file = run_results_dir / path
-            script = game_utils.formal_subproblem_description(game_state, history=moves)
-            with output_file.open("w") as of:
-                of.write(script)
-
-        game_state = None
-        game_tree = {}
-        while len(nodes_queue) > 0:
-            is_branch_terminated, game_state = _play_game(game_utils, game, bots, nodes_queue, game_tree, max_game_depth=FLAGS.max_game_depth)
-            # if is_branch_terminated:
-            #     save_specification(f"output_{nodes_queue[0].moves_str}.txt", game_utils.get_moves_from_history(nodes_queue[0].moves_str), game_state)
-            #     _opt_print("state is terminal")
-            #     _opt_print("Removing q[0]:", nodes_queue[0])
-                # del nodes_queue[0]  # remove terminal element
-
-        # Navigate tree and generate submodel files
+        # Traverse tree and generate submodel specification files
+        save_specifications(game_utils, game_tree, run_results_dir)
 
         end = time.time()
         text = f"mcts ({run_results_dir}): {end - start}\n"
