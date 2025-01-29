@@ -118,6 +118,7 @@ flags.DEFINE_integer("m", 5, help="(Game: mnk) Number of rows.")
 flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
 flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
 flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
+flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
 flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
 flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, help="Who controls player 1.")
 flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, help="Who controls player 2.")  # IB: oryginalnie było random
@@ -414,8 +415,11 @@ def main(argv):
     elif FLAGS.game == "nim":
         results_root = Path(f"results(v3)__nim_{FLAGS.piles}")
         game_utils = GameNim(FLAGS.piles)
+
     else:
         raise Exception("Unknown game!")
+
+    formula = FLAGS.formula if FLAGS.formula is not None else game_utils.get_default_formula()
 
     if FLAGS.output_file is None:
         output_file = Path("output") / "results.txt"

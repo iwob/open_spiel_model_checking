@@ -135,6 +135,7 @@ class GameNim(GameInterface):
         """
         self.pile_sizes_str = pile_sizes_str
         # self.pile_sizes = [int(x) for x in pile_sizes_str.split(';')]
+        GameInterface.__init__(self, players={"player0": 0, "player1": 1})
 
     def get_name(self):
         return "nim"
@@ -168,6 +169,10 @@ class GameNim(GameInterface):
 
     def get_num_actions(self, history):
         return history.count(';')
+
+    def get_default_formula(self):
+        return "<player0> F player0wins;"
+
 
 
 def is_position_winning(piles: list) -> bool:

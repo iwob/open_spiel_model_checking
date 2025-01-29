@@ -181,6 +181,9 @@ end Formulae"""
 
 class GameInterface:
 
+    def __init__(self, players):
+        self.players = players
+
     def get_name(self):
         """Returns a name of the game."""
         raise Exception("Not implemented!")
@@ -212,6 +215,18 @@ class GameInterface:
         else:
             return history + "," + move
 
+    def get_player_id(self, player_name: str):
+        return self.players[player_name]
+
+    def get_player_name(self, player_id: int):
+        for k, v in self.players.items():
+            if v == player_id:
+                return k
+        raise Exception("Unrecognized player name!")
+
+    def get_default_formula(self):
+        raise Exception("Not implemented!")
+
 
 class GameMnk(GameInterface):
     def __init__(self, m, n, k, max_num_actions=10):
@@ -219,6 +234,7 @@ class GameMnk(GameInterface):
         self.n = n
         self.k = k
         self.max_num_actions = max_num_actions
+        GameInterface.__init__(self, players={"cross": 0, "nought": 1})
 
     def get_name(self):
         return "mnk"
@@ -241,6 +257,9 @@ class GameMnk(GameInterface):
     def get_moves_from_history(self, history: str) -> list[str]:
         """Converts a single history string to a list of successive actions."""
         return re.findall(r'[xo]\(\d+,\d+\)', history)
+
+    def get_default_formula(self):
+        return "<cross> F (crosswins and ! noughtwins);"
 
 
 if __name__ == "__main__":
