@@ -6,6 +6,7 @@ import random
 import time
 import textwrap
 
+from model_checking.solvers import Solver, SolverMCMAS
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
 from open_spiel.python.algorithms.alpha_zero import model as az_model
@@ -31,12 +32,18 @@ import shutil
 class NodeData:
     priority: int
     moves_str: str = field(compare=False)
+    tree_root: dict = field(compare=False)
+    _moves: list[str] = field(default=None, init=False, compare=False)
     winning_player: int = field(default=None, init=False, compare=False)
     rewards: list = field(default=None, init=False, compare=False)
     game_state: pyspiel.State = field(default=None, init=False, compare=False)
     specification_path: str = field(default=None, init=False, compare=False)
-    # prior: float
-    # value: float
+    verification_results: dict = field(default=None, init=False, compare=False)
+
+    def get_moves_list(self, game_utils: GameInterface):
+        if self._moves is None:
+            self._moves = game_utils.get_moves_from_history(self.moves_str)
+        return self._moves
 
     def is_terminal_state(self):
         return self.game_state.is_terminal()
@@ -140,27 +147,9 @@ flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.
 flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
 
-GAME_TREE_LEAF_ID = "result"
-
-
-def minimax(node, is_maximizing_player):
-    if 'result' in node:
-        # If it's a leaf node, return the result for player X
-        return 1 if node['result'][0] else -1 if node['result'][1] else 0
-
-    if is_maximizing_player:
-        best_value = -float('inf')
-        for key in node:
-            value = minimax(node[key], False)
-            best_value = max(best_value, value)
-        return best_value
-    else:
-        best_value = float('inf')
-        for key in node:
-            value = minimax(node[key], True)
-            best_value = min(best_value, value)
-        return best_value
-
+GAME_TREE_LEAF_ID = "SUBMODEL"
+GAME_TREE_CUR_PLAYER_ID = "CUR_PLAYER"
+RESERVED_TREE_IDS = {GAME_TREE_LEAF_ID, GAME_TREE_CUR_PLAYER_ID}
 
 def _opt_print(*args, **kwargs):
     if not FLAGS.quiet:
@@ -228,17 +217,34 @@ def _execute_initial_moves(state, bots, moves):
         state.apply_action(action)
 
 
-def _add_node_to_game_tree(game_utils, game_tree, node):
-    for m in game_utils.get_moves_from_history(node.moves_str):
+def move_down_tree(game_tree: dict, moves: list):
+    """Moves down the tree creating nodes as necessary and returning a resulting node."""
+    for m in moves:
         if m not in game_tree:
             game_tree[m] = {}
         game_tree = game_tree[m]
-    game_tree[GAME_TREE_LEAF_ID] = node
     return game_tree
 
-def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots, node: NodeData, nodes_queue, game_tree, max_game_depth):
+
+def add_data_to_game_tree(game_tree: dict, moves: list, key: str, data):
+    """Traverses the game tree to add some data under the specified key to a certain node."""
+    game_tree = move_down_tree(game_tree, moves)
+    game_tree[key] = data
+    return game_tree
+
+
+def _add_node_to_game_tree(game_utils, game_tree, node, key=GAME_TREE_LEAF_ID):
+    """Traverses the game tree to add a leaf node (submodel)."""
+    return add_data_to_game_tree(game_tree, node.get_moves_list(game_utils), key, node)
+
+
+def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots, node: NodeData,
+                           nodes_queue, game_tree, max_game_depth):
     """Plays one game."""
     ra = 0  # indicates if bots are random, used in the commented code in the game loop
+
+    # Add information about current player in the node
+    add_data_to_game_tree(node.tree_root, [], GAME_TREE_CUR_PLAYER_ID, state.current_player())
 
     if state.is_terminal():
         node.game_state = state
@@ -246,17 +252,17 @@ def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots
         node.rewards = state.rewards()
         print("node.rewards:", node.rewards)
         _add_node_to_game_tree(game_utils, game_tree, node)
-        return True, state
+        return
 
     if node.priority >= max_game_depth:
         # Too long sequence of moves, stop processing this sequence (it will constitute one
         # of the subproblem leaves in the game tree).
         node.game_state = state
         _add_node_to_game_tree(game_utils, game_tree, node)
-        return True, state
+        return
 
     # The purpose of this loop is to potentially automatically pass over chance nodes, but
-    # this functionality is not currently implemented.
+    # this functionality is not currently implemented. The loop will always execute only once.
     while not state.is_terminal():
         # The state can be three different types: chance node, simultaneous node, or decision node
         if state.is_chance_node():
@@ -334,29 +340,25 @@ def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots
             # print(actions)
             # print(val1, val2)
 
-            # for bot in bots:
-            #     bot.inform_action(state, state.current_player(), action)
-            # state.apply_action(action)
-
             # Add actions to the queue
-            new_moves_str = game_utils.add_move_to_history(node.moves_str, actions[0])
-            n0 = NodeData(game_utils.get_num_actions(new_moves_str), moves_str=new_moves_str)
+            n0 = NodeData(node.priority + 1,
+                          moves_str=game_utils.add_move_to_history(node.moves_str, actions[0]),
+                          tree_root=move_down_tree(node.tree_root, [actions[0]]))
             heapq.heappush(nodes_queue, n0)
 
             if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
-                n1 = NodeData(game_utils.get_num_actions(actions[1]),
-                              moves_str=game_utils.add_move_to_history(node.moves_str, actions[1]))
+                n1 = NodeData(node.priority + 1,
+                              moves_str=game_utils.add_move_to_history(node.moves_str, actions[1]),
+                              tree_root=move_down_tree(node.tree_root, [actions[1]]))
                 heapq.heappush(nodes_queue, n1)
-
-            return False, None
-    return True, state
+            return
 
 
 def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, initial_moves: str = None, max_game_depth: int = 5):
     if initial_moves is None:
         initial_moves = ""
-    nodes_queue = [NodeData(0, moves_str=initial_moves)]
     game_tree = {}
+    nodes_queue = [NodeData(0, moves_str=initial_moves, tree_root=game_tree)]
     while len(nodes_queue) > 0:
         print("current nodes_queue:")
         print("\n".join([f"\"{x}\"" for x in nodes_queue]) + "\n")
@@ -379,7 +381,7 @@ def generate_specification(game_utils: GameInterface, node: NodeData):
     return game_utils.formal_subproblem_description(node.game_state, history=node.moves_str)
 
 
-def save_specification(game_utils: GameInterface, node: NodeData, output_dir, cur_index=0):
+def _save_specification(game_utils: GameInterface, node: NodeData, output_dir, cur_index=0):
     # save_specification(f"output_{node.moves_str}.txt", game_utils.get_moves_from_history(node.moves_str), game_state)
     filename = f"{game_utils.get_name()}_s{cur_index}_{textwrap.shorten(node.moves_str, width=55)}.txt"
     node.specification_path = filename
@@ -390,16 +392,92 @@ def save_specification(game_utils: GameInterface, node: NodeData, output_dir, cu
     return cur_index + 1
 
 
-def save_specifications(game_utils: GameInterface, game_tree: dict, output_dir, exclude_terminal_states=True, cur_index=0):
+def save_specifications(game_utils: GameInterface, game_tree: dict, output_dir, exclude_terminal_states=False, cur_index=0):
     if GAME_TREE_LEAF_ID in game_tree:
         if exclude_terminal_states and game_tree[GAME_TREE_LEAF_ID].is_terminal_state():
             return cur_index
-        return save_specification(game_utils, game_tree[GAME_TREE_LEAF_ID], output_dir, cur_index=cur_index)
+        return _save_specification(game_utils, game_tree[GAME_TREE_LEAF_ID], output_dir, cur_index=cur_index)
     else:
         for a in game_tree:
-            cur_index = save_specifications(game_utils, game_tree[a], output_dir, cur_index=cur_index,
-                                            exclude_terminal_states=exclude_terminal_states)
+            if a not in RESERVED_TREE_IDS:
+                cur_index = save_specifications(game_utils, game_tree[a], output_dir, cur_index=cur_index,
+                                                exclude_terminal_states=exclude_terminal_states)
         return cur_index
+
+
+def verify_submodel_node_solver(node: NodeData, solver: Solver) -> NodeData:
+    if node.specification_path is None:
+        raise Exception("Specification path not present in the leaf! Most likely the 'save_specifications' function needs to be used on the game tree.")
+    _, meta = solver.verify_properties_file(node.specification_path)
+    node.verification_results = meta
+    return node
+
+
+def verify_submodel_node_rewards(node: NodeData, coalition) -> NodeData:
+    """Uses expert knowledge that if the sum of rewards of coalition players is greater than the
+     anti-coalition players, then the formula will be satisfied."""
+    rewards = node.game_state.rewards()
+    sum_coalition = [rewards[i] for i in node.game_state.game.num_players() if i in coalition]
+    sum_anti_coalition = [rewards[i] for i in node.game_state.game.num_players() if i not in coalition]
+    if sum_coalition > sum_anti_coalition:
+        node.verification_results = {"decision": 1, "status": "auto"}
+    else:
+        node.verification_results = {"decision": 0, "status": "auto"}
+    return node
+
+
+def verify_submodel_node(node: NodeData, solver: Solver, coalition, exclude_terminal_states=False):
+    if exclude_terminal_states and node.is_terminal_state():
+        # Check if the sum of coalition rewards is bigger than anti-coalition
+        return verify_submodel_node_rewards(node, coalition)
+    else:
+        # Perform verification using a solver
+        return verify_submodel_node_solver(node, solver)
+
+def verify_submodels(game_tree: dict, solver: Solver, coalition, exclude_terminal_states=False):
+    """Traverses the game tree and adds at each submodel leaf the result of verification."""
+    if GAME_TREE_LEAF_ID in game_tree:
+        node = game_tree[GAME_TREE_LEAF_ID]
+        verify_submodel_node(node, solver, coalition, exclude_terminal_states=exclude_terminal_states)
+    else:
+        for a in game_tree:
+            if a not in RESERVED_TREE_IDS:
+                verify_submodels(game_tree[a], solver, coalition, exclude_terminal_states=exclude_terminal_states)
+
+
+def minimax_submodels_aggregation(game_tree, coalition, solve_submodels=False, solver: Solver=None,
+                                  exclude_terminal_states=False):
+    """Returns the overall result of the formula verification by using the minimax algorithm, where
+     coalition wants to satisfy the formula and anti-coalition wants to falsify it."""
+    if GAME_TREE_LEAF_ID in game_tree:
+        # If it's a leaf node, propagate the result upwards
+        node = game_tree[GAME_TREE_LEAF_ID]
+        if solve_submodels:
+            if solver is None:
+                raise Exception("In order to solve submodels in minimax you need to pass solver as an argument.")
+            verify_submodel_node(node, solver, coalition, exclude_terminal_states=exclude_terminal_states)
+        return node['decision']
+
+    if GAME_TREE_CUR_PLAYER_ID not in game_tree:
+        raise Exception("Reached a node in with unknown player! Aborting minimax.")
+    cur_player = game_tree[GAME_TREE_CUR_PLAYER_ID]
+
+    if cur_player in coalition:
+        best_value = -float('inf')
+        for key in game_tree:
+            if key in RESERVED_TREE_IDS:
+                continue
+            value = minimax_submodels_aggregation(game_tree[key], coalition)
+            best_value = max(best_value, value)
+        return best_value
+    else:
+        best_value = float('inf')
+        for key in game_tree:
+            if key in RESERVED_TREE_IDS:
+                continue
+            value = minimax_submodels_aggregation(game_tree[key], coalition)
+            best_value = min(best_value, value)
+        return best_value
 
 
 def main(argv):
@@ -407,6 +485,7 @@ def main(argv):
         mcmas_path = "/home/iwob/Programs/MCMAS/mcmas-linux64-1.3.0"
     else:
         mcmas_path = FLAGS.mcmas_path
+    solver = SolverMCMAS(mcmas_path, time_limit=1000*3600*4)
 
     if FLAGS.game == "mnk":
         # Example initial moves for mnk; "x(2,2),o(3,2)"
@@ -454,6 +533,12 @@ def main(argv):
 
         # Traverse tree and generate submodel specification files
         save_specifications(game_utils, game_tree, run_results_dir)
+
+        # Verify submodels
+        verify_submodels(game_tree, solver, coalition)
+
+        # Aggregate verification results
+        minimax_submodels_aggregation(game_tree, coalition)
 
         end = time.time()
         text = f"mcts ({run_results_dir}): {end - start}\n"
