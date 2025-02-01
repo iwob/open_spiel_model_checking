@@ -21,7 +21,11 @@ class SolverMCMAS(Solver):
     def verify_properties_file(self, file_path):
         result = subprocess.run([self.path_exec, file_path], capture_output=True, text=True)
         output = result.stdout  # Capturing standard output
+        output_err = result.stderr
         print(output)
+        if output_err is not None or len(output_err) > 0:
+            print("Errors:")
+            print(output_err)
 
         meta = self.parse_output(output)
 

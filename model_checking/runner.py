@@ -96,11 +96,6 @@ def generate_latex_table(logs):
     return table
 
 
-def MCSA():
-    """MCSA = Model Checking by Submodel Aggregation."""
-    pass
-
-
 def run_MCMAS(file_path, mcmas_path):
     result = subprocess.run([mcmas_path, file_path], capture_output=True, text=True)
     output = result.stdout  # Capturing standard output

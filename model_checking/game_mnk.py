@@ -224,8 +224,9 @@ class GameInterface:
                 return k
         raise Exception("Unrecognized player name!")
 
-    def get_default_formula(self):
+    def get_default_formula_and_coalition(self):
         raise Exception("Not implemented!")
+
 
 
 class GameMnk(GameInterface):
@@ -258,8 +259,8 @@ class GameMnk(GameInterface):
         """Converts a single history string to a list of successive actions."""
         return re.findall(r'[xo]\(\d+,\d+\)', history)
 
-    def get_default_formula(self):
-        return "<cross> F (crosswins and ! noughtwins);"
+    def get_default_formula_and_coalition(self):
+        return "<cross> F (crosswins and ! noughtwins);", {0}
 
 
 if __name__ == "__main__":

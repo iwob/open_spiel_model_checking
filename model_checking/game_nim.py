@@ -170,8 +170,8 @@ class GameNim(GameInterface):
     def get_num_actions(self, history):
         return history.count(';')
 
-    def get_default_formula(self):
-        return "<player0> F player0wins;"
+    def get_default_formula_and_coalition(self):
+        return "<player0> F player0wins;", {0}
 
 
 

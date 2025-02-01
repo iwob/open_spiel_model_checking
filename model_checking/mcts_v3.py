@@ -34,8 +34,6 @@ class NodeData:
     moves_str: str = field(compare=False)
     tree_root: dict = field(compare=False)
     _moves: list[str] = field(default=None, init=False, compare=False)
-    winning_player: int = field(default=None, init=False, compare=False)
-    rewards: list = field(default=None, init=False, compare=False)
     game_state: pyspiel.State = field(default=None, init=False, compare=False)
     specification_path: str = field(default=None, init=False, compare=False)
     verification_results: dict = field(default=None, init=False, compare=False)
@@ -126,6 +124,7 @@ flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
 flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
 flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
 flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
+flags.DEFINE_string("coalition", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
 flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
 flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, help="Who controls player 1.")
 flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, help="Who controls player 2.")  # IB: oryginalnie było random
@@ -144,7 +143,6 @@ flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
 flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.")
-flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
 
 GAME_TREE_LEAF_ID = "SUBMODEL"
@@ -248,9 +246,6 @@ def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots
 
     if state.is_terminal():
         node.game_state = state
-        node.winning_player = np.argmax(state.rewards())  #TODO: remove?
-        node.rewards = state.rewards()
-        print("node.rewards:", node.rewards)
         _add_node_to_game_tree(game_utils, game_tree, node)
         return
 
@@ -377,30 +372,31 @@ def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, init
     return game_tree
 
 
-def generate_specification(game_utils: GameInterface, node: NodeData):
-    return game_utils.formal_subproblem_description(node.game_state, history=node.moves_str)
+def generate_specification(game_utils: GameInterface, node: NodeData, formula: str):
+    return game_utils.formal_subproblem_description(node.game_state, history=node.moves_str, formulae_to_check=formula)
 
 
-def _save_specification(game_utils: GameInterface, node: NodeData, output_dir, cur_index=0):
-    # save_specification(f"output_{node.moves_str}.txt", game_utils.get_moves_from_history(node.moves_str), game_state)
-    filename = f"{game_utils.get_name()}_s{cur_index}_{textwrap.shorten(node.moves_str, width=55)}.txt"
-    node.specification_path = filename
+def _save_specification(game_utils: GameInterface, node: NodeData, output_dir, formula, cur_index=0):
+    filename = f"{game_utils.get_name()}_s{cur_index}_{textwrap.shorten(node.moves_str, width=55)}.ispl"
     output_file = os.path.join(output_dir, filename)
-    script = generate_specification(game_utils, node)
+    node.specification_path = output_file
+    script = generate_specification(game_utils, node, formula)
     with open(output_file, "w") as f:
         f.write(script)
     return cur_index + 1
 
 
-def save_specifications(game_utils: GameInterface, game_tree: dict, output_dir, exclude_terminal_states=False, cur_index=0):
+def save_specifications(game_utils: GameInterface, game_tree: dict, output_dir, formula: str,
+                        exclude_terminal_states=False, cur_index=0):
     if GAME_TREE_LEAF_ID in game_tree:
         if exclude_terminal_states and game_tree[GAME_TREE_LEAF_ID].is_terminal_state():
             return cur_index
-        return _save_specification(game_utils, game_tree[GAME_TREE_LEAF_ID], output_dir, cur_index=cur_index)
+        return _save_specification(game_utils, game_tree[GAME_TREE_LEAF_ID], output_dir, formula, cur_index=cur_index)
     else:
         for a in game_tree:
             if a not in RESERVED_TREE_IDS:
-                cur_index = save_specifications(game_utils, game_tree[a], output_dir, cur_index=cur_index,
+                cur_index = save_specifications(game_utils, game_tree[a], output_dir, formula,
+                                                cur_index=cur_index,
                                                 exclude_terminal_states=exclude_terminal_states)
         return cur_index
 
@@ -456,7 +452,7 @@ def minimax_submodels_aggregation(game_tree, coalition, solve_submodels=False, s
             if solver is None:
                 raise Exception("In order to solve submodels in minimax you need to pass solver as an argument.")
             verify_submodel_node(node, solver, coalition, exclude_terminal_states=exclude_terminal_states)
-        return node['decision']
+        return node.verification_results['decision']
 
     if GAME_TREE_CUR_PLAYER_ID not in game_tree:
         raise Exception("Reached a node in with unknown player! Aborting minimax.")
@@ -480,6 +476,80 @@ def minimax_submodels_aggregation(game_tree, coalition, solve_submodels=False, s
         return best_value
 
 
+def MCSA(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list, formula: str,
+         coalition: set, run_results_dir, results_dict):
+    """MCSA = Model Checking by Submodel Aggregation."""
+    # Generate a game tree with submodels and terminal states as leaves
+    start = time.time()
+    game_tree = generate_game_tree(game_utils, game, bots, initial_moves=FLAGS.initial_moves,
+                                   max_game_depth=FLAGS.max_game_depth)
+    end = time.time()
+    results_dict["time_rl"] = end - start
+
+    # Traverse tree and generate submodel specification files
+    save_specifications(game_utils, game_tree, run_results_dir, formula)
+
+    # Verify submodels
+    start = time.time()
+    verify_submodels(game_tree, solver, coalition)
+    end = time.time()
+    results_dict["time_solver"] = end - start
+
+    # Aggregate verification results
+    result = minimax_submodels_aggregation(game_tree, coalition)
+
+    return result, game_tree
+
+
+def collect_game_tree_stats(game_tree, results_dict):
+    if GAME_TREE_LEAF_ID in game_tree:
+        node = game_tree[GAME_TREE_LEAF_ID]
+        results_dict["num_submodels"] = 1 + results_dict.get("num_submodels", 0)
+    else:
+        for a in game_tree:
+            if a not in RESERVED_TREE_IDS:
+                collect_game_tree_stats(game_tree[a], results_dict)
+
+
+def create_final_report(collected_results, output_file):
+    # create dumps of logs for individual runs
+    for d in collected_results:
+        path = Path(d["path_submodels_root"]) / f"summary_{d['name']}.txt"
+        with path.open("w") as f:
+            for k in sorted(d.keys()):
+                f.write(f"{k} = {d[k]}\n")
+
+    # Create a global summary
+    with output_file.open("w") as f:
+        total_times = []
+        solver_times = []
+        rl_times = []
+        num_result_one = 0
+        num_result_zero = 0
+        for i, d in enumerate(collected_results):
+            if d["decision"]:
+                num_result_one += 1
+            else:
+                num_result_zero += 1
+            total_times.append(d["time_total"])
+            solver_times.append(d["time_solver"])
+            rl_times.append(d["time_rl"])
+            f.write("# " + "-" * 30 + "\n")
+            f.write(f"# Run {i}\n")
+            f.write("# " + "-" * 30 + "\n")
+            for k in sorted(d.keys()):
+                f.write(f"{k} = {d[k]}\n")
+
+        f.write("# " + "-" * 30 + "\n")
+        f.write(f"# Total\n")
+        f.write("# " + "-" * 30 + "\n")
+        f.write(f"avg.time_rl = {sum(rl_times) / len(rl_times)}\n")
+        f.write(f"avg.time_solver = {sum(solver_times) / len(solver_times)}\n")
+        f.write(f"avg.time_total = {sum(total_times) / len(total_times)}\n")
+        f.write(f"sum.result_0 = {num_result_zero}\n")
+        f.write(f"sum.result_1 = {num_result_one}\n")
+
+
 def main(argv):
     if FLAGS.mcmas_path is None:
         mcmas_path = "/home/iwob/Programs/MCMAS/mcmas-linux64-1.3.0"
@@ -494,11 +564,15 @@ def main(argv):
     elif FLAGS.game == "nim":
         results_root = Path(f"results(v3)__nim_{FLAGS.piles}")
         game_utils = GameNim(FLAGS.piles)
-
     else:
         raise Exception("Unknown game!")
 
-    formula = FLAGS.formula if FLAGS.formula is not None else game_utils.get_default_formula()
+    if FLAGS.formula is None and FLAGS.coalition is None:
+        formula, coalition = game_utils.get_default_formula_and_coalition()
+    elif FLAGS.formula is not None and FLAGS.coalition is not None:
+        formula, coalition = FLAGS.formula, FLAGS.coalition
+    else:
+        raise Exception("Coalition and formula needs to be both specified (or left empty for the default values).")
 
     if FLAGS.output_file is None:
         output_file = Path("output") / "results.txt"
@@ -527,62 +601,23 @@ def main(argv):
         run_results_dir = results_root / f"mcts_{i}"
         collected_subproblem_dirs.append(run_results_dir)
         run_results_dir.mkdir(parents=True, exist_ok=False)
+        results_dict = {"path_submodels_root": run_results_dir, "name": f"mcts_{i}"}
 
-        # Generate a game tree with submodels and terminal states as leaves
-        game_tree = generate_game_tree(game_utils, game, bots, initial_moves=FLAGS.initial_moves, max_game_depth=FLAGS.max_game_depth)
-
-        # Traverse tree and generate submodel specification files
-        save_specifications(game_utils, game_tree, run_results_dir)
-
-        # Verify submodels
-        verify_submodels(game_tree, solver, coalition)
-
-        # Aggregate verification results
-        minimax_submodels_aggregation(game_tree, coalition)
+        result, game_tree = MCSA(game_utils, game, solver, bots, formula, coalition, run_results_dir, results_dict)
 
         end = time.time()
-        text = f"mcts ({run_results_dir}): {end - start}\n"
-        collected_results.append({"path": run_results_dir, "time_rl": end - start})
-        final_log += text
-        # print(text)
-        # final_log += f"i:{i}, {end - start}\n"
-        print(f"i:{i},", end - start)
+        results_dict["decision"] = result
+        results_dict["time_total"] = end - start
+        collect_game_tree_stats(game_tree, results_dict)
+        print("FINAL ANSWER:", result, f" (time:{end - start})")
+        collected_results.append(results_dict)
+        final_log += f"mcts ({run_results_dir}): {end - start}\n"
 
     print()
     print("-" * 25)
     print(final_log)
 
-    if False and FLAGS.solve_submodels:
-        runner.process_experiment_with_multiple_runs(collected_subproblem_dirs,
-                                                     game_utils,
-                                                     solver_path=mcmas_path,
-                                                     collected_results=collected_results)
-
-        with output_file.open("w") as f:
-            total_times = []
-            num_result_one = 0
-            num_result_zero = 0
-            for i, result_dict in enumerate(collected_results):
-                result_dict["total_time"] = result_dict["time_rl"] + result_dict["time_solver"]
-                if str(result_dict["answer_solver"]) == "1":
-                    num_result_one += 1
-                elif str(result_dict["answer_solver"]) == "0":
-                    num_result_zero += 1
-                total_times.append(result_dict["total_time"])
-                f.write("# " + "-"*30 + "\n")
-                f.write(f"# Run {i}\n")
-                f.write("# " + "-"*30 + "\n")
-                for k, v in result_dict.items():
-                    v = str(v).replace('\n', '\t')
-                    f.write(f"{k} = {v}\n")
-
-            f.write("# " + "-" * 30 + "\n")
-            f.write(f"# Total\n")
-            f.write("# " + "-" * 30 + "\n")
-            f.write(f"avg.total_time = {sum(total_times) / len(total_times)}\n")
-            f.write(f"sum.result_0 = {num_result_zero}\n")
-            f.write(f"sum.result_1 = {num_result_one}\n")
-
+    create_final_report(collected_results, output_file)
 
 
 if __name__ == "__main__":
