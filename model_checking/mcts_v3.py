@@ -4,6 +4,7 @@ from absl import flags
 import numpy as np
 import random
 import time
+import datetime
 import textwrap
 
 from solvers import Solver, SolverMCMAS
@@ -14,7 +15,6 @@ from open_spiel.python.bots import gtp
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
-import re
 from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
 import os
@@ -115,7 +115,6 @@ def parse_and_sort(data_list):
 
 
 flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, help="Name of the game.")
-flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
 flags.DEFINE_integer("m", 5, help="(Game: mnk) Number of rows.")
 flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
 flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
@@ -135,6 +134,7 @@ flags.DEFINE_integer("rollout_count", 1, help="How many rollouts to do.")
 flags.DEFINE_integer("max_simulations", 60000, help="How many simulations to run.")
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
+flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
 flags.DEFINE_float("epsilon_ratio", 0.99, required=False, help="Seed for the random number generator.")
 flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
@@ -509,8 +509,11 @@ def collect_game_tree_stats(game_tree, results_dict):
 
 
 def create_final_report(collected_results, output_file):
+    timestamp = str(datetime.datetime.now())
+
     # create dumps of logs for individual runs
     for d in collected_results:
+        d["timestamp"] = timestamp
         path = Path(d["path_submodels_root"]) / f"summary_{d['name']}.txt"
         with path.open("w") as f:
             for k in sorted(d.keys()):
@@ -545,6 +548,7 @@ def create_final_report(collected_results, output_file):
         f.write(f"avg.time_total = {sum(total_times) / len(total_times)}\n")
         f.write(f"sum.result_0 = {num_result_zero}\n")
         f.write(f"sum.result_1 = {num_result_one}\n")
+        f.write(f"timestamp = {timestamp}")
 
 
 def main(argv):

@@ -4,6 +4,7 @@ from absl import flags
 import numpy as np
 import random
 import time
+import datetime
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
 from open_spiel.python.algorithms.alpha_zero import model as az_model
@@ -11,12 +12,9 @@ from open_spiel.python.bots import gtp
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
-import re
 from model_checking import runner
 from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
-import io
-import subprocess
 import os
 from dataclasses import dataclass
 from typing import Optional
@@ -108,6 +106,7 @@ flags.DEFINE_integer("rollout_count", 1, help="How many rollouts to do.")
 flags.DEFINE_integer("max_simulations", 60000, help="How many simulations to run.")
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
+flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
 flags.DEFINE_float("epsilon_ratio", 0.99, required=False, help="Seed for the random number generator.")
 flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
@@ -192,6 +191,11 @@ def _execute_initial_moves(state, bots, moves):
         state.apply_action(action)
 
 
+def _restart_bots(bots):
+    for b in bots:
+        b.restart()
+
+
 def _play_game(game_utils: GameInterface, game, bots):
     """Plays one game."""
     # Probably initial_actions was intended to serve as q
@@ -212,6 +216,7 @@ def _play_game(game_utils: GameInterface, game, bots):
     # print("moves:", moves)
     _opt_print("Starting state:\n")
     _opt_print(state)
+    _restart_bots(bots)
     _execute_initial_moves(state, bots, game_utils.get_moves_from_history(q[0]))
     _opt_print("State after initial moves:\n")
     _opt_print(state)
@@ -324,16 +329,18 @@ def _play_game(game_utils: GameInterface, game, bots):
 
 
 def main(argv):
+    global q_max_len
+    q_max_len = FLAGS.max_game_depth
     if FLAGS.mcmas_path is None:
         mcmas_path = "/home/iwob/Programs/MCMAS/mcmas-linux64-1.3.0"
     else:
         mcmas_path = FLAGS.mcmas_path
 
     if FLAGS.game == "mnk":
-        results_root = Path(f"results__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
+        results_root = Path(f"results(v2)__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
         game_utils = GameMnk(FLAGS.m, FLAGS.n, FLAGS.k)
     elif FLAGS.game == "nim":
-        results_root = Path(f"results__nim_{FLAGS.piles}")
+        results_root = Path(f"results(v2)__nim_{FLAGS.piles}")
         game_utils = GameNim(FLAGS.piles)
     else:
         raise Exception("Unknown game!")
@@ -351,7 +358,13 @@ def main(argv):
     final_log = ""
     collected_results = []
     collected_subproblem_dirs = []
+    game = game_utils.load_game()
+    bots = [
+        _init_bot(FLAGS.player1, game, 0),
+        _init_bot(FLAGS.player2, game, 1),
+    ]
     for i in range(FLAGS.num_games):
+        num_submodels = 0
         start = time.time()
         run_results_dir = results_root / f"mcts_{i}"
         collected_subproblem_dirs.append(run_results_dir)
@@ -359,13 +372,14 @@ def main(argv):
         global q
         # q = ["x(2,2),o(3,2)"]  # set of initial moves
         q = [""] if FLAGS.initial_moves is None else [FLAGS.initial_moves]
-        game = game_utils.load_game()
         if game.num_players() > 2:
             sys.exit("This game requires more players than the example can handle.")
-        bots = [
-            _init_bot(FLAGS.player1, game, 0),
-            _init_bot(FLAGS.player2, game, 1),
-        ]
+
+        # Initializing bots here leads to good replicability of results - number of nodes is the same
+        # bots = [
+        #     _init_bot(FLAGS.player1, game, 0),
+        #     _init_bot(FLAGS.player2, game, 1),
+        # ]
 
         def save_specification(path, moves, game_state):
             output_file = run_results_dir / path
@@ -377,6 +391,7 @@ def main(argv):
         while len(q) > 0:
             is_branch_terminated, game_state = _play_game(game_utils, game, bots)
             if is_branch_terminated:
+                num_submodels += 1
                 save_specification(f"output_{q[0]}.txt", q[0], game_state)
                 _opt_print("state is terminal")
                 _opt_print("Removing q[0]:", q[0])
@@ -385,7 +400,7 @@ def main(argv):
 
         end = time.time()
         text = f"mcts ({run_results_dir}): {end - start}\n"
-        collected_results.append({"path": run_results_dir, "time_rl": end - start})
+        collected_results.append({"path": run_results_dir, "time_rl": end - start, "i": i, "num_submodels": num_submodels})
         final_log += text
         # print(text)
         # final_log += f"i:{i}, {end - start}\n"
@@ -425,6 +440,7 @@ def main(argv):
             f.write(f"avg.total_time = {sum(total_times) / len(total_times)}\n")
             f.write(f"sum.result_0 = {num_result_zero}\n")
             f.write(f"sum.result_1 = {num_result_one}\n")
+            f.write(f"timestamp = {str(datetime.datetime.now())}")
 
 
 
