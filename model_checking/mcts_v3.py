@@ -6,7 +6,7 @@ import random
 import time
 import textwrap
 
-from model_checking.solvers import Solver, SolverMCMAS
+from solvers import Solver, SolverMCMAS
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
 from open_spiel.python.algorithms.alpha_zero import model as az_model
@@ -15,11 +15,8 @@ from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
 import re
-from model_checking import runner
 from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
-import io
-import subprocess
 import os
 from dataclasses import *
 from typing import Optional
@@ -124,7 +121,7 @@ flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
 flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
 flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
 flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
-flags.DEFINE_string("coalition", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
+flags.DEFINE_string("coalition", None, help="Player coalition provided as integers divided by commas, e.g. '1,2'.")
 flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
 flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, help="Who controls player 1.")
 flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, help="Who controls player 2.")  # IB: oryginalnie było random
@@ -570,7 +567,7 @@ def main(argv):
     if FLAGS.formula is None and FLAGS.coalition is None:
         formula, coalition = game_utils.get_default_formula_and_coalition()
     elif FLAGS.formula is not None and FLAGS.coalition is not None:
-        formula, coalition = FLAGS.formula, FLAGS.coalition
+        formula, coalition = FLAGS.formula, {int(a) for a in FLAGS.coalition.split(",")}
     else:
         raise Exception("Coalition and formula needs to be both specified (or left empty for the default values).")
 

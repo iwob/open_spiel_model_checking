@@ -23,7 +23,7 @@ class SolverMCMAS(Solver):
         output = result.stdout  # Capturing standard output
         output_err = result.stderr
         print(output)
-        if output_err is not None or len(output_err) > 0:
+        if output_err is not None and len(output_err) > 0:
             print("Errors:")
             print(output_err)
 
