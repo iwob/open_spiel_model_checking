@@ -12,7 +12,7 @@ from open_spiel.python.bots import gtp
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
 import pyspiel
-from model_checking import runner
+import runner
 from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
 import os
@@ -107,12 +107,12 @@ flags.DEFINE_integer("max_simulations", 60000, help="How many simulations to run
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
 flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
-flags.DEFINE_float("epsilon_ratio", 0.99, required=False, help="Seed for the random number generator.")
+flags.DEFINE_float("epsilon_ratio", 0.95, required=False, help="Seed for the random number generator.")
 flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
 flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.")
-flags.DEFINE_bool("solve_submodels", False, required=False, help="If true, only ispl files will be created.")
+flags.DEFINE_bool("solve_submodels", True, required=False, help="If true, only ispl files will be created.")
 FLAGS = flags.FLAGS
 
 q = [""]
@@ -314,7 +314,7 @@ def _play_game(game_utils: GameInterface, game, bots):
                     q.append(actions[0])
                     q.remove(q[0])
             else:
-                if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
+                if val2 is not None and val1 != 0 and val2 / val1 >= FLAGS.epsilon_ratio:
                     # Investigate branches associated with both actions
                     q.append(q[0] + "," + actions[0])
                     q.append(q[0] + "," + actions[1])

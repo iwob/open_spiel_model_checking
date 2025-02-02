@@ -1,3 +1,4 @@
+import re
 import sys
 from absl import app
 from absl import flags
@@ -7,6 +8,7 @@ import time
 import datetime
 import textwrap
 
+from action_selectors import *
 from solvers import Solver, SolverMCMAS
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
@@ -68,6 +70,7 @@ _KNOWN_PLAYERS = [
     "az"
 ]
 
+_KNOWN_SELECTORS = ["most2", "all", "k-best", "2-best", "5-best", "10-best", "none"]
 
 def parse_and_sort(data_list):
     result_list = []
@@ -124,6 +127,8 @@ flags.DEFINE_string("coalition", None, help="Player coalition provided as intege
 flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
 flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, help="Who controls player 1.")
 flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, help="Who controls player 2.")  # IB: oryginalnie było random
+flags.DEFINE_enum("action_selector1", "most2", _KNOWN_SELECTORS, help="Action selector for the coalition. If action_selector2 is none, it will be also used for the anti-coalition.")
+flags.DEFINE_enum("action_selector2", "none", _KNOWN_SELECTORS, help="Action selector for the anti-coalition.")
 flags.DEFINE_string("gtp_path", None, help="Where to find a binary for gtp.")
 flags.DEFINE_multi_string("gtp_cmd", [], help="GTP commands to run at init.")
 flags.DEFINE_string("az_path", None, help="Path to an alpha_zero checkpoint. Needed by an az player.")
@@ -132,10 +137,11 @@ flags.DEFINE_string("output_file", None, required=False, help="Path to the direc
 flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 1, help="How many rollouts to do.")
 flags.DEFINE_integer("max_simulations", 60000, help="How many simulations to run.")
+flags.DEFINE_float("selector_epsilon", 0.95, required=False, help="Seed for the random number generator.")
+flags.DEFINE_integer("selector_k", 3, required=False, help="How many best actions will be selected by selector.")
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
 flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
-flags.DEFINE_float("epsilon_ratio", 0.99, required=False, help="Seed for the random number generator.")
 flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
@@ -145,6 +151,8 @@ FLAGS = flags.FLAGS
 GAME_TREE_LEAF_ID = "SUBMODEL"
 GAME_TREE_CUR_PLAYER_ID = "CUR_PLAYER"
 RESERVED_TREE_IDS = {GAME_TREE_LEAF_ID, GAME_TREE_CUR_PLAYER_ID}
+
+my_policy_value_pattern = re.compile(r",\s+value:\s+([+-]?[0-9]+\.[0-9]+),")
 
 def _opt_print(*args, **kwargs):
     if not FLAGS.quiet:
@@ -233,8 +241,8 @@ def _add_node_to_game_tree(game_utils, game_tree, node, key=GAME_TREE_LEAF_ID):
     return add_data_to_game_tree(game_tree, node.get_moves_list(game_utils), key, node)
 
 
-def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots, node: NodeData,
-                           nodes_queue, game_tree, max_game_depth):
+def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots, action_selector,
+                           node: NodeData, nodes_queue, game_tree, coalition, max_game_depth):
     """Plays one game."""
     ra = 0  # indicates if bots are random, used in the commented code in the game loop
 
@@ -299,15 +307,11 @@ def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots
             # if ra==1:
             #   return
 
-            # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
-            # doesn't give that information on the outside
             # IB ---------
             # p = bot.get_policy(state)  #return_probs=True
             # print("policy:", p)
             # ------------
-            # TODO: Potentially change the name of my_policy to something more informative
-            actions = [field.split(": player:")[0] for field in bot.my_policy.split("\n")[:2]]
-            # print(q[0])
+
             # print(bot.my_policy.split("\n"))
             # my_list = parse_and_sort(bot.my_policy.split("\n"))
             # print(my_list)
@@ -320,33 +324,30 @@ def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots
             # x(0,3): player: 0, prior: 0.043, value: -0.194, sims:    36, outcome: none,  22 children
             # x(3,4): player: 0, prior: 0.043, value: -0.364, sims:    22, outcome: none,  22 children
             # It is sorted by value, so we take the two highest values
+
+            def get_name(data_str: str) -> str:
+                return data_str.split(": player:")[0]
             def get_value(data_str: str) -> float:
-                value = float(data_str.split(':')[4].split(',')[0])
+                value = float(my_policy_value_pattern.search(data_str).group(1))
                 return value
-            bot_policy_lines = bot.my_policy.split("\n")
-            val1 = get_value(bot_policy_lines[:2][0])  # there should always be at least one possible action for the agent
-            val2 = get_value(bot_policy_lines[:2][1]) if len(bot_policy_lines) >= 2 else None
-            # TODO: parameterize the number/percent of the best policy values branches
-            # sys.exit()
-            # print(q[0],q[0].count('x'), q[0].count('o') )
-            # print(actions)
-            # print(val1, val2)
 
-            # Add actions to the queue
-            n0 = NodeData(node.priority + 1,
-                          moves_str=game_utils.add_move_to_history(node.moves_str, actions[0]),
-                          tree_root=move_down_tree(node.tree_root, [actions[0]]))
-            heapq.heappush(nodes_queue, n0)
+            # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
+            # doesn't give that information on the outside
+            actions_list = [(get_value(line), get_name(line)) for line in bot.my_policy.split("\n")]
+            actions_list = sorted(actions_list)  # sort by value, by default values are sorted by prior
 
-            if val2 is not None and val1 != 0 and val2 / val1 > FLAGS.epsilon_ratio:
-                n1 = NodeData(node.priority + 1,
-                              moves_str=game_utils.add_move_to_history(node.moves_str, actions[1]),
-                              tree_root=move_down_tree(node.tree_root, [actions[1]]))
-                heapq.heappush(nodes_queue, n1)
+            actions_to_add = action_selector(actions_list, state.current_player(), coalition)
+
+            for val, a in actions_to_add:
+                n0 = NodeData(node.priority + 1,
+                              moves_str=game_utils.add_move_to_history(node.moves_str, a),
+                              tree_root=move_down_tree(node.tree_root, [a]))
+                heapq.heappush(nodes_queue, n0)
             return
 
 
-def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, initial_moves: str = None, max_game_depth: int = 5):
+def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, action_selector, coalition,
+                       initial_moves: str = None, max_game_depth: int = 5):
     if initial_moves is None:
         initial_moves = ""
     game_tree = {}
@@ -365,7 +366,7 @@ def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, init
         _execute_initial_moves(state, bots, game_utils.get_moves_from_history(node.moves_str))
         _opt_print(f"State after initial moves:\n{state}\n")
 
-        _play_game_single_step(game_utils, state, bots, node, nodes_queue, game_tree, max_game_depth=max_game_depth)
+        _play_game_single_step(game_utils, state, bots, action_selector, node, nodes_queue, game_tree, coalition, max_game_depth=max_game_depth)
     return game_tree
 
 
@@ -473,12 +474,13 @@ def minimax_submodels_aggregation(game_tree, coalition, solve_submodels=False, s
         return best_value
 
 
-def MCSA(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list, formula: str,
-         coalition: set, run_results_dir, results_dict):
+def MCSA(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list,
+         action_selector: ActionSelector, formula: str, coalition: set, run_results_dir, results_dict):
     """MCSA = Model Checking by Submodel Aggregation."""
     # Generate a game tree with submodels and terminal states as leaves
     start = time.time()
-    game_tree = generate_game_tree(game_utils, game, bots, initial_moves=FLAGS.initial_moves,
+    game_tree = generate_game_tree(game_utils, game, bots, action_selector, coalition,
+                                   initial_moves=FLAGS.initial_moves,
                                    max_game_depth=FLAGS.max_game_depth)
     end = time.time()
     results_dict["time_rl"] = end - start
@@ -585,6 +587,29 @@ def main(argv):
     if results_root.exists():
         shutil.rmtree(results_root)
 
+    def get_action_selector(name):
+        if name == "most2":
+            return SelectAtMostTwoActions(epsilon_ratio=FLAGS.selector_epsilon)
+        elif name == "all":
+            return SelectAllActions()
+        elif name == "k-best":
+            return SelectKBestActions(k=FLAGS.selector_k)
+        elif name == "2-best":
+            return SelectKBestActions(k=2)
+        elif name == "5-best":
+            return SelectKBestActions(k=5)
+        elif name == "10-best":
+            return SelectKBestActions(k=10)
+
+    if FLAGS.action_selector1 == "none":
+        raise Exception("action_selector1 cannot be empty.")
+    if FLAGS.action_selector2 == "none":  # dual
+        action_selector = get_action_selector(FLAGS.action_selector1)
+    else:
+        as1 = get_action_selector(FLAGS.action_selector1)
+        as2 = get_action_selector(FLAGS.action_selector2)
+        action_selector = DualActionSelector(as1, as2)
+
     final_log = ""
     collected_results = []
     collected_subproblem_dirs = []
@@ -604,11 +629,27 @@ def main(argv):
         run_results_dir.mkdir(parents=True, exist_ok=False)
         results_dict = {"path_submodels_root": run_results_dir, "name": f"mcts_{i}"}
 
-        result, game_tree = MCSA(game_utils, game, solver, bots, formula, coalition, run_results_dir, results_dict)
+        result, game_tree = MCSA(game_utils, game, solver, bots, action_selector,
+                                 formula, coalition, run_results_dir, results_dict)
 
         end = time.time()
         results_dict["decision"] = result
         results_dict["time_total"] = end - start
+        results_dict["action_selector1"] = FLAGS.action_selector1
+        results_dict["action_selector2"] = FLAGS.action_selector2
+        if FLAGS.game == "nim":
+            results_dict["piles"] = FLAGS.piles
+        elif FLAGS.game == "mnk":
+            results_dict["m,n,k"] = str((FLAGS.m, FLAGS.n, FLAGS.k))
+        if FLAGS.action_selector1 == "k-best" or FLAGS.action_selector2 == "k-best":
+            results_dict["selector_k"] = FLAGS.selector_k
+        results_dict["max_game_depth"] = FLAGS.max_game_depth
+        results_dict["max_simulations"] = FLAGS.max_simulations
+        results_dict["game"] = FLAGS.game
+        results_dict["player1"] = FLAGS.player1
+        results_dict["player2"] = FLAGS.player2
+        results_dict["formula"] = formula
+        results_dict["coalition"] = coalition
         collect_game_tree_stats(game_tree, results_dict)
         print("FINAL ANSWER:", result, f" (time:{end - start})")
         collected_results.append(results_dict)
