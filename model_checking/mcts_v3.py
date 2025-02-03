@@ -133,7 +133,8 @@ flags.DEFINE_string("gtp_path", None, help="Where to find a binary for gtp.")
 flags.DEFINE_multi_string("gtp_cmd", [], help="GTP commands to run at init.")
 flags.DEFINE_string("az_path", None, help="Path to an alpha_zero checkpoint. Needed by an az player.")
 flags.DEFINE_string("mcmas_path", None, required=False, help="Path to the MCMAS executable.")
-flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
+flags.DEFINE_string("output_file", None, required=False, help="Path to the file in which the results of this run will be stored.")
+flags.DEFINE_string("submodels_dir", None, required=False, help="Path to the directory in which will be stored the generated submodels.")
 flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 1, help="How many rollouts to do.")
 flags.DEFINE_integer("max_simulations", 60000, help="How many simulations to run.")
@@ -510,18 +511,16 @@ def collect_game_tree_stats(game_tree, results_dict):
                 collect_game_tree_stats(game_tree[a], results_dict)
 
 
+def create_single_run_report(results_dict):
+    timestamp = str(datetime.datetime.now())
+    results_dict["timestamp"] = timestamp
+    path = Path(results_dict["submodels_dir"]) / f"summary_{results_dict['name']}.txt"
+    with path.open("w") as f:
+        for k in sorted(results_dict.keys()):
+            f.write(f"{k} = {results_dict[k]}\n")
+
 def create_final_report(collected_results, output_file):
     timestamp = str(datetime.datetime.now())
-
-    # create dumps of logs for individual runs
-    for d in collected_results:
-        d["timestamp"] = timestamp
-        path = Path(d["path_submodels_root"]) / f"summary_{d['name']}.txt"
-        with path.open("w") as f:
-            for k in sorted(d.keys()):
-                f.write(f"{k} = {d[k]}\n")
-
-    # Create a global summary
     with output_file.open("w") as f:
         total_times = []
         solver_times = []
@@ -562,10 +561,16 @@ def main(argv):
 
     if FLAGS.game == "mnk":
         # Example initial moves for mnk; "x(2,2),o(3,2)"
-        results_root = Path(f"results(v3)__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
+        if FLAGS.submodels_dir is None:
+            results_root = Path(f"results(v3)__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
+        else:
+            results_root = Path(FLAGS.submodels_dir)
         game_utils = GameMnk(FLAGS.m, FLAGS.n, FLAGS.k)
     elif FLAGS.game == "nim":
-        results_root = Path(f"results(v3)__nim_{FLAGS.piles}")
+        if FLAGS.submodels_dir is None:
+            results_root = Path(f"results(v3)__nim_{FLAGS.piles}")
+        else:
+            results_root = Path(FLAGS.submodels_dir)
         game_utils = GameNim(FLAGS.piles)
     else:
         raise Exception("Unknown game!")
@@ -627,7 +632,7 @@ def main(argv):
         run_results_dir = results_root / f"mcts_{i}"
         collected_subproblem_dirs.append(run_results_dir)
         run_results_dir.mkdir(parents=True, exist_ok=False)
-        results_dict = {"path_submodels_root": run_results_dir, "name": f"mcts_{i}"}
+        results_dict = {"submodels_dir": run_results_dir, "name": f"mcts_{i}"}
 
         result, game_tree = MCSA(game_utils, game, solver, bots, action_selector,
                                  formula, coalition, run_results_dir, results_dict)
@@ -651,6 +656,7 @@ def main(argv):
         results_dict["formula"] = formula
         results_dict["coalition"] = coalition
         collect_game_tree_stats(game_tree, results_dict)
+        create_single_run_report(results_dict)
         print("FINAL ANSWER:", result, f" (time:{end - start})")
         collected_results.append(results_dict)
         final_log += f"mcts ({run_results_dir}): {end - start}\n"

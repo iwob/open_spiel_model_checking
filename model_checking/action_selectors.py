@@ -69,5 +69,11 @@ class SelectAllActions(ActionSelector):
 
 class SelectKRandomly(ActionSelector):
     """Action selector that returns k randomly selected actions with the uniform probability."""
+    def __init__(self, k):
+        """
+        :param k: Number of the best actions to be returned.
+        """
+        self.k = k
+
     def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int]) -> list[(float, str)]:
         raise NotImplementedError
