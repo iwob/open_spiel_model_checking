@@ -53,9 +53,9 @@ class SelectAtMostTwoActions(ActionSelector):
 
         if actions[1][0] == 0 or actions[0][0] * actions[1][0] < 0:  # second is zero or signs are different
             return actions[:1]
-        elif actions[0][0] <= 0 and actions[0][0] / actions[1][0] >= self.epsilon_ratio:  # both negative
+        elif actions[0][0] < 0 and actions[0][0] / actions[1][0] >= self.epsilon_ratio:  # both negative
             return actions[:2]
-        elif actions[0][0] >= 0 and actions[1][0] / actions[0][0] >= self.epsilon_ratio:
+        elif actions[0][0] > 0 and actions[1][0] / actions[0][0] >= self.epsilon_ratio:
             return actions[:2]
         else:
             return actions[:1]

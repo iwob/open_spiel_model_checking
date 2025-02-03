@@ -354,8 +354,8 @@ def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, acti
     game_tree = {}
     nodes_queue = [NodeData(0, moves_str=initial_moves, tree_root=game_tree)]
     while len(nodes_queue) > 0:
-        print("current nodes_queue:")
-        print("\n".join([f"\"{x}\"" for x in nodes_queue]) + "\n")
+        _opt_print("current nodes_queue:")
+        _opt_print("\n".join([f"\"{x}\"" for x in nodes_queue]) + "\n")
 
         node = heapq.heappop(nodes_queue)
 
