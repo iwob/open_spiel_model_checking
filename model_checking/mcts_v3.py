@@ -334,7 +334,7 @@ def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots
             # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
             # doesn't give that information on the outside
             actions_list = [(get_value(line), get_name(line)) for line in bot.my_policy.split("\n")]
-            actions_list = sorted(actions_list)  # sort by value, by default values are sorted by prior
+            actions_list = sorted(actions_list, reverse=True)  # sort by value, by default values are sorted by prior
 
             actions_to_add = action_selector(actions_list, state.current_player(), coalition)
 
