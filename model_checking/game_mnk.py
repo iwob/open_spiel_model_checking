@@ -75,8 +75,10 @@ def generate_evaluation_conditions_win(m, n, k, player):
 def generate_board_condition(m, n, value, history, add_comment=True):
     conditions = []
     pattern = r'[xo]\(\d+,\d+\)'
-    if history is not None:
+    if history is not None and isinstance(history, str):
         moves_list = re.findall(pattern, history)
+    else:
+        moves_list = history
     board = [[value for _ in range(m)] for _ in range(n)]
 
     if history is not None:
@@ -240,10 +242,12 @@ class GameMnk(GameInterface):
     def get_name(self):
         return "mnk"
 
-    def load_game(self):
+    def load_game(self) -> pyspiel.Game:
         return pyspiel.load_game("mnk", {"m": self.m, "n": self.n, "k": self.k})
 
     def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
+        if isinstance(history, list):
+            history = ",".join(history)
         return make_whole_board(self.m, self.n, self.k, history, formulae_to_check)
 
     def get_num_actions(self, history):

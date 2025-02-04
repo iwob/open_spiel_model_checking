@@ -403,7 +403,7 @@ def save_specifications(game_utils: GameInterface, game_tree: dict, output_dir, 
 def verify_submodel_node_solver(node: NodeData, solver: Solver) -> NodeData:
     if node.specification_path is None:
         raise Exception("Specification path not present in the leaf! Most likely the 'save_specifications' function needs to be used on the game tree.")
-    _, meta = solver.verify_properties_file(node.specification_path)
+    _, meta = solver.verify_from_file(node.specification_path)
     node.verification_results = meta
     return node
 

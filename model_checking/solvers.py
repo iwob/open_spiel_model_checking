@@ -6,10 +6,10 @@ class Solver:
         self.name = name
         self.time_limit = time_limit
 
-    def verify_properties_file(self, file_path):
+    def verify_from_file(self, file_path):
         raise NotImplementedError()
 
-    def verify_properties(self, script):
+    def verify(self, script):
         raise NotImplementedError()
 
 
@@ -18,7 +18,7 @@ class SolverMCMAS(Solver):
         self.path_exec = path_exec
         super().__init__("mcmas", time_limit)
 
-    def verify_properties_file(self, file_path):
+    def verify_from_file(self, file_path):
         result = subprocess.run([self.path_exec, file_path], capture_output=True, text=True)
         output = result.stdout  # Capturing standard output
         output_err = result.stderr
@@ -37,7 +37,7 @@ class SolverMCMAS(Solver):
         # meta["status"] = "timeout"
         return verification_result, meta
 
-    def verify_properties(self, script):
+    def verify(self, script):
         raise Exception("Currently SolverMCMAS handles only verification of files.")
 
     @staticmethod
