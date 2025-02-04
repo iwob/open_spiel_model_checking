@@ -83,11 +83,7 @@ Agent {agent_name}
     end Evolution
 end Agent"""
 
-def make_nim_specification(piles: list, history, player_to_move: int, formulae=None) -> str:
-    if formulae is None:
-        formulae = dedent("""\
-            <player0> F player0wins;
-            <player1> F player1wins;""")
+def make_nim_specification(piles: list, history, player_to_move: int, formulae) -> str:
     player_actions = ", ".join(generate_actions(piles))
     player_protocol_0 = "\n".join(generate_player_protocol(piles, 0))  # conditions on actions, the same for both players
     player_protocol_1 = "\n".join(generate_player_protocol(piles, 1))  # conditions on actions, the same for both players
@@ -147,6 +143,10 @@ class GameNim(GameInterface):
         return pyspiel.load_game("nim", {"pile_sizes": self.pile_sizes_str, "is_misere": False})
 
     def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
+        if formulae_to_check is None:
+            formulae_to_check, _ = self.get_default_formula_and_coalition()
+        if isinstance(history, list):
+            history = ",".join(history)
         game_state_desc = str(game_state)  # e.g.: '(0): 2 4 1'
         piles = [int(x) for x in game_state_desc.split(': ')[1].split(' ')]
         player_to_move = int(re.findall(r"\(\d+\)", str(game_state))[0][1])

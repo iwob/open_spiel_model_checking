@@ -137,11 +137,7 @@ Agent {agent_name}
     end Evolution
 end Agent"""
 
-def make_whole_board(m, n, k, history, formulae=None) -> str:
-    if formulae is None:
-        formulae = dedent("""\
-            <cross> F (crosswins and ! noughtwins);
-            <nought> F (noughtwins and ! crosswins);""")
+def make_whole_board(m, n, k, history, formulae) -> str:
     move = (history.count('o') + history.count('x')) % 2
     actions_xo = ", ".join(generate_actions(m, n))
     protocol_xo = "\n".join(generate_environment_conditions(m, n))  # conditions on actions, the same for both players
@@ -246,6 +242,8 @@ class GameMnk(GameInterface):
         return pyspiel.load_game("mnk", {"m": self.m, "n": self.n, "k": self.k})
 
     def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
+        if formulae_to_check is None:
+            formulae_to_check, _ = self.get_default_formula_and_coalition()
         if isinstance(history, list):
             history = ",".join(history)
         return make_whole_board(self.m, self.n, self.k, history, formulae_to_check)
