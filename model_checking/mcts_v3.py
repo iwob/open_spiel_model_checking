@@ -70,7 +70,7 @@ _KNOWN_PLAYERS = [
     "az"
 ]
 
-_KNOWN_SELECTORS = ["most2", "all", "k-best", "2-best", "5-best", "10-best", "none"]
+_KNOWN_SELECTORS = ["most2", "all", "k-best", "1-best", "2-best", "5-best", "10-best", "none"]
 
 def parse_and_sort(data_list):
     result_list = []
@@ -625,7 +625,7 @@ def main(argv):
         raise Exception("Coalition and formula needs to be both specified (or left empty for the default values).")
 
     if FLAGS.output_file is None:
-        output_file = Path("output") / "results.txt"
+        output_file = results_root / "summary_all.txt"
     else:
         output_file = Path(FLAGS.output_file)
     if output_file.exists():
@@ -641,6 +641,8 @@ def main(argv):
             return SelectAllActions()
         elif name == "k-best":
             return SelectKBestActions(k=FLAGS.selector_k)
+        elif name == "1-best":
+            return SelectKBestActions(k=1)
         elif name == "2-best":
             return SelectKBestActions(k=2)
         elif name == "5-best":
