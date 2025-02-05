@@ -117,6 +117,7 @@ def parse_and_sort(data_list):
     return result_list
 
 
+flags.DEFINE_boolean("encode_tree_in_spec", False, help="If true, then only a single specification file will be generated.")
 flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, help="Name of the game.")
 flags.DEFINE_integer("m", 5, help="(Game: mnk) Number of rows.")
 flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
@@ -475,13 +476,20 @@ def minimax_submodels_aggregation(game_tree, coalition, solve_submodels=False, s
         return best_value
 
 
-def MCSA(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list,
-         action_selector: ActionSelector, formula: str, coalition: set, run_results_dir, results_dict):
-    """MCSA = Model Checking by Submodel Aggregation."""
+def MCSA_naive(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list,
+               action_selector: ActionSelector, formula: str, coalition: set,
+               run_results_dir, results_dict, initial_moves: str=""):
+    """MCSA = Model Checking by Submodel Aggregation. This is a naive version which works in stages and starts
+    a new stage only after the previous one is finished:
+    1. Generate game tree.
+    2. Save specification files on disk.
+    3. Verify all specification files.
+    4. Use the min-max algorithm to compute aggregate answer for the whole game tree.
+    """
     # Generate a game tree with submodels and terminal states as leaves
     start = time.time()
     game_tree = generate_game_tree(game_utils, game, bots, action_selector, coalition,
-                                   initial_moves=FLAGS.initial_moves,
+                                   initial_moves=initial_moves,
                                    max_game_depth=FLAGS.max_game_depth)
     end = time.time()
     results_dict["time_rl"] = end - start
@@ -497,6 +505,40 @@ def MCSA(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: li
 
     # Aggregate verification results
     result = minimax_submodels_aggregation(game_tree, coalition)
+
+    return result, game_tree
+
+
+def MCSA_single_solver_call(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list,
+                            action_selector: ActionSelector, formula: str, coalition: set,
+                            run_results_dir, results_dict, initial_moves: str=""):
+    """MCSA = Model Checking by Submodel Aggregation. In this MCSA variant game tree is directly translated into a
+    single specification file, which is then solved by the solver. In effect, the only contribution of MCSA is
+    reduction of the model by removing actions with high probability of success for their respective players.
+    Stages of the algorithm:
+    1. Generate game tree.
+    2. Save a single specification file on disk corresponding to the game tree.
+    3. Verify the specification file.
+    """
+    # Generate a game tree with submodels and terminal states as leaves
+    start = time.time()
+    game_tree = generate_game_tree(game_utils, game, bots, action_selector, coalition,
+                                   initial_moves=initial_moves,
+                                   max_game_depth=FLAGS.max_game_depth)
+    end = time.time()
+    results_dict["time_rl"] = end - start
+
+    # Traverse tree and generate submodel specification files
+    script = game_utils.formal_subproblem_description_game_tree(game_tree, initial_moves, formula)
+    script_path = os.path.join(run_results_dir, "game_tree_spec.ispl")
+    with open(script_path, "w") as f:
+        f.write(script)
+
+    # Verify submodels
+    start = time.time()
+    result, meta = solver.verify_from_file(script_path)
+    end = time.time()
+    results_dict["time_solver"] = end - start
 
     return result, game_tree
 
@@ -627,6 +669,13 @@ def main(argv):
         _init_bot(FLAGS.player2, game, 1),
     ]
 
+    initial_moves = "" if FLAGS.initial_moves is None else FLAGS.initial_moves
+
+    if FLAGS.encode_tree_in_spec:
+        algorithm = MCSA_single_solver_call
+    else:
+        algorithm = MCSA_naive
+
     for i in range(FLAGS.num_games):
         start = time.time()
         run_results_dir = results_root / f"mcts_{i}"
@@ -634,8 +683,8 @@ def main(argv):
         run_results_dir.mkdir(parents=True, exist_ok=False)
         results_dict = {"submodels_dir": run_results_dir, "name": f"mcts_{i}"}
 
-        result, game_tree = MCSA(game_utils, game, solver, bots, action_selector,
-                                 formula, coalition, run_results_dir, results_dict)
+        result, game_tree = algorithm(game_utils, game, solver, bots, action_selector, formula, coalition,
+                                      run_results_dir, results_dict, initial_moves)
 
         end = time.time()
         results_dict["decision"] = result
