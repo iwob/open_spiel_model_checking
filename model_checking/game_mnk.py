@@ -214,7 +214,7 @@ def get_additional_env_evolution_items(tree, conditions_rhs_list, results):
 
 def get_move_variables_text(depth, player_actions):
     text = ""
-    for i in range(1, depth+1):
+    for i in range(1, depth):  # |actions| = depth - 1
         text += f"move_{i} : {{{player_actions}}};\n"
     return text[:-1]
 
@@ -309,7 +309,7 @@ InitStates
 {indent(board_init_conditions, " "*4)}
     and Environment.turn = {env_turn}
     and Nought.null = true and Cross.null = true
-    and {' and '.join([f'Environment.move_{i} = none' for i in range(1, depth+1)])}
+    and {' and '.join([f'Environment.move_{i} = none' for i in range(1, depth)])}
     and Environment.moves_frozen = true;
 end InitStates
 
