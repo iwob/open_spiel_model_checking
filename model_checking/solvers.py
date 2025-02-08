@@ -1,4 +1,5 @@
 import subprocess
+import time
 
 
 class Solver:
@@ -76,3 +77,12 @@ class SolverMCMAS(Solver):
             elif "BDD memory in use =" in line:
                 meta["bdd_memory"] = float(line.split('=')[-1].strip())
         return meta
+
+
+if __name__ == "__main__":
+    mcmas_path = "/home/iwob/Programs/MCMAS/mcmas-linux64-1.3.0"
+    solver = SolverMCMAS(mcmas_path)
+    start = time.time()
+    dec, res = solver.verify_from_file("mnk_s0_x(2,1),o(1,1),x(0,2),o(2,2),x(0,0).ispl")
+    end = time.time()
+    print("Time:", end - start)

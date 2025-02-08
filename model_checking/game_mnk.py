@@ -383,7 +383,8 @@ class GameInterface:
                 return k
         raise Exception("Unrecognized player name!")
 
-    def get_default_formula_and_coalition(self):
+    @classmethod
+    def get_default_formula_and_coalition(cls):
         raise Exception("Not implemented!")
 
 
@@ -431,7 +432,8 @@ class GameMnk(GameInterface):
         """Converts a single history string to a list of successive actions."""
         return re.findall(r'[xo]\(\d+,\d+\)', history)
 
-    def get_default_formula_and_coalition(self):
+    @classmethod
+    def get_default_formula_and_coalition(cls):
         return "<cross> F (crosswins and ! noughtwins);", {0}
 
 
@@ -457,7 +459,8 @@ if __name__ == "__main__":
     FLAGS = flags.FLAGS
 
     def main(argv):
-        text = make_whole_board(FLAGS.m, FLAGS.n, FLAGS.k, FLAGS.initial_moves)
+        formula, _ = GameMnk.get_default_formula_and_coalition()
+        text = make_whole_board(FLAGS.m, FLAGS.n, FLAGS.k, FLAGS.initial_moves, formula)
         if FLAGS.output_file is None:
             print(text)
         else:

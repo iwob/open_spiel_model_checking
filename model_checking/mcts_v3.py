@@ -70,7 +70,7 @@ _KNOWN_PLAYERS = [
     "az"
 ]
 
-_KNOWN_SELECTORS = ["most2", "all", "k-best", "1-best", "2-best", "5-best", "10-best", "none"]
+_KNOWN_SELECTORS = ["most2", "all", "k-best", "1-best", "2-best", "3-best", "4-best", "5-best", "10-best", "none"]
 
 def parse_and_sort(data_list):
     result_list = []
@@ -488,6 +488,7 @@ def MCSA_naive(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bo
     """
     # Generate a game tree with submodels and terminal states as leaves
     start = time.time()
+    print("Generating game tree...")
     game_tree = generate_game_tree(game_utils, game, bots, action_selector, coalition,
                                    initial_moves=initial_moves,
                                    max_game_depth=FLAGS.max_game_depth)
@@ -499,6 +500,7 @@ def MCSA_naive(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bo
 
     # Verify submodels
     start = time.time()
+    print("Verifying submodels...")
     verify_submodels(game_tree, solver, coalition)
     end = time.time()
     results_dict["time_solver"] = end - start
@@ -522,6 +524,7 @@ def MCSA_single_solver_call(game_utils: GameInterface, game: pyspiel.Game, solve
     """
     # Generate a game tree with submodels and terminal states as leaves
     start = time.time()
+    print("Generating game tree...")
     game_tree = generate_game_tree(game_utils, game, bots, action_selector, coalition,
                                    initial_moves=initial_moves,
                                    max_game_depth=FLAGS.max_game_depth)
@@ -529,6 +532,7 @@ def MCSA_single_solver_call(game_utils: GameInterface, game: pyspiel.Game, solve
     results_dict["time_rl"] = end - start
 
     # Traverse tree and generate submodel specification files
+    print("Verifying submodel...")
     script = game_utils.formal_subproblem_description_game_tree(game_tree, initial_moves, formula)
     script_path = os.path.join(run_results_dir, "game_tree_spec.ispl")
     with open(script_path, "w") as f:
@@ -645,6 +649,10 @@ def main(argv):
             return SelectKBestActions(k=1)
         elif name == "2-best":
             return SelectKBestActions(k=2)
+        elif name == "3-best":
+            return SelectKBestActions(k=3)
+        elif name == "4-best":
+            return SelectKBestActions(k=4)
         elif name == "5-best":
             return SelectKBestActions(k=5)
         elif name == "10-best":
@@ -701,6 +709,7 @@ def main(argv):
             results_dict["selector_k"] = FLAGS.selector_k
         results_dict["max_game_depth"] = FLAGS.max_game_depth
         results_dict["max_simulations"] = FLAGS.max_simulations
+        results_dict["encode_tree_in_spec"] = FLAGS.encode_tree_in_spec
         results_dict["game"] = FLAGS.game
         results_dict["player1"] = FLAGS.player1
         results_dict["player2"] = FLAGS.player2

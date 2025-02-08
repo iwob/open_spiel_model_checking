@@ -117,5 +117,4 @@ end Groups
 
 Formulae
     <cross> F (crosswins and ! noughtwins);
-    <nought> F (noughtwins and ! crosswins);
 end Formulae
