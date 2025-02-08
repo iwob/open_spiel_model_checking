@@ -157,7 +157,7 @@ RESERVED_TREE_IDS = {GAME_TREE_LEAF_ID, GAME_TREE_CUR_PLAYER_ID}
 my_policy_value_pattern = re.compile(r",\s+value:\s+([+-]?[0-9]+\.[0-9]+),")
 
 def _opt_print(*args, **kwargs):
-    if not FLAGS.quiet:
+    if False: # not FLAGS.quiet:
         print(*args, **kwargs)
 
 
