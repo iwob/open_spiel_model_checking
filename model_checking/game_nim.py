@@ -156,7 +156,7 @@ class GameNim(GameInterface):
         """Determines when the branching of the game search space will conclude."""
         pass
 
-    def get_moves_from_history(self, history: str) -> list[str]:
+    def get_moves_from_history_str(self, history: str) -> list[str]:
         """Converts a single history string to a list of successive actions."""
         if history == "":
             return []

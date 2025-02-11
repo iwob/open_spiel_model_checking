@@ -39,7 +39,7 @@ class NodeData:
 
     def get_moves_list(self, game_utils: GameInterface):
         if self._moves is None:
-            self._moves = game_utils.get_moves_from_history(self.moves_str)
+            self._moves = game_utils.get_moves_from_history_str(self.moves_str)
         return self._moves
 
     def is_terminal_state(self):
@@ -342,7 +342,7 @@ def _play_game_single_step(game_utils: GameInterface, state: pyspiel.State, bots
 
             for val, a in actions_to_add:
                 n0 = NodeData(node.priority + 1,
-                              moves_str=game_utils.add_move_to_history(node.moves_str, a),
+                              moves_str=game_utils.add_move_to_history_str(node.moves_str, a),
                               tree_root=move_down_tree(node.tree_root, [a]))
                 heapq.heappush(nodes_queue, n0)
             return
@@ -365,7 +365,7 @@ def generate_game_tree(game_utils: GameInterface, game: pyspiel.Game, bots, acti
         # and manually simulate all the moves and inform players about them.
         state = game.new_initial_state()
         _restart_bots(bots)
-        _execute_initial_moves(state, bots, game_utils.get_moves_from_history(node.moves_str))
+        _execute_initial_moves(state, bots, game_utils.get_moves_from_history_str(node.moves_str))
         _opt_print(f"State after initial moves:\n{state}\n")
 
         _play_game_single_step(game_utils, state, bots, action_selector, node, nodes_queue, game_tree, coalition, max_game_depth=max_game_depth)

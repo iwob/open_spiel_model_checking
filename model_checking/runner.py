@@ -38,7 +38,7 @@ def parse_logs_correctly_fixed_v2(results, game_utils: GameInterface):
         results_match = re.search(pattern_results, log)
         
         if results_match:
-            moves = game_utils.get_moves_from_history(result["history"])
+            moves = game_utils.get_moves_from_history_str(result["history"])
             result_x = results_match.group(1) == "TRUE"
             result_o = results_match.group(2) == "TRUE"
             

@@ -217,7 +217,7 @@ def _play_game(game_utils: GameInterface, game, bots):
     _opt_print("Starting state:\n")
     _opt_print(state)
     _restart_bots(bots)
-    _execute_initial_moves(state, bots, game_utils.get_moves_from_history(q[0]))
+    _execute_initial_moves(state, bots, game_utils.get_moves_from_history_str(q[0]))
     _opt_print("State after initial moves:\n")
     _opt_print(state)
 

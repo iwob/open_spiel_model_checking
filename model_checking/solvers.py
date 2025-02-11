@@ -23,7 +23,7 @@ class SolverMCMAS(Solver):
         result = subprocess.run([self.path_exec, file_path], capture_output=True, text=True)
         output = result.stdout  # Capturing standard output
         output_err = result.stderr
-        print(output)
+        # print(output)
         if output_err is not None and len(output_err) > 0:
             print("Errors:")
             print(output_err)

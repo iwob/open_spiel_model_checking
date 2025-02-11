@@ -363,11 +363,11 @@ class GameInterface:
         """Returns a number of executed actions."""
         raise Exception("Not implemented!")
 
-    def get_moves_from_history(self, history: str) -> list[str]:
+    def get_moves_from_history_str(self, history: str) -> list[str]:
         """Converts a single history string to a list of successive actions."""
         raise Exception("Not implemented!")
 
-    def add_move_to_history(self, history: str, move: str) -> str:
+    def add_move_to_history_str(self, history: str, move: str) -> str:
         """Adds a move to the history string."""
         if history is None or history == "":
             return move
@@ -428,7 +428,7 @@ class GameMnk(GameInterface):
             return True
         return False
 
-    def get_moves_from_history(self, history: str) -> list[str]:
+    def get_moves_from_history_str(self, history: str) -> list[str]:
         """Converts a single history string to a list of successive actions."""
         return re.findall(r'[xo]\(\d+,\d+\)', history)
 
