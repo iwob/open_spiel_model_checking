@@ -241,7 +241,9 @@ SPEC_FILE_COUNTER = 0
 def save_specification_file(game_utils: GameInterface, node, game_tree, formula,
                             run_results_dir, verify_terminal_states=True):
     if not game_tree.is_terminal_state or (game_tree.is_terminal_state and verify_terminal_states):
+        global SPEC_FILE_COUNTER
         filename = f"{game_utils.get_name()}_s{SPEC_FILE_COUNTER}_{textwrap.shorten(node.moves_str, width=55)}.ispl"
+        SPEC_FILE_COUNTER += 1
         script = generate_specification(game_utils, node, formula)
         game_tree.specification_path = os.path.join(run_results_dir, filename)
         with open(game_tree.specification_path, "w") as f:
@@ -252,7 +254,8 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                       bots: list, action_selector: ActionSelector, formula: str, coalition: set,
                       node: QueueNode, game_tree: GameTreeNode, run_results_dir, results_dict,
                       max_game_depth, verify_terminal_states):
-    logger.debug(f"(Player: {node.state.current_player()}) Processing state:\n{node.state}")
+    debug_indent = "\t" * node.priority
+    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Processing state:\n{textwrap.indent(str(node.state), debug_indent)}")
 
     if node.state.is_terminal() or node.priority >= max_game_depth:
         # Too long sequence of moves or a terminal state, stop processing this sequence and verify it.
@@ -262,11 +265,11 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                                 run_results_dir=run_results_dir,
                                 verify_terminal_states=verify_terminal_states)
         verify_submodel_node(node, game_tree, solver, coalition, results_dict=results_dict, verify_terminal_states=verify_terminal_states)
-        logger.debug(f"(Player: {node.state.current_player()}) Leaf state; verification: {game_tree.verification_results['decision']}")
+        logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Leaf state; verification: {game_tree.verification_results['decision']}")
         return game_tree.verification_results["decision"]
 
 
-    # The state can be three different types: chance node, simultaneous node, or decision node
+    # The state can be of three different types: chance node, simultaneous node, or decision node
     if node.state.is_chance_node():
         raise ValueError("Game cannot have chance nodes.")
     elif node.state.is_simultaneous_node():
@@ -310,7 +313,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             new_node = QueueNode(node.priority + 1,
                                  moves_str=game_utils.add_move_to_history_str(node.moves_str, a),
                                  state=new_state)
-            logger.debug(f"(Player: {node.state.current_player()}) Exploring new action: {(val, a)}")
+            logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Exploring new action: {(val, a)}")
             dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
                                     new_node, game_tree[a],
                                     run_results_dir=run_results_dir,
@@ -321,21 +324,21 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             # Here we implement a minmax part depending on the decision returned by the lower layers
             if current_player in coalition:
                 if dec:
-                    logger.debug(f"(Player: {node.state.current_player()}) Proponent has a winning path, move to the previous layer")
+                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Proponent has a winning path, move to the previous layer")
                     return 1
                 else:
-                    logger.debug(f"(Player: {node.state.current_player()}) Proponent continues search")
+                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Proponent continues search")
             else:
                 if not dec:
-                    logger.debug(f"(Player: {node.state.current_player()}) Opponent has a path to prevent coalition from winning, move to the previous layer")
+                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Opponent has a path to prevent coalition from winning, move to the previous layer")
                     return 0
                 else:
-                    logger.debug(f"(Player: {node.state.current_player()}) Opponent continues search")
+                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Opponent continues search")
         if current_player in coalition:
-            logger.debug(f"(Player: {node.state.current_player()}) Proponent fails after exploring available actions; (approx)verification: False")
+            logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Proponent fails after exploring available actions; (approx)verification: False")
             return 0  # didn't manage to find a winning path
         else:
-            logger.debug(f"(Player: {node.state.current_player()}) Opponent fails after exploring available actions; (approx)verification: True")
+            logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Opponent fails after exploring available actions; (approx)verification: True")
             return 1  # didn't manage to find a not-winning path for proponents
 
 
@@ -528,7 +531,7 @@ def main(argv):
         results_dict["coalition"] = coalition
         collect_game_tree_stats(game_tree, results_dict)
         create_single_run_report(results_dict)
-        print("FINAL ANSWER:", result, f" (time:{end - start})")
+        print("FINAL ANSWER:", result, f" (time: {end - start})")
         collected_results.append(results_dict)
         final_log += f"mcts ({run_results_dir}): {end - start}\n"
 
