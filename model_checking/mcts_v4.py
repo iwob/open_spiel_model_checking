@@ -104,8 +104,8 @@ _KNOWN_SELECTORS = ["most2", "all", "k-best", "1-best", "2-best", "3-best", "4-b
 
 
 flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, help="Name of the game.")
-flags.DEFINE_integer("m", 5, help="(Game: mnk) Number of rows.")
-flags.DEFINE_integer("n", 5, help="(Game: mnk) Number of columns.")
+flags.DEFINE_integer("m", 5, help="(Game: mnk) Width of the board (i.e., number of columns).")
+flags.DEFINE_integer("n", 5, help="(Game: mnk) Height of the board (i.e., number of rows).")
 flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
 flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
 flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
@@ -387,6 +387,7 @@ def create_final_report(collected_results, output_file):
     with output_file.open("w") as f:
         total_times = []
         solver_times = []
+        num_submodels = []
         rl_times = []
         num_result_one = 0
         num_result_zero = 0
@@ -398,6 +399,7 @@ def create_final_report(collected_results, output_file):
             total_times.append(d["time_total"])
             solver_times.append(d["time_solver"])
             rl_times.append(d["time_rl"])
+            num_submodels.append(d["num_submodels"])
             f.write("# " + "-" * 30 + "\n")
             f.write(f"# Run {i}\n")
             f.write("# " + "-" * 30 + "\n")
@@ -407,9 +409,14 @@ def create_final_report(collected_results, output_file):
         f.write("# " + "-" * 30 + "\n")
         f.write(f"# Total\n")
         f.write("# " + "-" * 30 + "\n")
+        f.write(f"avg.num_submodels = {sum(num_submodels) / len(num_submodels)}\n")
         f.write(f"avg.time_rl = {sum(rl_times) / len(rl_times)}\n")
         f.write(f"avg.time_solver = {sum(solver_times) / len(solver_times)}\n")
         f.write(f"avg.time_total = {sum(total_times) / len(total_times)}\n")
+        f.write(f"stddev.num_submodels = {np.std(num_submodels)}\n")
+        f.write(f"stddev.time_rl = {np.std(rl_times)}\n")
+        f.write(f"stddev.time_solver = {np.std(solver_times)}\n")
+        f.write(f"stddev.time_total = {np.std(total_times)}\n")
         f.write(f"sum.result_0 = {num_result_zero}\n")
         f.write(f"sum.result_1 = {num_result_one}\n")
         f.write(f"timestamp = {timestamp}")

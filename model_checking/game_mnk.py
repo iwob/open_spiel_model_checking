@@ -451,8 +451,8 @@ if __name__ == "__main__":
     from absl import app
     from absl import flags
 
-    flags.DEFINE_integer("m", None, required=True, help="(Game: mnk) Number of rows.")
-    flags.DEFINE_integer("n", None, required=True, help="(Game: mnk) Number of columns.")
+    flags.DEFINE_integer("m", None, required=True, help="(Game: mnk) Width of the board (i.e., number of columns).")
+    flags.DEFINE_integer("n", None, required=True, help="(Game: mnk) Height of the board (i.e., number of rows).")
     flags.DEFINE_integer("k", None, required=True, help="(Game: mnk) Number of elements forming a line to win.")
     flags.DEFINE_string("initial_moves", "", required=False, help="Initial actions to be specified in the game-specific format.")
     flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
