@@ -12,8 +12,7 @@ import logging
 from action_selectors import *
 from solvers import Solver, SolverMCMAS
 from open_spiel.python.algorithms import mcts
-from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
-from open_spiel.python.algorithms.alpha_zero import model as az_model
+from open_spiel.python.algorithms import tabular_qlearner
 from open_spiel.python.bots import gtp
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
@@ -89,6 +88,9 @@ _KNOWN_PLAYERS = [
     # A generic random agent.
     "random",
 
+    # Learner based on creating a q-values table.
+    "q-learner",
+
     # You'll be asked to provide the moves.GameTreeNode
     "human",
 
@@ -100,7 +102,8 @@ _KNOWN_PLAYERS = [
     # Requires the az_path flag.
     "az"
 ]
-_KNOWN_SELECTORS = ["most2", "all", "k-best", "1-best", "2-best", "3-best", "4-best", "5-best", "10-best", "none"]
+_KNOWN_SELECTORS = ["most2", "all", "k-best", "1-best", "2-best", "3-best", "4-best", "5-best", "10-best", "none",
+                    "0.25-total-value", "0.5-total-value", "0.75-total-value", "k-total-value"]
 
 
 flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, help="Name of the game.")
@@ -135,7 +138,8 @@ flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played."
 flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.")
 FLAGS = flags.FLAGS
 
-my_policy_value_pattern = re.compile(r",\s+value:\s+([+-]?[0-9]+\.[0-9]+),")
+my_policy_value_pattern = re.compile(r",\s+sims:\s+([+-]?[0-9]+),")
+# my_policy_value_pattern = re.compile(r",\s+value:\s+([+-]?[0-9]+\.[0-9]+),")
 
 
 def _init_bot(bot_type, game, player_id):
@@ -151,7 +155,11 @@ def _init_bot(bot_type, game, player_id):
             random_state=rng,
             solve=FLAGS.solve,
             verbose=False)
-    if bot_type == "az":
+    elif bot_type == "q-learner":
+        return tabular_qlearner.QLearner(player_id=player_id, num_actions=num_actions)
+    elif bot_type == "az":
+        from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
+        from open_spiel.python.algorithms.alpha_zero import model as az_model
         model = az_model.Model.from_checkpoint(FLAGS.az_path)
         evaluator = az_evaluator.AlphaZeroEvaluator(game, model)
         return mcts.MCTSBot(
@@ -163,11 +171,11 @@ def _init_bot(bot_type, game, player_id):
             child_selection_fn=mcts.SearchNode.puct_value,
             solve=FLAGS.solve,
             verbose=FLAGS.verbose)
-    if bot_type == "random":
+    elif bot_type == "random":
         return uniform_random.UniformRandomBot(player_id, rng)
-    if bot_type == "human":
+    elif bot_type == "human":
         return human.HumanBot()
-    if bot_type == "gtp":
+    elif bot_type == "gtp":
         bot = gtp.GTPBot(game, FLAGS.gtp_path)
         for cmd in FLAGS.gtp_cmd:
             bot.gtp_cmd(cmd)
@@ -193,8 +201,11 @@ def _execute_initial_moves(state: pyspiel.State, bots: list, moves: list):
         if action is None:
             sys.exit("Invalid action: {}".format(action_str))
 
-        for bot in bots:
-            bot.inform_action(state, state.current_player(), action)
+        for i, bot in enumerate(bots):
+            # According to docstrings: "This should not be called for the bot that generated the
+            #  action as it already knows the action it took."
+            if i != state.current_player():
+                bot.inform_action(state, state.current_player(), action)
         state.apply_action(action)
 
 
@@ -307,8 +318,11 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             # TODO: clone() method not implemented
             # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
             new_bots = bots
-            for bot in new_bots:
-                bot.inform_action(node.state, node.state.current_player(), action_id)
+            for i, bot in enumerate(new_bots):
+                # According to docstrings: "This should not be called for the bot that generated the
+                #  action as it already knows the action it took."
+                if i != current_player:
+                    bot.inform_action(node.state, current_player, action_id)
             new_state.apply_action(action_id)
             new_node = QueueNode(node.priority + 1,
                                  moves_str=game_utils.add_move_to_history_str(node.moves_str, a),
@@ -481,6 +495,14 @@ def main(argv):
             return SelectKBestActions(k=5)
         elif name == "10-best":
             return SelectKBestActions(k=10)
+        elif name == "0.5-total-value":
+            return SelectTotalValuePercent(0.5)
+        elif name == "0.25-total-value":
+            return SelectTotalValuePercent(0.25)
+        elif name == "0.75-total-value":
+            return SelectTotalValuePercent(0.75)
+        elif name == "k-total-value":
+            return SelectTotalValuePercent(FLAGS.selector_k)
 
     if FLAGS.action_selector1 == "none":
         raise Exception("action_selector1 cannot be empty.")

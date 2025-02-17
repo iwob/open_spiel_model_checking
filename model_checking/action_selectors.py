@@ -34,7 +34,7 @@ class SelectKBestActions(ActionSelector):
         """
         self.k = k
 
-    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int]) -> list[(float, str)]:
+    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int] = None) -> list[(float, str)]:
         return actions[:self.k]
 
 
@@ -47,7 +47,7 @@ class SelectAtMostTwoActions(ActionSelector):
         """
         self.epsilon_ratio = epsilon_ratio
 
-    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int]) -> list[(float, str)]:
+    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int] = None) -> list[(float, str)]:
         if len(actions) <= 1:
             return actions
 
@@ -63,7 +63,7 @@ class SelectAtMostTwoActions(ActionSelector):
 
 class SelectAllActions(ActionSelector):
     """Action selector that returns all actions."""
-    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int]) -> list[(float, str)]:
+    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int] = None) -> list[(float, str)]:
         return actions
 
 
@@ -75,5 +75,30 @@ class SelectKRandomly(ActionSelector):
         """
         self.k = k
 
-    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int]) -> list[(float, str)]:
+    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int] = None) -> list[(float, str)]:
         raise NotImplementedError
+
+
+class SelectTotalValuePercent(ActionSelector):
+    """Action selector that adds actions (sorted from the best to the worst) as lang as a given percent
+    of total value of actions is achieved. Depending on the percent ."""
+    def __init__(self, percent):
+        """
+        :param percent: Percent of the total value that the selected actions need to have overall.
+        """
+        assert 0. < percent < 1.
+        self.percent = percent
+
+    def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int] = None) -> list[(float, str)]:
+        total = 0.
+        for v, _ in actions:
+            total += v
+        thresh = self.percent * total
+        cur_sum = 0
+        selected_actions = []
+        for a in actions:
+            cur_sum += a[0]
+            selected_actions.append(a)
+            if cur_sum > thresh:
+                return selected_actions
+        return actions
