@@ -138,7 +138,7 @@ flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played."
 flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.")
 FLAGS = flags.FLAGS
 
-my_policy_value_pattern = re.compile(r",\s+sims:\s+([+-]?[0-9]+),")
+my_policy_value_pattern = re.compile(r",\s+sims:\s+([+-]?[0-9]+),")  # should guide much better
 # my_policy_value_pattern = re.compile(r",\s+value:\s+([+-]?[0-9]+\.[0-9]+),")
 
 
@@ -248,12 +248,19 @@ def generate_specification(game_utils: GameInterface, node: QueueNode, formula: 
     return game_utils.formal_subproblem_description(node.state, history=node.moves_str, formulae_to_check=formula)
 
 
+def get_filename(game_utils, node, num):
+    if len(node.moves_str) <= 55:
+        moves_str = node.moves_str
+    else:
+        moves_str = node.moves_str[:55] + "[...]"
+    return f"{game_utils.get_name()}_s{num}_{moves_str}.ispl"
+
 SPEC_FILE_COUNTER = 0
 def save_specification_file(game_utils: GameInterface, node, game_tree, formula,
                             run_results_dir, verify_terminal_states=True):
     if not game_tree.is_terminal_state or (game_tree.is_terminal_state and verify_terminal_states):
         global SPEC_FILE_COUNTER
-        filename = f"{game_utils.get_name()}_s{SPEC_FILE_COUNTER}_{textwrap.shorten(node.moves_str, width=55)}.ispl"
+        filename = get_filename(game_utils, node, SPEC_FILE_COUNTER)
         SPEC_FILE_COUNTER += 1
         script = generate_specification(game_utils, node, formula)
         game_tree.specification_path = os.path.join(run_results_dir, filename)
