@@ -359,10 +359,6 @@ class GameInterface:
         """Determines when the branching of the game search space will conclude."""
         raise Exception("Not implemented!")
 
-    def get_num_actions(self, history):
-        """Returns a number of executed actions."""
-        raise Exception("Not implemented!")
-
     def get_moves_from_history_str(self, history: str) -> list[str]:
         """Converts a single history string to a list of successive actions."""
         raise Exception("Not implemented!")
@@ -419,11 +415,9 @@ class GameMnk(GameInterface):
             history = ",".join(history)
         return make_whole_board_game_tree(self.m, self.n, self.k, game_tree, history, formulae_to_check)
 
-    def get_num_actions(self, history):
-        return history.count('x') + history.count('o')
-
     def termination_condition(self, history: str):
         """Determines when the branching of the game search space will conclude."""
+        # Method currently not used, instead state handles termination conditions
         if history.count('x') + history.count('o') >= self.max_num_actions:
             return True
         return False

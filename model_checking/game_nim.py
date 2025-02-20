@@ -126,8 +126,7 @@ end Formulae"""
 class GameNim(GameInterface):
     def __init__(self, pile_sizes_str: str):
         """
-        :param num_piles: Number of piles.
-        :param piles: A string representing number of objects in a pile, in the format as in the example: "1;3;5;7".
+        :param pile_sizes_str: A string representing number of objects in a pile, in the format as in the example: "1;3;5;7".
         """
         self.pile_sizes_str = pile_sizes_str
         # self.pile_sizes = [int(x) for x in pile_sizes_str.split(';')]
@@ -166,9 +165,6 @@ class GameNim(GameInterface):
                 if moves[i][-1] != ';':
                     moves[i] += ';'
             return moves
-
-    def get_num_actions(self, history):
-        return history.count(';')
 
     @classmethod
     def get_default_formula_and_coalition(cls):

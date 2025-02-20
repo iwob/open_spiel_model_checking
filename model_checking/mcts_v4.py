@@ -19,6 +19,7 @@ from open_spiel.python.bots import uniform_random
 import pyspiel
 from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
+from game_kuhn_poker import GameKuhnPoker
 import os
 from dataclasses import *
 from typing import Optional
@@ -39,7 +40,7 @@ logger.setLevel(logging.INFO)
 
 @dataclass(init=True, order=True)
 class GameTreeNode:
-    value: int
+    value: float
     cur_player: int = field(init=True, compare=False)
     # A mapping from action name to the children nodes. Key: tuple (value, action_name)
     children: dict = field(default_factory=lambda: {}, init=True, compare=False)
@@ -80,7 +81,7 @@ class QueueNode:
 
 
 
-_KNOWN_GAMES = ["mnk", "nim"]
+_KNOWN_GAMES = ["mnk", "nim", "kuhn_poker"]
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
     "mcts",
@@ -132,6 +133,7 @@ flags.DEFINE_integer("selector_k", 3, required=False, help="How many best action
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
 flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
+flags.DEFINE_bool("use_reward_in_terminal_states", False, help="If true, then a solver won't be called in terminal states. Instead, rewards will be summed between the players and if the reward of the coalition is greater than anti-coalition, then verification is assumed to be successful.")
 flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
@@ -187,12 +189,20 @@ def _get_action_id(state, action_str):
     for action in state.legal_actions():
         if action_str == state.action_to_string(state.current_player(), action):
             return action
-    return None
+    raise Exception(f"No id was found for the action: '{action_str}'.")
 
 
-def _restart_bots(bots):
+def _restart_bots(bots: list):
     for b in bots:
         b.restart()
+
+
+def _inform_bots(bots: list, state: pyspiel.State, action: int):
+    for i, bot in enumerate(bots):
+        # According to docstrings: "This should not be called for the bot that generated the
+        #  action as it already knows the action it took."
+        if i != state.current_player():
+            bot.inform_action(state, state.current_player(), action)
 
 
 def _execute_initial_moves(state: pyspiel.State, bots: list, moves: list):
@@ -200,12 +210,9 @@ def _execute_initial_moves(state: pyspiel.State, bots: list, moves: list):
         action = _get_action_id(state, action_str)
         if action is None:
             sys.exit("Invalid action: {}".format(action_str))
-
-        for i, bot in enumerate(bots):
-            # According to docstrings: "This should not be called for the bot that generated the
-            #  action as it already knows the action it took."
-            if i != state.current_player():
-                bot.inform_action(state, state.current_player(), action)
+        # OpenSpiel docs: "The state is the state at which the `player_id` player decided to take
+        #  the given `action` (but before it is applied to the state)."
+        _inform_bots(bots, state, action)
         state.apply_action(action)
 
 
@@ -221,8 +228,8 @@ def verify_submodel_node_rewards(node: QueueNode, game_tree: GameTreeNode, coali
     """Uses expert knowledge that if the sum of rewards of coalition players is greater than the
      anti-coalition players, then the formula will be satisfied."""
     rewards = node.state.rewards()
-    sum_coalition = [rewards[i] for i in node.state.game.num_players() if i in coalition]
-    sum_anti_coalition = [rewards[i] for i in node.state.game.num_players() if i not in coalition]
+    sum_coalition = [rewards[i] for i in range(node.state.get_game().num_players()) if i in coalition]
+    sum_anti_coalition = [rewards[i] for i in range(node.state.get_game().num_players()) if i not in coalition]
     if sum_coalition > sum_anti_coalition:
         game_tree.verification_results = {"decision": 1, "status": "auto"}
     else:
@@ -231,8 +238,8 @@ def verify_submodel_node_rewards(node: QueueNode, game_tree: GameTreeNode, coali
 
 
 def verify_submodel_node(node: QueueNode, game_tree: GameTreeNode, solver: Solver, coalition,
-                         results_dict, verify_terminal_states=True):
-    if not verify_terminal_states and node.is_terminal_state():
+                         results_dict, use_reward_in_terminal_states=True):
+    if use_reward_in_terminal_states and node.is_terminal_state():
         # Check if the sum of coalition rewards is bigger than anti-coalition
         return verify_submodel_node_rewards(node, game_tree, coalition)
     else:
@@ -257,8 +264,8 @@ def get_filename(game_utils, node, num):
 
 SPEC_FILE_COUNTER = 0
 def save_specification_file(game_utils: GameInterface, node, game_tree, formula,
-                            run_results_dir, verify_terminal_states=True):
-    if not game_tree.is_terminal_state or (game_tree.is_terminal_state and verify_terminal_states):
+                            run_results_dir, use_reward_in_terminal_states=False):
+    if not game_tree.is_terminal_state or (game_tree.is_terminal_state and not use_reward_in_terminal_states):
         global SPEC_FILE_COUNTER
         filename = get_filename(game_utils, node, SPEC_FILE_COUNTER)
         SPEC_FILE_COUNTER += 1
@@ -268,12 +275,21 @@ def save_specification_file(game_utils: GameInterface, node, game_tree, formula,
             f.write(script)
 
 
+def _debug_player_name(node: QueueNode):
+    if node.state.current_player() == -1:
+        return "chance"
+    elif node.state.current_player() == -4:
+        return "leaf"
+    else:
+        return str(node.state.current_player())
+
+
 def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                       bots: list, action_selector: ActionSelector, formula: str, coalition: set,
                       node: QueueNode, game_tree: GameTreeNode, run_results_dir, results_dict,
-                      max_game_depth, verify_terminal_states):
+                      max_game_depth, use_reward_in_terminal_states, unroll_chance_nodes):
     debug_indent = "\t" * node.priority
-    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Processing state:\n{textwrap.indent(str(node.state), debug_indent)}")
+    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Processing state:\n{textwrap.indent(str(node.state), debug_indent)}")
 
     if node.state.is_terminal() or node.priority >= max_game_depth:
         # Too long sequence of moves or a terminal state, stop processing this sequence and verify it.
@@ -281,15 +297,45 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
         game_tree.is_terminal_state = node.state.is_terminal()
         save_specification_file(game_utils, node, game_tree, formula,
                                 run_results_dir=run_results_dir,
-                                verify_terminal_states=verify_terminal_states)
-        verify_submodel_node(node, game_tree, solver, coalition, results_dict=results_dict, verify_terminal_states=verify_terminal_states)
-        logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Leaf state; verification: {game_tree.verification_results['decision']}")
+                                use_reward_in_terminal_states=use_reward_in_terminal_states)
+        verify_submodel_node(node, game_tree, solver, coalition, results_dict=results_dict, use_reward_in_terminal_states=use_reward_in_terminal_states)
+        if game_tree.is_terminal_state and use_reward_in_terminal_states:
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Leaf state; verification: {game_tree.verification_results['decision']} (based on rewards: {node.state.rewards()})")
+        else:
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Leaf state; verification: {game_tree.verification_results['decision']}")
         return game_tree.verification_results["decision"]
 
 
     # The state can be of three different types: chance node, simultaneous node, or decision node
     if node.state.is_chance_node():
-        raise ValueError("Game cannot have chance nodes.")
+        if unroll_chance_nodes:
+            for action in node.state.legal_actions():
+                action_str = node.state.action_to_string(node.state.current_player(), action)
+                new_state = node.state.clone()
+                # TODO: clone() method not implemented
+                # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
+                _inform_bots(bots, node.state, action)
+                new_state.apply_action(action)
+                game_tree[action_str] = GameTreeNode(None, cur_player=new_state.current_player())
+                new_node = QueueNode(node.priority + 1,
+                                     moves_str=game_utils.add_move_to_history_str(node.moves_str, action_str),
+                                     state=new_state)
+                logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {action}")
+                dec = MCSA_combined_run(game_utils, solver, bots, action_selector, formula, coalition,
+                                        new_node, game_tree[action_str],
+                                        run_results_dir=run_results_dir,
+                                        results_dict=results_dict,
+                                        max_game_depth=max_game_depth,
+                                        use_reward_in_terminal_states=use_reward_in_terminal_states,
+                                        unroll_chance_nodes=unroll_chance_nodes)
+                if not dec:
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent has a path to prevent coalition from winning, move to the previous layer")
+                    return 0
+                else:
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent continues search")
+            return 1  # chance node acts as part of anti-coalition
+        else:
+            raise ValueError("Game cannot have chance nodes.")
     elif node.state.is_simultaneous_node():
         raise ValueError("Game cannot have simultaneous nodes.")
     else:
@@ -306,7 +352,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
         # It is sorted by value, so we take the two highest values
 
         def get_name(data_str: str) -> str:
-            return data_str.split(": player:")[0]
+            return data_str.split(": player:")[0].strip()
         def get_value(data_str: str) -> float:
             value = float(my_policy_value_pattern.search(data_str).group(1))
             return value
@@ -320,52 +366,50 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 
         for val, a in actions_to_explore:
             action_id = _get_action_id(node.state, a)
-            game_tree[a] = GameTreeNode(val, cur_player=current_player)
             new_state = node.state.clone()
             # TODO: clone() method not implemented
             # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
             new_bots = bots
-            for i, bot in enumerate(new_bots):
-                # According to docstrings: "This should not be called for the bot that generated the
-                #  action as it already knows the action it took."
-                if i != current_player:
-                    bot.inform_action(node.state, current_player, action_id)
+            _inform_bots(new_bots, node.state, action_id)
             new_state.apply_action(action_id)
+            game_tree[a] = GameTreeNode(val, cur_player=new_state.current_player())
             new_node = QueueNode(node.priority + 1,
                                  moves_str=game_utils.add_move_to_history_str(node.moves_str, a),
                                  state=new_state)
-            logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Exploring new action: {(val, a)}")
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {(val, a)}")
             dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
                                     new_node, game_tree[a],
                                     run_results_dir=run_results_dir,
                                     results_dict=results_dict,
                                     max_game_depth=max_game_depth,
-                                    verify_terminal_states=verify_terminal_states)
+                                    use_reward_in_terminal_states=use_reward_in_terminal_states,
+                                    unroll_chance_nodes=unroll_chance_nodes)
 
             # Here we implement a minmax part depending on the decision returned by the lower layers
             if current_player in coalition:
                 if dec:
-                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Proponent has a winning path, move to the previous layer")
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Proponent has a winning path, move to the previous layer")
                     return 1
                 else:
-                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Proponent continues search")
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Proponent continues search")
             else:
                 if not dec:
-                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Opponent has a path to prevent coalition from winning, move to the previous layer")
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent has a path to prevent coalition from winning, move to the previous layer")
                     return 0
                 else:
-                    logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Opponent continues search")
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent continues search")
         if current_player in coalition:
-            logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Proponent fails after exploring available actions; (approx)verification: False")
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Proponent fails after exploring available actions; (approx)verification: False")
             return 0  # didn't manage to find a winning path
         else:
-            logger.debug(f"{debug_indent}(Player: {node.state.current_player()}) Opponent fails after exploring available actions; (approx)verification: True")
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent fails after exploring available actions; (approx)verification: True")
             return 1  # didn't manage to find a not-winning path for proponents
 
 
 def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list,
                   action_selector: ActionSelector, formula: str, coalition: set, run_results_dir,
-                  results_dict, initial_moves: str="", max_game_depth=5, verify_terminal_states=True):
+                  results_dict, initial_moves: str="", max_game_depth=5, use_reward_in_terminal_states=False,
+                  unroll_chance_nodes=True):
     global SPEC_FILE_COUNTER
     SPEC_FILE_COUNTER = 0
     results_dict["time_solver"] = 0.0
@@ -376,20 +420,21 @@ def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver,
     _execute_initial_moves(state, bots, initial_moves)
 
     game_tree = GameTreeNode(0, state.current_player())
-    init_node = QueueNode(game_utils.get_num_actions(initial_moves), ",".join(initial_moves), state)
+    init_node = QueueNode(len(initial_moves), ",".join(initial_moves), state)
 
     dec = MCSA_combined_run(game_utils, solver, bots, action_selector, formula, coalition,
                             init_node, game_tree,
                             run_results_dir=run_results_dir,
                             results_dict=results_dict,
                             max_game_depth=max_game_depth,
-                            verify_terminal_states=verify_terminal_states)
+                            use_reward_in_terminal_states=use_reward_in_terminal_states,
+                            unroll_chance_nodes=unroll_chance_nodes)
     return dec, game_tree
 
 
 def collect_game_tree_stats(game_tree: GameTreeNode, results_dict):
     if game_tree.is_leaf and game_tree.verification_results["status"] != "auto":
-        results_dict["num_submodels"] = 1 + results_dict.get("num_submodels", 0)
+        results_dict["num_submodels"] += 1
     else:
         for a in game_tree:
             collect_game_tree_stats(game_tree[a], results_dict)
@@ -452,19 +497,18 @@ def main(argv):
 
     if FLAGS.game == "mnk":
         # Example initial moves for mnk; "x(2,2),o(3,2)"
-        if FLAGS.submodels_dir is None:
-            results_root = Path(f"results(v3)__mnk_{FLAGS.m}_{FLAGS.n}_{FLAGS.k}")
-        else:
-            results_root = Path(FLAGS.submodels_dir)
         game_utils = GameMnk(FLAGS.m, FLAGS.n, FLAGS.k)
     elif FLAGS.game == "nim":
-        if FLAGS.submodels_dir is None:
-            results_root = Path(f"results(v3)__nim_{FLAGS.piles}")
-        else:
-            results_root = Path(FLAGS.submodels_dir)
         game_utils = GameNim(FLAGS.piles)
+    elif FLAGS.game == "kuhn_poker":
+        game_utils = GameKuhnPoker()
     else:
         raise Exception("Unknown game!")
+
+    if FLAGS.submodels_dir is None:
+        results_root = Path(f"results(v4)__{game_utils.get_name()}_{FLAGS.piles}")
+    else:
+        results_root = Path(FLAGS.submodels_dir)
 
     if FLAGS.formula is None and FLAGS.coalition is None:
         formula, coalition = game_utils.get_default_formula_and_coalition()
@@ -544,7 +588,7 @@ def main(argv):
         result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
                                           run_results_dir, results_dict, initial_moves,
                                           max_game_depth=FLAGS.max_game_depth,
-                                          verify_terminal_states=True)
+                                          use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states)
 
         end = time.time()
         results_dict["decision"] = result
@@ -565,6 +609,7 @@ def main(argv):
         results_dict["player2"] = FLAGS.player2
         results_dict["formula"] = formula
         results_dict["coalition"] = coalition
+        results_dict["num_submodels"] = 0  # to be filled by collect_game_tree_stats
         collect_game_tree_stats(game_tree, results_dict)
         create_single_run_report(results_dict)
         print("FINAL ANSWER:", result, f" (time: {end - start})")
