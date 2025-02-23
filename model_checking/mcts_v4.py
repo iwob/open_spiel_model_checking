@@ -420,6 +420,10 @@ def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver,
     _restart_bots(bots)
     _execute_initial_moves(state, bots, initial_moves)
 
+    # Initial nodes are not part of the game tree and are not taken into account when doing minmax.
+    # The reason for that is that the initial moves form a single path without any branching, and the
+    # verification result can be back-propagated directly (other perspective: a different game with
+    # the same rules but a different starting position).
     game_tree = GameTreeNode(0, state.current_player())
     init_node = QueueNode(len(initial_moves), ",".join(initial_moves), state)
 
