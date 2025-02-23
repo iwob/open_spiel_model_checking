@@ -398,11 +398,12 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                     return 0
                 else:
                     logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent continues search")
+        approx = f"(full: {len(actions_to_explore)}/{len(actions_list)})" if len(actions_to_explore) == len(actions_list) else f"(approx: {len(actions_to_explore)}/{len(actions_list)})"
         if current_player in coalition:
-            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Proponent fails after exploring available actions; (approx)verification: False")
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Proponent fails after exploring available actions; verification {approx}: False")
             return 0  # didn't manage to find a winning path
         else:
-            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent fails after exploring available actions; (approx)verification: True")
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent fails after exploring available actions; verification {approx}: True")
             return 1  # didn't manage to find a not-winning path for proponents
 
 

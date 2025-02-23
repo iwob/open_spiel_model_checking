@@ -1,5 +1,5 @@
 import re
-from textwrap import dedent, indent
+from textwrap import indent
 import pyspiel
 
 GAME_TREE_LEAF_ID = "SUBMODEL"
