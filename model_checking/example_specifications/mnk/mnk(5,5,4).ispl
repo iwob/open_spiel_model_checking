@@ -67,37 +67,37 @@ Agent Environment
     end Evolution
 end Agent
 
-Agent Nought
+Agent Cross
     Vars:
         null : boolean; -- for syntax reasons only
     end Vars
     Actions = {a11, a12, a13, a14, a15, a21, a22, a23, a24, a25, a31, a32, a33, a34, a35, a41, a42, a43, a44, a45, a51, a52, a53, a54, a55, none};
     Protocol:
-        Environment.b11=b:{a11};
-        Environment.b12=b:{a12};
-        Environment.b13=b:{a13};
-        Environment.b14=b:{a14};
-        Environment.b15=b:{a15};
-        Environment.b21=b:{a21};
-        Environment.b22=b:{a22};
-        Environment.b23=b:{a23};
-        Environment.b24=b:{a24};
-        Environment.b25=b:{a25};
-        Environment.b31=b:{a31};
-        Environment.b32=b:{a32};
-        Environment.b33=b:{a33};
-        Environment.b34=b:{a34};
-        Environment.b35=b:{a35};
-        Environment.b41=b:{a41};
-        Environment.b42=b:{a42};
-        Environment.b43=b:{a43};
-        Environment.b44=b:{a44};
-        Environment.b45=b:{a45};
-        Environment.b51=b:{a51};
-        Environment.b52=b:{a52};
-        Environment.b53=b:{a53};
-        Environment.b54=b:{a54};
-        Environment.b55=b:{a55};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b15=b: {a15};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b25=b: {a25};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b35=b: {a35};
+        Environment.b41=b: {a41};
+        Environment.b42=b: {a42};
+        Environment.b43=b: {a43};
+        Environment.b44=b: {a44};
+        Environment.b45=b: {a45};
+        Environment.b51=b: {a51};
+        Environment.b52=b: {a52};
+        Environment.b53=b: {a53};
+        Environment.b54=b: {a54};
+        Environment.b55=b: {a55};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -105,37 +105,37 @@ Agent Nought
     end Evolution
 end Agent
 
-Agent Cross
+Agent Nought
     Vars:
         null : boolean; -- for syntax reasons only
     end Vars
     Actions = {a11, a12, a13, a14, a15, a21, a22, a23, a24, a25, a31, a32, a33, a34, a35, a41, a42, a43, a44, a45, a51, a52, a53, a54, a55, none};
     Protocol:
-        Environment.b11=b:{a11};
-        Environment.b12=b:{a12};
-        Environment.b13=b:{a13};
-        Environment.b14=b:{a14};
-        Environment.b15=b:{a15};
-        Environment.b21=b:{a21};
-        Environment.b22=b:{a22};
-        Environment.b23=b:{a23};
-        Environment.b24=b:{a24};
-        Environment.b25=b:{a25};
-        Environment.b31=b:{a31};
-        Environment.b32=b:{a32};
-        Environment.b33=b:{a33};
-        Environment.b34=b:{a34};
-        Environment.b35=b:{a35};
-        Environment.b41=b:{a41};
-        Environment.b42=b:{a42};
-        Environment.b43=b:{a43};
-        Environment.b44=b:{a44};
-        Environment.b45=b:{a45};
-        Environment.b51=b:{a51};
-        Environment.b52=b:{a52};
-        Environment.b53=b:{a53};
-        Environment.b54=b:{a54};
-        Environment.b55=b:{a55};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b15=b: {a15};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b25=b: {a25};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b35=b: {a35};
+        Environment.b41=b: {a41};
+        Environment.b42=b: {a42};
+        Environment.b43=b: {a43};
+        Environment.b44=b: {a44};
+        Environment.b45=b: {a45};
+        Environment.b51=b: {a51};
+        Environment.b52=b: {a52};
+        Environment.b53=b: {a53};
+        Environment.b54=b: {a54};
+        Environment.b55=b: {a55};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -227,5 +227,4 @@ end Groups
 
 Formulae
     <cross> F (crosswins and ! noughtwins);
-    <nought> F (noughtwins and ! crosswins);
 end Formulae

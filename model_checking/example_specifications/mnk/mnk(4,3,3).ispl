@@ -1,0 +1,144 @@
+Semantics=SingleAssignment;
+
+Agent Environment
+    Obsvars:
+        turn : {nought, cross};
+        b11 : {x, o, b}; b12 : {x, o, b}; b13 : {x, o, b}; b14 : {x, o, b};
+        b21 : {x, o, b}; b22 : {x, o, b}; b23 : {x, o, b}; b24 : {x, o, b};
+        b31 : {x, o, b}; b32 : {x, o, b}; b33 : {x, o, b}; b34 : {x, o, b};
+    end Obsvars
+    Actions = { }; 
+    Protocol: end Protocol
+    Evolution:
+        turn=nought if turn=cross and (! Cross.Action = none);
+        turn=cross if turn=nought and (! Nought.Action = none);
+        b11 = o if turn = nought and Nought.Action = a11;
+        b11 = x if turn = cross  and Cross.Action  = a11;
+        b12 = o if turn = nought and Nought.Action = a12;
+        b12 = x if turn = cross  and Cross.Action  = a12;
+        b13 = o if turn = nought and Nought.Action = a13;
+        b13 = x if turn = cross  and Cross.Action  = a13;
+        b14 = o if turn = nought and Nought.Action = a14;
+        b14 = x if turn = cross  and Cross.Action  = a14;
+        b21 = o if turn = nought and Nought.Action = a21;
+        b21 = x if turn = cross  and Cross.Action  = a21;
+        b22 = o if turn = nought and Nought.Action = a22;
+        b22 = x if turn = cross  and Cross.Action  = a22;
+        b23 = o if turn = nought and Nought.Action = a23;
+        b23 = x if turn = cross  and Cross.Action  = a23;
+        b24 = o if turn = nought and Nought.Action = a24;
+        b24 = x if turn = cross  and Cross.Action  = a24;
+        b31 = o if turn = nought and Nought.Action = a31;
+        b31 = x if turn = cross  and Cross.Action  = a31;
+        b32 = o if turn = nought and Nought.Action = a32;
+        b32 = x if turn = cross  and Cross.Action  = a32;
+        b33 = o if turn = nought and Nought.Action = a33;
+        b33 = x if turn = cross  and Cross.Action  = a33;
+        b34 = o if turn = nought and Nought.Action = a34;
+        b34 = x if turn = cross  and Cross.Action  = a34;
+    end Evolution
+end Agent
+
+Agent Cross
+    Vars:
+        null : boolean; -- for syntax reasons only
+    end Vars
+    Actions = {a11, a12, a13, a14, a21, a22, a23, a24, a31, a32, a33, a34, none};
+    Protocol:
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Other : { none }; -- technicality
+    end Protocol
+    Evolution:
+        null=true if null=true;
+    end Evolution
+end Agent
+
+Agent Nought
+    Vars:
+        null : boolean; -- for syntax reasons only
+    end Vars
+    Actions = {a11, a12, a13, a14, a21, a22, a23, a24, a31, a32, a33, a34, none};
+    Protocol:
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Other : { none }; -- technicality
+    end Protocol
+    Evolution:
+        null=true if null=true;
+    end Evolution
+end Agent
+
+Evaluation
+    noughtwins if
+    Environment.b11 = o and Environment.b12 = o and Environment.b13 = o
+     or Environment.b12 = o and Environment.b13 = o and Environment.b14 = o
+     or Environment.b21 = o and Environment.b22 = o and Environment.b23 = o
+     or Environment.b22 = o and Environment.b23 = o and Environment.b24 = o
+     or Environment.b31 = o and Environment.b32 = o and Environment.b33 = o
+     or Environment.b32 = o and Environment.b33 = o and Environment.b34 = o
+     or Environment.b11 = o and Environment.b21 = o and Environment.b31 = o
+     or Environment.b12 = o and Environment.b22 = o and Environment.b32 = o
+     or Environment.b13 = o and Environment.b23 = o and Environment.b33 = o
+     or Environment.b14 = o and Environment.b24 = o and Environment.b34 = o
+     or Environment.b11 = o and Environment.b22 = o and Environment.b33 = o
+     or Environment.b12 = o and Environment.b23 = o and Environment.b34 = o
+     or Environment.b31 = o and Environment.b22 = o and Environment.b13 = o
+     or Environment.b32 = o and Environment.b23 = o and Environment.b14 = o;
+    crosswins if
+    Environment.b11 = x and Environment.b12 = x and Environment.b13 = x
+     or Environment.b12 = x and Environment.b13 = x and Environment.b14 = x
+     or Environment.b21 = x and Environment.b22 = x and Environment.b23 = x
+     or Environment.b22 = x and Environment.b23 = x and Environment.b24 = x
+     or Environment.b31 = x and Environment.b32 = x and Environment.b33 = x
+     or Environment.b32 = x and Environment.b33 = x and Environment.b34 = x
+     or Environment.b11 = x and Environment.b21 = x and Environment.b31 = x
+     or Environment.b12 = x and Environment.b22 = x and Environment.b32 = x
+     or Environment.b13 = x and Environment.b23 = x and Environment.b33 = x
+     or Environment.b14 = x and Environment.b24 = x and Environment.b34 = x
+     or Environment.b11 = x and Environment.b22 = x and Environment.b33 = x
+     or Environment.b12 = x and Environment.b23 = x and Environment.b34 = x
+     or Environment.b31 = x and Environment.b22 = x and Environment.b13 = x
+     or Environment.b32 = x and Environment.b23 = x and Environment.b14 = x;
+end Evaluation
+
+InitStates
+    --  History: 
+    --  Game state:
+    --  ....
+    --  ....
+    --  ....
+    Environment.b11 = b and Environment.b12 = b and Environment.b13 = b and Environment.b14 = b
+     and Environment.b21 = b and Environment.b22 = b and Environment.b23 = b and Environment.b24 = b
+     and Environment.b31 = b and Environment.b32 = b and Environment.b33 = b and Environment.b34 = b
+    and Environment.turn = cross
+    and Nought.null = true and Cross.null = true;
+end InitStates
+
+Groups
+    nought = {Nought}; cross = {Cross};
+end Groups
+
+Formulae
+    <cross> F (crosswins and ! noughtwins);
+end Formulae

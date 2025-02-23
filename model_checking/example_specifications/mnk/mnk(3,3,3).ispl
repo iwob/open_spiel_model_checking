@@ -33,21 +33,21 @@ Agent Environment
     end Evolution
 end Agent
 
-Agent Nought
+Agent Cross
     Vars:
         null : boolean; -- for syntax reasons only
     end Vars
     Actions = {a11, a12, a13, a21, a22, a23, a31, a32, a33, none};
     Protocol:
-        Environment.b11=b:{a11};
-        Environment.b12=b:{a12};
-        Environment.b13=b:{a13};
-        Environment.b21=b:{a21};
-        Environment.b22=b:{a22};
-        Environment.b23=b:{a23};
-        Environment.b31=b:{a31};
-        Environment.b32=b:{a32};
-        Environment.b33=b:{a33};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -55,21 +55,21 @@ Agent Nought
     end Evolution
 end Agent
 
-Agent Cross
+Agent Nought
     Vars:
         null : boolean; -- for syntax reasons only
     end Vars
     Actions = {a11, a12, a13, a21, a22, a23, a31, a32, a33, none};
     Protocol:
-        Environment.b11=b:{a11};
-        Environment.b12=b:{a12};
-        Environment.b13=b:{a13};
-        Environment.b21=b:{a21};
-        Environment.b22=b:{a22};
-        Environment.b23=b:{a23};
-        Environment.b31=b:{a31};
-        Environment.b32=b:{a32};
-        Environment.b33=b:{a33};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
         Other : { none }; -- technicality
     end Protocol
     Evolution:

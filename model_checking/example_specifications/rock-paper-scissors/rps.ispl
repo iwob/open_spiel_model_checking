@@ -1,0 +1,78 @@
+Semantics=SingleAssignment;
+
+Agent Environment
+    Obsvars:
+        turn : {player0, player1, finish};
+    end Obsvars
+    Vars:
+        move_p0 : {r, p, s, none};
+        move_p1 : {r, p, s, none};
+    end Vars
+    Actions = { };
+    Protocol: end Protocol
+    Evolution:
+		turn=player1 if turn=player0 and (! Player0.Action=none);
+		turn=finish if turn=player1 and (! Player1.Action=none);
+		turn=finish if turn=finish;
+		move_p0=r if Player0.Action=r;
+		move_p0=p if Player0.Action=p;
+		move_p0=s if Player0.Action=s;
+		move_p1=r if Player1.Action=r;
+		move_p1=p if Player1.Action=p;
+		move_p1=s if Player1.Action=s;
+    end Evolution
+end Agent
+
+Agent Player0
+    Vars:
+        null : boolean; -- for syntax reasons only
+    end Vars
+    Actions = {r, p, s, none};
+    Protocol:
+        Environment.turn=player0: {r, p, s};
+        Other : { none }; -- technicality
+    end Protocol
+    Evolution:
+        null=true if null=true;
+    end Evolution
+end Agent
+
+Agent Player1
+    Vars:
+        null : boolean; -- for syntax reasons only
+    end Vars
+    Actions = {r, p, s, none};
+    Protocol:
+        Environment.turn=player1: {r, p, s};
+        Other : { none }; -- technicality
+    end Protocol
+    Evolution:
+        null=true if null=true;
+    end Evolution
+end Agent
+
+Evaluation
+    player0wins if
+    Environment.turn=finish and ((Environment.move_p0=r and Environment.move_p1=s) or (Environment.move_p0=s and Environment.move_p1=p) or (Environment.move_p0=p and Environment.move_p1=r));
+    player1wins if
+    Environment.turn=finish and ((Environment.move_p1=r and Environment.move_p0=s) or (Environment.move_p1=s and Environment.move_p0=p) or (Environment.move_p1=p and Environment.move_p0=r));
+    draw if
+    Environment.turn=finish and ((Environment.move_p1=r and Environment.move_p0=r) or (Environment.move_p1=s and Environment.move_p0=s) or (Environment.move_p1=p and Environment.move_p0=p));
+end Evaluation
+
+InitStates
+    Environment.turn = player0 and Environment.move_p0 = none and Environment.move_p1 = none and
+     Player0.null = true and Player1.null = true;
+end InitStates
+
+Groups
+    player0 = {Player0};
+    player1 = {Player1};
+end Groups
+
+Formulae
+    <player0> F player0wins;
+    <player0> F player1wins;
+    <player1> F player1wins;
+    <player1> F player0wins;
+end Formulae
