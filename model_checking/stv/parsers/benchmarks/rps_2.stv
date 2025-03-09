@@ -1,0 +1,55 @@
+# "If the local action name will be the same as the
+# shared name, it means that the current agent will be the one performing a
+# synchronization. Otherwise, agent can only wait for the synchronization to
+# use the shared action."
+
+# 1 = rock
+# 2 = paper
+# 3 = scissors
+
+Agent Player0:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+shared[3] play_0_rock[play_0_rock]: idle -> finish
+shared[3] play_0_paper[play_0_paper]: idle -> finish
+shared[3] play_0_scissors[play_0_scissors]: idle -> finish
+loop: finish -> finish
+
+Agent Player1:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+shared[1] play_0_rock[play_0]: idle -> idle2
+shared[1] play_0_paper[play_0]: idle -> idle2
+shared[1] play_0_scissors[play_0]: idle -> idle2
+shared[2] play_1_rock[play_1_rock]: idle2 -> finish
+shared[2] play_1_paper[play_1_paper] : idle2 -> finish
+shared[2] play_1_scissors[play_1_scissors]: idle2 -> finish
+loop: finish -> finish
+
+Agent Score:
+LOCAL: [move_0, move_1, player0win, player1win, draw, finished]
+PERSISTENT: [move_0, move_1, player0win, player1win, draw, finished]
+INITIAL: [move_0:=0, move_1:=0, player0win:=0, player1win:=0, draw:=0, finished:=0]
+init count
+shared[3] play_0_rock[play_0]: count -> count [move_0 := 1]
+shared[3] play_0_paper[play_0]: count -> count [move_0 := 2]
+shared[3] play_0_scissors[play_0]: count -> count [move_0 := 3]
+shared[2] play_1_rock[play_1]: count [move_0 == 1] -> finish [move_1 := 1, draw := 1, finished := 1]
+shared[2] play_1_rock[play_1]: count [move_0 == 2] -> finish [move_1 := 1, player0win := 1, finished := 1]
+shared[2] play_1_rock[play_1]: count [move_0 == 3] -> finish [move_1 := 1, player1win := 1, finished := 1]
+shared[2] play_1_paper[play_1]: count [move_0 == 1] -> finish [move_1 := 2, player1win := 1, finished := 1]
+shared[2] play_1_paper[play_1]: count [move_0 == 2] -> finish [move_1 := 2, draw := 1, finished := 1]
+shared[2] play_1_paper[play_1]: count [move_0 == 3] -> finish [move_1 := 2, player0win := 1, finished := 1]
+shared[2] play_1_scissors[play_1]: count [move_0 == 1] -> finish [move_1 := 3, player0win := 1, finished := 1]
+shared[2] play_1_scissors[play_1]: count [move_0 == 2] -> finish [move_1 := 3, player1win := 1, finished := 1]
+shared[2] play_1_scissors[play_1]: count [move_0 == 3] -> finish [move_1 := 3, draw := 1, finished := 1]
+loop: finish -> finish
+
+# FORMULA: <<Player1>><>( (finished == 1) && (player1win == 1))
+
+FORMULA: <<Player1>>[]( (! (finished == 1)) || (player1win == 1))
+

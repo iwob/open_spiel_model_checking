@@ -1,0 +1,45 @@
+// A list of pre-defined elements: https://github.com/lark-parser/lark/blob/master/lark/grammars/common.lark
+%import common.CNAME   -> CNAME
+%import common.SIGNED_NUMBER    -> NUMBER
+%import common.WS
+%ignore WS
+COMMENT: "#" /[^\n]*/ "\n"
+%ignore COMMENT
+
+start: agent+ declaration*
+
+agent: agent_header agent_meta agent_body
+agent_header: "Agent" CNAME "[" NUMBER "]" ":" | "Agent" CNAME ":"
+agent_meta: agent_meta_el*
+agent_body: transition+
+
+!agent_meta_el:   "LOCAL:" "[" local_vars_list? "]"
+                | "PERSISTENT:" "[" local_vars_list? "]"
+                | "INITIAL:" "[" local_vars_list_initial? "]"
+                | "init" CNAME
+local_vars_list: CNAME ("," CNAME)*
+local_vars_list_initial:  local_vars_list_initial_el ("," local_vars_list_initial_el)*
+local_vars_list_initial_el: CNAME ":=" value
+
+transition: [shared] CNAME ["[" CNAME "]"] ":" state [var_equality] "->" state [var_assign]
+shared: "shared" | "shared" "[" NUMBER "]"
+
+var_equality: "[" var_equality_in ("," var_equality_in)* "]"
+var_equality_in: name "==" value | name "=" value
+
+var_assign: "[" var_assign_in ("," var_assign_in)* "]"
+var_assign_in: name ":=" value | name "=" value
+
+?name: CNAME
+?state: CNAME
+?value: /[^\ \n\t,\]\[]+/
+
+
+declaration: "COALITION:" "[" CNAME ("," CNAME)* "]" -> decl_coalition
+           | "REDUCTION:" "[" CNAME ("," CNAME)* "]" -> decl_reduction
+           | "FORMULA:" /[^\n]+/ -> decl_formula
+           | "PERSISTENT:" "[" CNAME ("," CNAME)* "]" -> decl_persistent
+           | "SHOW_EPISTEMIC:" ("true" | "false") -> decl_show_epistemic
+           | "LOGIC:" /[^\n]+/ -> decl_logic
+           | "SEMANTICS:" /[^\n]+/ -> decl_semantics
+           | "INITIAL:" "[" var_assign_in ("," var_assign_in)* "]" -> decl_initial
