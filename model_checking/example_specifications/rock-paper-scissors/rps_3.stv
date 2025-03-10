@@ -1,0 +1,77 @@
+# Command: ~/Programs/STV/stv --OUTPUT_DOT_FILES --ADD_EPSILON_TRANSITIONS -f rps_3.stv
+
+Agent Player0:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+shared[3] play_0rock_1rock[play_0_rock]: idle -> finish
+shared[3] play_0rock_1paper[play_0_rock]: idle -> finish
+shared[3] play_0rock_1scissors[play_0_rock]: idle -> finish
+shared[3] play_0paper_1rock[play_0_paper]: idle -> finish
+shared[3] play_0paper_1paper[play_0_paper]: idle -> finish
+shared[3] play_0paper_1scissors[play_0_paper]: idle -> finish
+shared[3] play_0scissors_1rock[play_0_scissors]: idle -> finish
+shared[3] play_0scissors_1paper[play_0_scissors]: idle -> finish
+shared[3] play_0scissors_1scissors[play_0_scissors]: idle -> finish
+
+#shared[3] play_0rock_1rock[play_0rock_1rock]: idle -> finish
+#shared[3] play_0rock_1paper[play_0rock_1paper]: idle -> finish
+#shared[3] play_0rock_1scissors[play_0rock_1scissors]: idle -> finish
+#shared[3] play_0paper_1rock[play_0paper_1rock]: idle -> finish
+#shared[3] play_0paper_1paper[play_0paper_1paper]: idle -> finish
+#shared[3] play_0paper_1scissors[play_0paper_1scissors]: idle -> finish
+#shared[3] play_0scissors_1rock[play_0scissors_1rock]: idle -> finish
+#shared[3] play_0scissors_1paper[play_0scissors_1paper]: idle -> finish
+#shared[3] play_0scissors_1scissors[play_0scissors_1scissors]: idle -> finish
+loop: finish -> finish
+
+Agent Player1:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+# If transitions below are uncommented, the verification result is TRUE
+# shared[3] play_0rock_1rock[play_1_rock]: idle -> finish
+# shared[3] play_0rock_1paper[play_1_paper]: idle -> finish
+# shared[3] play_0rock_1scissors[play_1_scissors]: idle -> finish
+# shared[3] play_0paper_1rock[play_1_rock]: idle -> finish
+# shared[3] play_0paper_1paper[play_1_paper]: idle -> finish
+# shared[3] play_0paper_1scissors[play_1_scissors]: idle -> finish
+# shared[3] play_0scissors_1rock[play_1_rock]: idle -> finish
+# shared[3] play_0scissors_1paper[play_1_paper]: idle -> finish
+# shared[3] play_0scissors_1scissors[play_0_scissors]: idle -> finish
+
+# If transitions below are uncommented, the verification result is FALSE
+shared[3] play_0rock_1rock[play_0rock_1rock]: idle -> finish
+shared[3] play_0rock_1paper[play_0rock_1paper]: idle -> finish
+shared[3] play_0rock_1scissors[play_0rock_1scissors]: idle -> finish
+shared[3] play_0paper_1rock[play_0paper_1rock]: idle -> finish
+shared[3] play_0paper_1paper[play_0paper_1paper]: idle -> finish
+shared[3] play_0paper_1scissors[play_0paper_1scissors]: idle -> finish
+shared[3] play_0scissors_1rock[play_0scissors_1rock]: idle -> finish
+shared[3] play_0scissors_1paper[play_0scissors_1paper]: idle -> finish
+shared[3] play_0scissors_1scissors[play_0scissors_1scissors]: idle -> finish
+loop: finish -> finish
+
+# 1 = rock
+# 2 = paper
+# 3 = scissors
+
+Agent Score:
+LOCAL: [player0win, player1win, draw, finished]
+PERSISTENT: [player0win, player1win, draw, finished]
+INITIAL: [player0win:=0, player1win:=0, draw:=0, finished:=0]
+init idle
+shared[3] play_0rock_1rock[play_1_rock]: idle -> finish [draw := 1, finished := 1]
+shared[3] play_0rock_1paper[play_1_paper]: idle -> finish [player1win := 1, finished := 1]
+shared[3] play_0rock_1scissors[play_1_scissors]: idle -> finish [player0win := 1, finished := 1]
+shared[3] play_0paper_1rock[play_1_rock]: idle -> finish [player0win := 1, finished := 1]
+shared[3] play_0paper_1paper[play_1_paper]: idle -> finish [draw := 1, finished := 1]
+shared[3] play_0paper_1scissors[play_1_scissors]: idle -> finish [player1win := 1, finished := 1]
+shared[3] play_0scissors_1rock[play_1_rock]: idle -> finish [player1win := 1, finished := 1]
+shared[3] play_0scissors_1paper[play_1_paper]: idle -> finish [player0win := 1, finished := 1]
+shared[3] play_0scissors_1scissors[play_0_scissors]: idle -> finish [draw := 1, finished := 1]
+loop: finish -> finish
+
+FORMULA: <<Player0>><>( (finished == 1) && (player1win == 1))
