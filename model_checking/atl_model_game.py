@@ -60,7 +60,7 @@ class AgentLocalState:
             self.persistent_variables[k] = v
 
     def is_precondition_satisified(self, trans: Transition):
-        """Checks, if a precondition of a transition is satisifed."""
+        """Checks, if a precondition of a transition is satisfied."""
         for k, v in trans.q0.parameters.items():
             if self.persistent_variables[k] != v:
                 return False
