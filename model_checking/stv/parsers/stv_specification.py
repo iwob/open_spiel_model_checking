@@ -69,7 +69,7 @@ class Transition:
 
 
 
-class AgentLocalModel:
+class AgentLocalModelSpec:
     def __init__(self, name: str, num_instances: int, init_state: str, local_variables: dict,
                  persistent_variables: dict, local_variables_init_values: dict, transitions: list[Transition]):
         """
@@ -118,7 +118,7 @@ class AgentLocalModel:
 
 
 class StvSpecification:
-    def __init__(self, agents: list[AgentLocalModel]):
+    def __init__(self, agents: list[AgentLocalModelSpec]):
         self.agents = agents
 
     def __iter__(self):

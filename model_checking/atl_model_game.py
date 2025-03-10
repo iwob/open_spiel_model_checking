@@ -3,7 +3,7 @@ import numpy as np
 
 from open_spiel.python.observation import IIGObserverForPublicInfoGame
 import pyspiel
-from stv.parsers.stv_specification import StvSpecification, AgentLocalModel
+from stv.parsers.stv_specification import StvSpecification, AgentLocalModelSpec, Transition
 
 
 _NUM_PLAYERS = 2
@@ -29,16 +29,17 @@ _GAME_TYPE = pyspiel.GameType(
 
 
 class AgentLocalState:
-    def __init__(self, agent_spec: AgentLocalModel):
+    def __init__(self, agent_spec: AgentLocalModelSpec):
         self.agent_spec = agent_spec
         self.name = agent_spec.name
         self.current_node = agent_spec.init_state
-        self.persistent_variables = agent_spec.persistent_variables
+        self.persistent_variables = agent_spec.local_variables_init_values
+        # TODO: local variables are currently not handled
 
     def execute_action(self, name):
         """Executes an action and changes agent's local state. Name can be either a name (private actions) or
          local name (synchronized actions)."""
-        # TODO: this probably should be updated by an external function
+        # TODO: this probably should be updated by an external function for the shared actions
         for t in self.agent_spec.transitions:
             if t.name == name and not t.is_shared:
                 self.current_node = t.q1.name
@@ -52,16 +53,37 @@ class AgentLocalState:
                     self.persistent_variables[k] = v
                 break
 
-    def get_available_actions(self):
+    def execute_transition(self, transition: Transition):
+        self.current_node = transition.q1.name
+        # Change persistent variables (if applicable)
+        for k, v in transition.q1.parameters.items():
+            self.persistent_variables[k] = v
+
+    def is_precondition_satisified(self, trans: Transition):
+        """Checks, if a precondition of a transition is satisifed."""
+        for k, v in trans.q0.parameters.items():
+            if self.persistent_variables[k] != v:
+                return False
+        return True
+
+    def get_available_transitions(self) -> list[Transition]:
         result = []
+        private_trans = []
+        shared_trans = []
         for t in self.agent_spec.transitions:
             # if self.current_node == t.q0.name and (not t.is_shared or not any([t.local_name == t2.local_name for t2 in result])):
-            if self.current_node == t.q0.name and (not t.is_shared or t.local_name in result):
-                for k, v in t.q0.parameters.items():
-                    if self.persistent_variables[k] != v:
-                        break
+            t_name = t.local_name if t.is_shared else t.name
+            if self.current_node == t.q0.name and self.is_precondition_satisified(t) and t_name not in result:
                 result.append(t)
         return result
+
+    def get_transition_for_action(self, action_name) -> Transition | None:
+        """Returns action's transition object based on a current node. Since actions can be executed in multiple
+         nodes, a corresponding transition object cannot be determined without the context of the current node."""
+        for t in self.get_available_transitions():
+            if t.local_name == action_name or t.name == action_name:
+                return t
+        return None
 
 
 class AtlModelGame(pyspiel.Game):
@@ -70,8 +92,10 @@ class AtlModelGame(pyspiel.Game):
     def __init__(self, spec: StvSpecification, params=None, silent=True):
         self.spec = spec
         self.silent = silent
+        self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(spec)
+        self.possible_actions = self.get_possible_actions(spec, self.agent_actions)
         self._GAME_INFO = pyspiel.GameInfo(
-            num_distinct_actions=100,
+            num_distinct_actions=len(self.possible_actions),
             max_chance_outcomes=0,
             num_players=len(self.spec.agents) + 1,
             min_utility=-1.0,
@@ -80,6 +104,32 @@ class AtlModelGame(pyspiel.Game):
             max_game_length=100000)
         super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
 
+    @staticmethod
+    def get_agent_actions_dict(spec):
+        ACTION_ID = 0
+        agent_actions = {}
+        action_name_to_id_dict = {}
+        for i, a in enumerate(spec.agents):
+            agent_actions[a.name] = []
+            action_name_to_id_dict[a.name] = {}
+            for t in a.transitions:
+                if t.is_shared and t.local_name not in agent_actions[a.name]:
+                    agent_actions[a.name].append(t.local_name)
+                    action_name_to_id_dict[a.name][t.local_name] = ACTION_ID
+                    ACTION_ID += 1
+                elif not t.is_shared and t.name not in agent_actions[a.name]:
+                    # Action with the same name can be used in multiple states
+                    agent_actions[a.name].append(t.name)
+                    action_name_to_id_dict[a.name][t.local_name] = ACTION_ID
+                    ACTION_ID += 1
+        return agent_actions, action_name_to_id_dict
+
+    @staticmethod
+    def get_possible_actions(spec, agent_actions):
+        actions = []
+        for a in spec.agents:
+            actions.extend(agent_actions[a.name])
+        return actions
 
     def _get_positive_literals(self) -> list:
         literals = []
@@ -107,7 +157,12 @@ class AtlModelGame(pyspiel.Game):
 
     def new_initial_state(self):
         """Returns a state corresponding to the start of a game."""
-        return AtlModelState(game=self, spec=self.spec, silent=self.silent)
+        return AtlModelState(game=self,
+                             agent_actions=self.agent_actions,
+                             action_name_to_id_dict=self.action_name_to_id_dict,
+                             possible_actions=self.possible_actions,
+                             spec=self.spec,
+                             silent=self.silent)
 
     def make_py_observer(self, iig_obs_type=None, params=None):
         """Returns an object used for observing game state."""
@@ -126,16 +181,24 @@ class AtlModelGame(pyspiel.Game):
 class AtlModelState(pyspiel.State):
     """A state of the planning game. It is modified in place after each action."""
 
-    def __init__(self, game: AtlModelGame, spec: StvSpecification, seed=None, silent=True):
+    def __init__(self, game: AtlModelGame, spec: StvSpecification, agent_actions=None, action_name_to_id_dict=None,
+                 possible_actions=None, seed=None, silent=True):
         """Constructor; should only be called by Game.new_initial_state."""
         super().__init__(game)
         if seed is not None:
             random.seed(seed)
+        if agent_actions is None or action_name_to_id_dict is None:
+            agent_actions, action_name_to_id_dict = AtlModelGame.get_agent_actions_dict(spec)
+        if possible_actions is None:
+            possible_actions = AtlModelGame.get_possible_actions(spec, agent_actions)
+        self.agent_actions = agent_actions
+        self.action_name_to_id_dict = action_name_to_id_dict
+        self.possible_actions = possible_actions
         self.ARTIFICIAL_PLAYER_ID = len(spec.agents)
         self._silent = silent
-        self._cur_player = None  # value set in agent_env_execution_loop()
-        self._cur_obs = None  # value set in agent_env_execution_loop()
-        self._cur_executable_steps_dict = None  # value set in agent_env_execution_loop()
+        self._cur_player = pyspiel.PlayerId.SIMULTANEOUS
+        self._cur_obs = None
+        self._cur_executable_steps_dict = None
         self._cur_num_steps = 0
         self._is_terminal = False
 
@@ -145,7 +208,7 @@ class AtlModelState(pyspiel.State):
 
         for a in self.agent_local_states:
             print(f"{a.name}:")
-            print("\n".join([str(x) for x in a.get_available_actions()]))
+            print("\n".join([str(x) for x in a.get_available_transitions()]))
 
         # Initialization of the game
         self.agent_env_execution_loop()  # _cur_player is set here
@@ -153,6 +216,9 @@ class AtlModelState(pyspiel.State):
 
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
     # should be implemented by every perfect-information sequential-move game.
+
+    def get_action_id(player, action_):
+        pass
 
     def _select_current_player(self):
         """Selects current player using semantics of ATL as implemented in STV. In order to do that, synchronizations
@@ -173,30 +239,62 @@ class AtlModelState(pyspiel.State):
 
     def current_player(self):
         """Returns id of the next player to move, or TERMINAL if game is over."""
-        return pyspiel.PlayerId.TERMINAL if self._is_terminal else self._cur_player
+        return pyspiel.PlayerId.TERMINAL if self._is_terminal else pyspiel.PlayerId.SIMULTANEOUS
 
     def _legal_actions(self, player):
-        """Returns a list of legal actions, sorted in ascending order."""
+        """Returns a list of legal actions, sorted in ascending order. In simultaneous games
+         possible actions for each player are generated using function."""
+        assert player >= 0
         player_name = self.game.get_player_name(player)
-        return sorted([s.step_id for s in self._cur_executable_steps_dict[player_name]])
+        actions = []
+        for action_name in self.agent_local_states[player].get_available_transitions():
+            action_idx = self.action_name_to_id_dict[player_name][action_name]
+            actions.append(action_idx)
+        return actions
 
-    def _apply_action(self, action):
-        """Applies the specified action to the state."""
-        if self._is_terminal:
-            raise Exception("Trying to execute an action after terminal state was reached!")
-        step_to_execute = self.game.actionable_steps[action]
-        self.execute_step(step_to_execute)
+    # def _apply_action(self, action):
+    #     """Applies the specified action to the state."""
+    #     if self._is_terminal:
+    #         raise Exception("Trying to execute an action after terminal state was reached!")
+    #     raise Exception("Trying to execute a single action in a game with simultaneous moves!")
 
-        self._print(f"\nExecuting step: {step_to_execute}")
-        self._print(self.text_state_change_diff(self.prev_state, self.state))
-        self.print_state_content()
+    def _apply_actions(self, actions):
+        """Execute simultaneous actions."""
+        shared_trans_buffer = []
+        was_action_executed = False  # Can be used to detect deadlock
 
-        # Selecting an agent to move and creating an observation vector for it
-        self.agent_env_execution_loop()
+        # Execute all selected private actions - these agents, under imperfect information, won't get any new
+        # information to decide, so we may as well execute them.
+        #
+        # It is also important to note that agents can choose a shared action even if another agent required
+        # for synchronization is not in a state in which it can execute it. At no point agents are aware of the
+        # state of other agents.
+        for player, action in enumerate(actions):
+            transition = self.agent_local_states[player].get_transition_for_action(self.possible_actions[action])
+            if transition.is_shared:
+                shared_trans_buffer.append((player, transition))
+            else:
+                self.agent_local_states[player].execute_transition(transition)
+                was_action_executed = True
 
-    def _do_apply_actions(self, actions):
-        # Handle simultanoues actions here
-        pass
+        # Aggregate instances of shared actions
+        shared_trans = {}
+        for p, t in shared_trans_buffer:
+            shared_trans.setdefault(t.name, [])
+            shared_trans[t.name].append([(p,t)])
+
+        # Check if they can be executed, and if yes then execute them
+        for k in shared_trans:
+            if len(shared_trans[k]) == shared_trans[k][0].shared_num:
+                for p, t in shared_trans[k]:
+                    self.agent_local_states[p].execute_transition(t)
+                was_action_executed = True
+
+        # Detect deadlock
+        # TODO: Looping final transitions will need to be also somehow handled here
+        if not was_action_executed:
+            self._is_terminal = True
+
 
     def _action_to_string(self, player, action):
         """Action -> string."""

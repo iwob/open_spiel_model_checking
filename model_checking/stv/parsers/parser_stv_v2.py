@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from lark import Lark, Transformer, v_args
-from .stv_specification import StvSpecification, AgentLocalModel, Transition, State
+from .stv_specification import StvSpecification, AgentLocalModelSpec, Transition, State
 
 
 #Some links:
@@ -24,7 +24,7 @@ class Stv2Transformer(Transformer):
         agent_models = []
         formula = None
         for a in args:
-            if isinstance(a, AgentLocalModel):
+            if isinstance(a, AgentLocalModelSpec):
                 agent_models.append(a)
             elif isinstance(a, tuple) and a[0] == "FORMULA:":
                 formula = a[1]
@@ -44,7 +44,7 @@ class Stv2Transformer(Transformer):
         local_variables_init_values = metadata.get("INITIAL:", {})  #TODO: should we set all uninitialized variables to 0 here?
         persistent_variables = metadata.get("PERSISTENT:", [])
         transitions = args[2]
-        return AgentLocalModel(name, num, init_state, local_variables=local_variables, local_variables_init_values=local_variables_init_values, persistent_variables=persistent_variables, transitions=transitions)
+        return AgentLocalModelSpec(name, num, init_state, local_variables=local_variables, local_variables_init_values=local_variables_init_values, persistent_variables=persistent_variables, transitions=transitions)
 
     def agent_header(self, args):
         name = str(args[0])
