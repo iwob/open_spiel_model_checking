@@ -223,8 +223,11 @@ class AtlModelState(pyspiel.State):
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
     # should be implemented by every perfect-information sequential-move game.
 
-    def get_action_id(player, action_):
+    def get_action_id(self, player, action_name):
         pass
+
+    def get_action_name(self, action_id):
+        return self.possible_actions[action_id]
 
     def _select_current_player(self):
         """Selects current player using semantics of ATL as implemented in STV. In order to do that, synchronizations
@@ -283,7 +286,7 @@ class AtlModelState(pyspiel.State):
                 # At this point we have an abstract shared transition which can correspond to any of the concrete transitions contained in it
                 shared_trans_buffer.append((player, transition))
             else:
-                self.agent_local_states[player].execute_transition(transition)
+                self.execute_transition(player, transition)
                 was_action_executed = True
 
         # Aggregate instances of shared actions
@@ -318,11 +321,11 @@ class AtlModelState(pyspiel.State):
         # TODO: Looping final transitions will need to be also somehow handled here
         if not was_action_executed:
             print("DEADLOCK")
-            self._is_terminal = True
+            # self._is_terminal = True
 
     def execute_transition(self, player, transition):
-        print(f"Executing transition for {player}: {transition}")
-        self.agent_local_states[p].execute_transition(t)
+        print(f"*** Executing transition for player {player}: {transition}")
+        self.agent_local_states[player].execute_transition(transition)
 
     def _action_to_string(self, player, action):
         """Action -> string."""
@@ -339,9 +342,7 @@ class AtlModelState(pyspiel.State):
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""
-        text = ""
-        for a in self.agent_local_states:
-            text += f"{a.name}: {a.current_node} (vars: {a.persistent_variables})\n"
+        text = "\n".join([f"{a.name}: {a.current_node} (vars: {a.persistent_variables})" for a in self.agent_local_states])
         return text
 
 
