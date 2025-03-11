@@ -38,7 +38,7 @@ print()
 while not state.is_terminal() and num_iter < MAX_ITER:
 
     if num_iter == 0:
-        actions = [0, 5, 8]
+        actions = [0, 5, 7]
     else:
         actions = []
         for a_id, a in enumerate(state.agent_local_states):

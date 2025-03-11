@@ -105,7 +105,7 @@ class AgentLocalModelSpec:
         self.local_variables = local_variables
         self.persistent_variables = persistent_variables
         self.local_variables_init_values = local_variables_init_values
-        self.transitions = set(transitions)
+        self.transitions = transitions
 
     def get_out_transitions(self, state):
         return [t for t in self.transitions if t.q0 == state]
