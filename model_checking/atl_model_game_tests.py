@@ -20,13 +20,19 @@ game = AtlModelGame(stv_spec)
 
 state = game.new_initial_state()
 print(str(state) + '\n')
+for a_id, _ in enumerate(state.agent_local_states):
+    print("Legal actions for player {}:".format(a_id))
+    for action in state.legal_actions(a_id):
+        print(f"{action} {state.action_to_string(a_id, action)}")
+    print()
 
-for action in state.legal_actions():
-  print(f"{action} {state.action_to_string(action)}")
-
-
-while not state.is_terminal():
-    i = np.random.choice(state.legal_actions())
-    print("Executing action: {}".format(state.game.actionable_steps[i]))
-    state.apply_action(i)
+MAX_ITER = 2
+num_iter = 0
+while not state.is_terminal() and num_iter < MAX_ITER:
+    actions = []
+    for a_id, a in enumerate(state.agent_local_states):
+        j = np.random.choice(state.legal_actions(a_id))
+        actions.append(j)
+    state.apply_actions(actions)
     print(str(state) + '\n')
+    num_iter += 1

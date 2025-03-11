@@ -32,19 +32,22 @@ class State:
 
 class Transition:
     def __init__(self, name: str, q0: State, q1: State, is_shared=False, shared_num=None, local_name=None):
+        if is_shared and local_name is None:
+            local_name = name
         self.name = name
         self.local_name = local_name
         self.q0 = q0
         self.q1 = q1
         self.is_shared = is_shared
         self.shared_num = shared_num
+        self.is_abstract = False
 
     def __str__(self):
         return self.stv2_string()
 
     def __repr__(self):
         name_str = f"{self.name}[{self.local_name}]" if self.is_shared else self.name
-        return f"Transition({name_str}, {self.q0}, {self.q1}, {self.is_shared}, {self.shared_num})"
+        return f"Transition({name_str}, {self.q0}, {self.q1}, {self.shared_num})"
 
     def stv2_string(self):
         """Returns encoding of this transition in the STV-2 format."""
@@ -66,6 +69,25 @@ class Transition:
             return f"{text_shared}{self.name}[{self.local_name}]: {text_q0} -> {text_q1}"
         else:
             return f"{text_shared}{self.name}: {text_q0} -> {text_q1}"
+
+
+class SharedTransition(Transition):
+    def __init__(self, name: str, q0: State, q1: State, transition_set, shared_num=None, local_name=None):
+        super().__init__(name, q0, q1, True, shared_num, local_name)
+        assert len(transition_set) > 0
+        self.transition_set = transition_set
+        self.is_abstract = True
+
+    @staticmethod
+    def from_transition_set(transition_set):
+        t = transition_set[0]
+        return SharedTransition(t.name, t.q0, t.q1, transition_set, shared_num=t.shared_num, local_name=t.local_name)
+
+    def __str__(self):
+        return f"{self.local_name}[{self.shared_num}]: {{{', '.join([t.name for t in self.transition_set])}}}"
+
+    def __repr__(self):
+        return f"SharedTransition({self.local_name}, {{{', '.join([t.name for t in self.transition_set])}}})"
 
 
 

@@ -40,7 +40,7 @@ logger.setLevel(logging.INFO)
 
 @dataclass(init=True, order=True)
 class GameTreeNode:
-    value: float
+    value: float | None
     cur_player: int = field(init=True, compare=False)
     # A mapping from action name to the children nodes. Key: tuple (value, action_name)
     children: dict = field(default_factory=lambda: {}, init=True, compare=False)
@@ -511,7 +511,7 @@ def main(argv):
         raise Exception("Unknown game!")
 
     if FLAGS.submodels_dir is None:
-        results_root = Path(f"results(v4)__{game_utils.get_name()}_{FLAGS.piles}")
+        results_root = Path(f"results(v4)__{game_utils.get_name()}_{FLAGS.piles}")  # TODO: change name to constant and independent
     else:
         results_root = Path(FLAGS.submodels_dir)
 
