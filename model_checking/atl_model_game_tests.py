@@ -28,7 +28,7 @@ for a_id, _ in enumerate(state.agent_local_states):
         print(f"{action} {state.action_to_string(a_id, action)}")
     print()
 
-MAX_ITER = 1
+MAX_ITER = 2
 num_iter = 0
 print("Start game")
 print("State:")
@@ -36,7 +36,7 @@ print(str(state))
 print()
 
 while not state.is_terminal() and num_iter < MAX_ITER:
-
+    print(f"ITERATION #{num_iter}")
     if num_iter == 0:
         actions = [0, 5, 7]
     else:

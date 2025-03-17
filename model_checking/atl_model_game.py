@@ -163,7 +163,7 @@ class AgentLocalState:
             shared_trans.append(SharedTransition.from_transition_set(transitions))
         return private_trans + shared_trans
 
-    def get_transition_for_action(self, action_name) -> Transition | None:
+    def get_transition_for_action(self, action_name) -> Transition | SharedTransition | None:
         """Returns action's transition object based on a current node. Since actions can be executed in multiple
          nodes, a corresponding transition object cannot be determined without the context of the current node."""
         for t in self.get_available_transitions():
@@ -270,7 +270,7 @@ class AtlModelState(pyspiel.State):
 
     def _apply_actions(self, actions):
         """Execute simultaneous actions."""
-        shared_trans_buffer = []
+        shared_transactions = []
         was_action_executed = False  # Can be used to detect deadlock
 
         # Execute all selected private actions - these agents, under imperfect information, won't get any new
@@ -283,35 +283,53 @@ class AtlModelState(pyspiel.State):
             action_name = self.possible_actions[action]
             transition = self.agent_local_states[player].get_transition_for_action(action_name)
             if transition.is_shared:
-                # At this point we have an abstract shared transition which can correspond to any of the concrete transitions contained in it
-                shared_trans_buffer.append((player, transition))
+                assert transition.is_abstract
+                # At this point we have an abstract shared transition which can correspond to any of the
+                # concrete transitions contained in it (e.g., A in "action1[A] ... action2[A]").
+                # Agent can only decide on A and isn't aware of the underlying actions.
+                shared_transactions.append((player, transition))
             else:
                 self.execute_transition(player, transition)
                 was_action_executed = True
 
         # Aggregate instances of shared actions
         shared_trans_support_dict = {}
-        for p, at in shared_trans_buffer:
-            # TODO: it doesn't make sense to aggregate over local names
-            # IDEA: instead, aggregate over name and collect there all support
+        for p, at in shared_transactions:
+            # p = 1  (player id of the action executioner)
+            # at - represents play_0 in the example below
+            # at.transition_set = {play_0_rock, play_0_paper, play_0_scissors}
+            #   Player0:
+            #       shared[3] play_0_rock[play_0_rock]: idle -> finish
+            #       shared[3] play_0_paper[play_0_paper]: idle -> finish
+            #       shared[3] play_0_scissors[play_0_scissors]: idle -> finish
+            #   Player1:
+            #       shared[3] play_0_rock[play_0]: idle -> idle2
+            #       shared[3] play_0_paper[play_0]: idle -> idle2
+            #       shared[3] play_0_scissors[play_0]: idle -> idle2
+
+            # Aggregate over name and collect all support
             assert at.is_abstract
             for t in at.transition_set:
-                shared_trans_support_dict.setdefault(t.name, (t, p, []))
-                shared_trans_support_dict[t.name][2].append([(p,t)])
+                assert not t.is_abstract
+                shared_trans_support_dict.setdefault(t.name,  [])
+                shared_trans_support_dict[t.name].append((p, t))
 
-        # Check if they can be executed, and if yes then execute them
+        # Check if they can be executed, and if yes then execute them.
+        # ASSUMPTION #1: there is always a "leader" initiating synchronization and in that way ensuring that
+        # there is always only a single possible choice of action.
+        # ASSUMPTION #2: in the specification, x in "shared[x]" always denotes a correct number of synchronizing
+        # agents - this is not enforced by the parser.
         enabled_shared = []
-        for tname, data in shared_trans_support_dict.items():
-            t, p, support_trans = data
-            # check if all the required players choose to synchronize
-            # ASSUMPTION: there is always a "leader" initiating synchronization and in that way ensuring that
-            # there is always only a single choice.
-            if shared_trans_support_dict[tname][0].shared_num == len(shared_trans_support_dict[tname]):
-                enabled_shared.append((p, tname))
+        for _, support in shared_trans_support_dict.items():
+            # Check if all the required players choose to synchronize.
+            if support[0][1].shared_num == len(support):
+                for p, t in support:
+                    enabled_shared.append((p, t))
 
-        # Execute all enabled shared transitions
-        # Because of our "leader" assumption, we simply executre every enabled transition. In general this won't work,
-        # because agents can support multiple concrete transition and be absorbed by the first execution
+        # Execute all enabled shared transitions. We can do that because of our "leader" assumption. In general
+        # this won't work, because agents can support multiple concrete transitions, and then we happen to need
+        # to decide, which transition gets executed, potentially blocking other from being executed.
+        # I think detecting such a situation would necessitate a chance player.
         for p, t in enabled_shared:
             assert not t.is_abstract
             self.execute_transition(p, t)

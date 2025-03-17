@@ -15,9 +15,9 @@ LOCAL: []
 PERSISTENT: []
 INITIAL: []
 init idle
-shared[1] play_0_rock[play_0]: idle -> idle2
-shared[1] play_0_paper[play_0]: idle -> idle2
-shared[1] play_0_scissors[play_0]: idle -> idle2
+shared[3] play_0_rock[play_0]: idle -> idle2
+shared[3] play_0_paper[play_0]: idle -> idle2
+shared[3] play_0_scissors[play_0]: idle -> idle2
 shared[2] play_1_rock[play_1_rock]: idle2 -> finish
 shared[2] play_1_paper[play_1_paper] : idle2 -> finish
 shared[2] play_1_scissors[play_1_scissors]: idle2 -> finish

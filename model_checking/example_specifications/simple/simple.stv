@@ -5,9 +5,9 @@ LOCAL: []
 PERSISTENT: []
 INITIAL: []
 init idle
-shared[2] play_0_rock[play_0_rock]: idle -> finish
-shared[2] play_0_paper[play_0_paper]: idle -> finish
-shared[2] play_0_scissors[play_0_scissors]: idle -> finish
+shared[3] play_0_rock[play_0_rock]: idle -> finish
+shared[3] play_0_paper[play_0_paper]: idle -> finish
+shared[3] play_0_scissors[play_0_scissors]: idle -> finish
 loop: finish -> finish
 
 Agent Player1:
@@ -16,9 +16,9 @@ PERSISTENT: []
 INITIAL: []
 init idle
 obstruct: idle -> finish
-shared[2] play_0_rock[play0]: idle -> finish
-shared[2] play_0_paper[play0]: idle -> finish
-shared[2] play_0_scissors[play0]: idle -> finish
+shared[3] play_0_rock[play0]: idle -> finish
+shared[3] play_0_paper[play0]: idle -> finish
+shared[3] play_0_scissors[play0]: idle -> finish
 loop: finish -> finish
 
 # 1 = rock
@@ -30,9 +30,9 @@ LOCAL: [move_0, move_1, finished]
 PERSISTENT: [move_0, move_1, finished]
 INITIAL: [move_0:=0, move_1:=0, finished:=0]
 init count
-shared[2] play_0_rock[play0]: count [move_0 == 0] -> count [move_0 := 1]
-shared[2] play_0_paper[play0]: count [move_0 == 0] -> count [move_0 := 2]
-shared[2] play_0_scissors[play0]: count [move_0 == 0] -> count [move_0 := 3]
-loop: finish -> finish
+shared[3] play_0_rock[play0]: count [move_0 == 0] -> counted [move_0 := 1]
+shared[3] play_0_paper[play0]: count [move_0 == 0] -> counted [move_0 := 2]
+shared[3] play_0_scissors[play0]: count [move_0 == 0] -> counted [move_0 := 3]
+loop: counted -> counted
 
 FORMULA: <<Player0>><>( (finished == 1) )
