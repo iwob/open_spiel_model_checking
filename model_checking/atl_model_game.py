@@ -73,16 +73,6 @@ class AtlModelGame(pyspiel.Game):
             actions.extend(agent_actions[a.name])
         return actions
 
-    def _get_positive_literals(self) -> list:
-        literals = []
-        # Literals were sorted by a parser, so that they are always in the same order
-        for lit in self.space.literals:
-            if lit[0] == -1 or lit[0] == "not":
-                continue
-            else:
-                literals.append(lit)
-        return literals
-
     # -----------------------------------------------------------------------------------
     # Below is the implementation of Game's API in Open Spiel
 
@@ -101,7 +91,7 @@ class AtlModelGame(pyspiel.Game):
                 (iig_obs_type.public_info and not iig_obs_type.perfect_recall)):
             params["positive_literals"] = self.positive_literals
             params["initial_state"] = self.problem.initial_state
-            return PlanningStateObserver(params)
+            return AtlModelStateObserver(params)
         else:
             return IIGObserverForPublicInfoGame(iig_obs_type, params)
 
@@ -113,8 +103,8 @@ class AgentLocalState:
         self.agent_spec = agent_spec
         self.name = agent_spec.name
         self.current_node = agent_spec.init_state
-        self.persistent_variables = agent_spec.local_variables_init_values
-        # TODO: local variables are currently not handled
+        self.persistent_variables = agent_spec.local_variables_init_values.copy()
+        # TODO: local non-persistent variables are currently not handled
 
     def execute_action(self, name):
         """Executes an action and changes agent's local state. Name can be either a name (private actions) or
@@ -174,6 +164,9 @@ class AgentLocalState:
                 return t
         return None
 
+    def __str__(self):
+        return f"{self.name}: {self.current_node} [{','.join([f'{k}={v}' for k, v in self.persistent_variables.items()])}]"
+
 
 
 class AtlModelState(pyspiel.State):
@@ -203,11 +196,6 @@ class AtlModelState(pyspiel.State):
         self.game = game
         self.spec = spec
         self.agent_local_states = [AgentLocalState(a) for a in self.spec.agents]
-
-        for a in self.agent_local_states:
-            print(f"{a.name}:")
-            print("\n".join([str(x) for x in a.get_available_transitions()]))
-
 
     def get_player_name(self, player_index):
         """Converts a player's number ID in Open Spiel to an identifier used for actions."""
@@ -364,7 +352,7 @@ class AtlModelState(pyspiel.State):
         return text
 
 
-class PlanningStateObserver:
+class AtlModelStateObserver:
     """Observer, conforming to the PyObserver interface (see observation.py)."""
 
     def __init__(self, params):
