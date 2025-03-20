@@ -1,0 +1,47 @@
+# Command: ~/Programs/STV/stv --OUTPUT_DOT_FILES --ADD_EPSILON_TRANSITIONS -f simple2.stv
+
+Agent Player0:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+shared[3] play_0_rock[play_0_rock]: idle -> finish
+shared[3] play_0_paper[play_0_paper]: idle -> finish
+shared[3] play_0_scissors[play_0_scissors]: idle -> finish
+loop: finish -> finish
+
+Agent Player1:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+obstruct: idle -> finish
+shared[3] play_0_rock[play0]: idle -> finish
+shared[3] play_0_paper[play0]: idle -> finish
+shared[3] play_0_scissors[play0]: idle -> finish
+shared[2] talk_1_2[play0]: idle -> finish
+loop: finish -> finish
+
+Agent Player2:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+shared[2] talk_1_2[talk_1_2]: idle -> finish
+loop: finish -> finish
+
+# 1 = rock
+# 2 = paper
+# 3 = scissors
+
+Agent Score:
+LOCAL: [move_0, move_1, finished]
+PERSISTENT: [move_0, move_1, finished]
+INITIAL: [move_0:=0, move_1:=0, finished:=0]
+init count
+shared[3] play_0_rock[play0]: count [move_0 == 0] -> counted [move_0 := 1]
+shared[3] play_0_paper[play0]: count [move_0 == 0] -> counted [move_0 := 2]
+shared[3] play_0_scissors[play0]: count [move_0 == 0] -> counted [move_0 := 3]
+loop: counted -> counted [finished := 1]
+
+FORMULA: <<Player0>><>( (finished == 1) )

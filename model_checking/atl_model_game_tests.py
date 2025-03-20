@@ -57,6 +57,12 @@ class TestAtlModel(unittest.TestCase):
         stv_spec, formula = parser(text)
         self.game_simple = AtlModelGame(stv_spec)
 
+        file = Path(__file__).parent / "example_specifications" / "simple" / "simple2.stv"
+        with file.open() as f:
+            text = f.read()
+        stv_spec, formula = parser(text)
+        self.game_simple_2 = AtlModelGame(stv_spec)
+
 
     def test_model_properties(self):
         game = self.game_simple
@@ -135,6 +141,27 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
+
+
+    def test_synchronization_2(self):
+        state = self.game_simple_2.new_initial_state()
+        self.assertEqual(state.current_player(), pyspiel.PlayerId.SIMULTANEOUS)
+        self.assertEqual(state.legal_actions(0), [0, 1, 2])
+        self.assertEqual(state.legal_actions(1), [4, 5])
+        self.assertEqual(state.legal_actions(2), [7])
+        self.assertEqual(state.legal_actions(3), [9])
+        self.assertEqual(state.agent_local_states[0].current_node, "idle")
+        self.assertEqual(state.agent_local_states[1].current_node, "idle")
+        self.assertEqual(state.agent_local_states[2].current_node, "idle")
+        self.assertEqual(state.agent_local_states[3].current_node, "count")
+        self.assertEqual(state.agent_local_states[3].persistent_variables["move_0"], 0)
+        print("test_synchronization_2")
+        state.apply_actions([0, 5, 7, 9])
+        # Player0 and Player2 both are leaders of shared transitions, but Player1 may support either
+        # of them and must choose. Below we check that it is impossible to use Player1's support twice.
+        self.assertFalse(state.agent_local_states[0].current_node == "finish" and state.agent_local_states[2].current_node == "finish")
+
+
 
 if __name__ == "__main__":
     unittest.main()
