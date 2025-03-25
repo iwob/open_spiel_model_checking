@@ -1,12 +1,25 @@
 import sys
 from pathlib import Path
 from lark import Lark, Transformer, v_args
-from .stv_specification import StvSpecification, AgentLocalModelSpec, Transition, State
+from stv_specification import StvSpecification, AgentLocalModelSpec, Transition, State
 
 
 #Some links:
 # - Lark tutorial for JSON: https://lark-parser.readthedocs.io/en/latest/json_tutorial.html
 # - Lark documentation: https://lark-parser.readthedocs.io/en/latest/grammar.html
+
+class ExprNode:
+    def __init__(self, name, args):
+        self.name = name
+        self.args = args
+
+    def __str__(self):
+        return f"{self.name}({','.join([self.args])})"
+
+    def __repr__(self):
+        return str(self)
+
+
 
 class Stv2Transformer(Transformer):
 
@@ -33,6 +46,23 @@ class Stv2Transformer(Transformer):
 
     def decl_formula(self, args):
         return "FORMULA:", str(args[0])
+
+    def formula_agent_list(self, args):
+        return [str(a) for a in args]
+
+    def formula_expr(self, args):
+        if args[0] == "<<":
+            return None
+        if len(args) == 2:
+            return ExprNode("!", [str(args[1])])
+        elif len(args) == 3:
+            if str(args[0]) == "(":
+                return args[1]
+            op = str(args[1])
+            if op in {"&&", "||"}:
+                return ExprNode(op, [args[0], args[2]])
+            else:
+                return ExprNode(op, [str(args[0]), str(args[2])])
 
     def agent(self, args):
         name, num = args[0]

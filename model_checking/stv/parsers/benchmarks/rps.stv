@@ -44,4 +44,4 @@ shared[2] play_1_scissors[play1]: count [move_0 == 2] -> finish [move_1 := 3, pl
 shared[2] play_1_scissors[play1]: count [move_0 == 3] -> finish [move_1 := 3, draw := 1, finished := 1]
 loop: finish -> finish
 
-FORMULA: <<Player1>><>( (finished == 1) && (player1win == 1))
+FORMULA: <<Player1,Player2>><>( (finished == 1) && (player1win == 1))

@@ -34,12 +34,31 @@ var_assign_in: name ":=" value | name "=" value
 ?state: CNAME
 ?value: /[^\ \n\t,\]\[]+/
 
-
+//| "FORMULA:" /[^\n]+/ -> decl_formula
 declaration: "COALITION:" "[" CNAME ("," CNAME)* "]" -> decl_coalition
            | "REDUCTION:" "[" CNAME ("," CNAME)* "]" -> decl_reduction
-           | "FORMULA:" /[^\n]+/ -> decl_formula
+           | "FORMULA:" formula_expr -> decl_formula
            | "PERSISTENT:" "[" CNAME ("," CNAME)* "]" -> decl_persistent
            | "SHOW_EPISTEMIC:" ("true" | "false") -> decl_show_epistemic
            | "LOGIC:" /[^\n]+/ -> decl_logic
            | "SEMANTICS:" /[^\n]+/ -> decl_semantics
            | "INITIAL:" "[" var_assign_in ("," var_assign_in)* "]" -> decl_initial
+
+// Examples:
+// <<Player0>><>( (finished == 1) )
+// <<Player1>><>( (finished == 1) && (player1win == 1))
+!formula_expr: "<<" formula_agent_list ">>" formula_expr
+            | "<<" formula_agent_list ">>" "[]" "(" formula_expr ")"
+            | "<<" formula_agent_list ">>" "<>" "(" formula_expr ")"
+            | formula_expr "&&" formula_expr
+            | formula_expr "||" formula_expr
+            | "(" formula_expr ")"
+            | "!" formula_expr
+            | CNAME "==" CNAME
+            | CNAME "==" NUMBER
+            | CNAME ">=" NUMBER
+            | CNAME "<=" NUMBER
+            | CNAME ">" NUMBER
+            | CNAME "<" NUMBER
+formula_agent_list: CNAME "," CNAME
+                  | CNAME
