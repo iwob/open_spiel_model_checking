@@ -47,8 +47,7 @@ declaration: "COALITION:" "[" CNAME ("," CNAME)* "]" -> decl_coalition
 // Examples:
 // <<Player0>><>( (finished == 1) )
 // <<Player1>><>( (finished == 1) && (player1win == 1))
-!formula_expr: "<<" formula_agent_list ">>" formula_expr
-            | "<<" formula_agent_list ">>" "[]" "(" formula_expr ")"
+!formula_expr: "<<" formula_agent_list ">>" "[]" "(" formula_expr ")"
             | "<<" formula_agent_list ">>" "<>" "(" formula_expr ")"
             | formula_expr "&&" formula_expr
             | formula_expr "||" formula_expr

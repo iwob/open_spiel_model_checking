@@ -14,15 +14,20 @@ class ExprNode:
         self.args = args
 
     def __str__(self):
-        return f"{self.name}({','.join([self.args])})"
+        return f"{self.name}({', '.join([str(a) for a in self.args])})"
 
     def __repr__(self):
         return str(self)
 
 
+class ModalExprNode:
+    def __init__(self, modal_op, coalition, formula):
+        self.modal_op = modal_op
+        self.coalition = coalition
+        self.formula = formula
+
 
 class Stv2Transformer(Transformer):
-
     def __init__(self, silent):
         super().__init__()
         self.silent = silent
@@ -45,16 +50,14 @@ class Stv2Transformer(Transformer):
         return model, formula
 
     def decl_formula(self, args):
-        return "FORMULA:", str(args[0])
+        return "FORMULA:", args[0]
 
     def formula_agent_list(self, args):
         return [str(a) for a in args]
 
     def formula_expr(self, args):
-        if args[0] == "<<":
-            return None
         if len(args) == 2:
-            return ExprNode("!", [str(args[1])])
+            return ExprNode("!", [args[1]])
         elif len(args) == 3:
             if str(args[0]) == "(":
                 return args[1]
@@ -63,6 +66,12 @@ class Stv2Transformer(Transformer):
                 return ExprNode(op, [args[0], args[2]])
             else:
                 return ExprNode(op, [str(args[0]), str(args[2])])
+        else:
+            # "<<" formula_agent_list ">>" "[]" "(" formula_expr ")"
+            coalition = args[1]
+            op = str(args[3])
+            formula = args[5]
+            return ModalExprNode(op, coalition, formula)
 
     def agent(self, args):
         name, num = args[0]
