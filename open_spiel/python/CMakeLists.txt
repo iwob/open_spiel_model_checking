@@ -83,10 +83,14 @@ set(PYTHON_BINDINGS ${PYTHON_BINDINGS}
   pybind11/algorithms_trajectories.h
   pybind11/bots.cc
   pybind11/bots.h
+  pybind11/evaluation_sco.cc
+  pybind11/evaluation_sco.h
   pybind11/games_backgammon.cc
   pybind11/games_backgammon.h
   pybind11/games_bargaining.cc
   pybind11/games_bargaining.h
+  pybind11/games_blackjack.cc
+  pybind11/games_blackjack.h
   pybind11/games_bridge.cc
   pybind11/games_bridge.h
   pybind11/games_chess.cc
@@ -109,6 +113,8 @@ set(PYTHON_BINDINGS ${PYTHON_BINDINGS}
   pybind11/games_spades.h
   pybind11/games_tarok.cc
   pybind11/games_tarok.h
+  pybind11/games_tic_tac_toe.cc
+  pybind11/games_tic_tac_toe.h
   pybind11/games_tiny_bridge.cc
   pybind11/games_tiny_bridge.h
   pybind11/games_trade_comm.cc
@@ -180,6 +186,7 @@ set(PYTHON_TESTS ${PYTHON_TESTS}
   ../integration_tests/playthrough_test.py
   algorithms/action_value_test.py
   algorithms/action_value_vs_best_response_test.py
+  algorithms/async_mcts_test.py
   algorithms/best_response_test.py
   algorithms/boltzmann_tabular_qlearner_test.py
   algorithms/cfr_br_test.py
@@ -239,11 +246,14 @@ set(PYTHON_TESTS ${PYTHON_TESTS}
   tests/mfg_implementation_test/mfg_test.py
   tests/bot_test.py
   tests/game_transforms_test.py
+  tests/games_blackjack_test.py
   tests/games_bridge_test.py
+  tests/games_bargaining_test.py
   tests/games_chess_test.py
   tests/games_euchre_test.py
   tests/games_gin_rummy_test.py
   tests/games_sim_test.py
+  tests/games_tic_tac_toe_test.py
   tests/policy_test.py
   tests/pyspiel_test.py
   tests/rl_environment_test.py
@@ -260,6 +270,7 @@ set(PYTHON_TESTS ${PYTHON_TESTS}
   voting/plurality_test.py
   voting/ranked_pairs_test.py
   voting/schulze_test.py
+  voting/soft_condorcet_optimization_test.py
   voting/stv_test.py
 )
 
@@ -271,7 +282,6 @@ if (OPEN_SPIEL_ENABLE_JAX)
     jax/nfsp_jax_test.py
     jax/opponent_shaping_jax_test.py
     jax/policy_gradient_jax_test.py
-    algorithms/rnad/rnad_test.py
     coalitional_games/least_core_lagrangian_test.py
     mfg/algorithms/fictitious_play_test.py
   )

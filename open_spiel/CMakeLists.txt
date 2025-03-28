@@ -107,8 +107,6 @@ endmacro()
 # List of all optional dependencies:
 openspiel_optional_dependency(OPEN_SPIEL_BUILD_WITH_ACPC           OFF
   "Build against the Universal Poker library.")
-openspiel_optional_dependency(OPEN_SPIEL_BUILD_WITH_GO             OFF
-  "Build with support for Golang API.")
 openspiel_optional_dependency(OPEN_SPIEL_BUILD_WITH_HANABI         OFF
   "Build against the Hanabi game.")
 openspiel_optional_dependency(OPEN_SPIEL_BUILD_WITH_JULIA          OFF
@@ -127,8 +125,6 @@ openspiel_optional_dependency(OPEN_SPIEL_BUILD_WITH_GAMUT          OFF
   "Build with GAMUT generator integration.")
 openspiel_optional_dependency(OPEN_SPIEL_BUILD_WITH_ORTOOLS        OFF
   "Build with C++ optimization library OR-Tools.")
-openspiel_optional_dependency(OPEN_SPIEL_BUILD_WITH_RUST           OFF
-  "Build with support for Rust API.")
 
 if (WIN32)
   openspiel_optional_dependency(OPEN_SPIEL_ENABLE_JAX              OFF
@@ -218,6 +214,7 @@ set (OPEN_SPIEL_OBJECTS
   $<TARGET_OBJECTS:game_transforms>
   $<TARGET_OBJECTS:bridge_double_dummy_solver>
   $<TARGET_OBJECTS:algorithms>
+  $<TARGET_OBJECTS:evaluation>
   $<TARGET_OBJECTS:utils>
   $<TARGET_OBJECTS:tests>
 )
@@ -276,21 +273,10 @@ include_directories(..)
 
 add_subdirectory (algorithms)
 add_subdirectory (bots)
+add_subdirectory (evaluation)
 add_subdirectory (examples)
 add_subdirectory (games)
 add_subdirectory (game_transforms)
-
-if (OPEN_SPIEL_BUILD_WITH_GO)
-  message(WARNING
-    "GO API is disabled for now due to failing tests.\n"
-    "See https://github.com/google-deepmind/open_spiel/issues/1301."
-  )
-  # add_subdirectory(go)
-endif()
-
-if (OPEN_SPIEL_BUILD_WITH_RUST)
-  add_subdirectory(rust)
-endif()
 
 if (OPEN_SPIEL_BUILD_WITH_PYTHON)
   add_subdirectory (python)
