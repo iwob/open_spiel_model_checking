@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from lark import Lark, Transformer, v_args
-from stv_specification import StvSpecification, AgentLocalModelSpec, Transition, State
+from .stv_specification import StvSpecification, AgentLocalModelSpec, Transition, State
 
 
 #Some links:
@@ -12,6 +12,8 @@ class ExprNode:
     def __init__(self, name, args):
         self.name = name
         self.args = args
+        self.is_constant = False
+        self.is_variable = False
 
     def __str__(self):
         return f"{self.name}({', '.join([str(a) for a in self.args])})"
@@ -20,8 +22,20 @@ class ExprNode:
         return str(self)
 
 
+class ConstantNode(ExprNode):
+    def __init__(self, value):
+        super().__init__(value, [])
+        self.is_constant = True
+
+
+class VariableNode(ExprNode):
+    def __init__(self, value):
+        super().__init__(value, [])
+        self.is_variable = True
+
+
 class ModalExprNode:
-    def __init__(self, modal_op, coalition, formula):
+    def __init__(self, modal_op, coalition, formula: ExprNode):
         self.modal_op = modal_op
         self.coalition = coalition
         self.formula = formula

@@ -3,6 +3,7 @@ import numpy as np
 
 from open_spiel.python.observation import IIGObserverForPublicInfoGame
 import pyspiel
+from stv.parsers.parser_stv_v2 import ExprNode, ModalExprNode
 from stv.parsers.stv_specification import *
 
 
@@ -31,8 +32,9 @@ _GAME_TYPE = pyspiel.GameType(
 class AtlModelGame(pyspiel.Game):
     """A Python version of the Tic-Tac-Toe game."""
 
-    def __init__(self, spec: StvSpecification, params=None, silent=True):
+    def __init__(self, spec: StvSpecification, formula, params=None, silent=True):
         self.spec = spec
+        self.formula = formula
         self.silent = silent
         self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(spec)
         self.possible_actions = self.get_possible_actions(spec, self.agent_actions)
@@ -79,10 +81,11 @@ class AtlModelGame(pyspiel.Game):
     def new_initial_state(self):
         """Returns a state corresponding to the start of a game."""
         return AtlModelState(game=self,
+                             spec=self.spec,
+                             formula=self.formula,
                              agent_actions=self.agent_actions,
                              action_name_to_id_dict=self.action_name_to_id_dict,
                              possible_actions=self.possible_actions,
-                             spec=self.spec,
                              silent=self.silent)
 
     def make_py_observer(self, iig_obs_type=None, params=None):
@@ -172,7 +175,7 @@ class AgentLocalState:
 class AtlModelState(pyspiel.State):
     """A state of the planning game. It is modified in place after each action."""
 
-    def __init__(self, game: AtlModelGame, spec: StvSpecification, agent_actions=None, action_name_to_id_dict=None,
+    def __init__(self, game: AtlModelGame, spec: StvSpecification, formula: ExprNode, agent_actions=None, action_name_to_id_dict=None,
                  possible_actions=None, seed=None, silent=True):
         """Constructor; should only be called by Game.new_initial_state."""
         super().__init__(game)
@@ -195,6 +198,7 @@ class AtlModelState(pyspiel.State):
 
         self.game = game
         self.spec = spec
+        self.formula = formula
         self.agent_local_states = [AgentLocalState(a) for a in self.spec.agents]
 
     def get_player_name(self, player_index):
@@ -256,8 +260,8 @@ class AtlModelState(pyspiel.State):
     #         raise Exception("Trying to execute an action after terminal state was reached!")
     #     raise Exception("Trying to execute a single action in a game with simultaneous moves!")
 
-    def _apply_actions(self, actions):
-        """Execute simultaneous actions."""
+
+    def _execute_agent_actions(self, actions):
         shared_transactions = []
         was_action_executed = False  # Can be used to detect deadlock
 
@@ -299,7 +303,7 @@ class AtlModelState(pyspiel.State):
             assert at.is_abstract
             for t in at.transition_set:
                 assert not t.is_abstract
-                shared_trans_support_dict.setdefault(t.name,  [])
+                shared_trans_support_dict.setdefault(t.name, [])
                 shared_trans_support_dict[t.name].append((p, t))
 
         # Check if they can be executed, and if yes then execute them.
@@ -323,8 +327,61 @@ class AtlModelState(pyspiel.State):
             self.execute_transition(p, t)
             was_action_executed = True
 
+        return was_action_executed
+
+    def _is_formula_satisfied_interpreter(self, formula, global_variables):
+        if isinstance(formula, ModalExprNode):
+            if formula.modal_op != "<>":
+                raise Exception("Currently only <> modal operator is supported!")
+            self._is_formula_satisfied()
+        elif len(formula.args) == 0:
+            if formula.is_variable:
+                return global_variables[formula.name]
+            else:
+                return formula.name
+        elif len(formula.args) == 1:
+            X = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
+            if formula.name == "!":
+                return not X
+            else:
+                raise Exception("Incorrect expression node!")
+        elif len(formula.args) == 2:
+            R = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
+            L = self._is_formula_satisfied_interpreter(formula.args[1], global_variables)
+            if formula.name == "==":
+                return R == L
+            elif formula.name == ">=":
+                return R >= L
+            elif formula.name == "<=":
+                return R <= L
+            elif formula.name == "&&":
+                return R and L
+            elif formula.name == "||":
+                return R or L
+            else:
+                raise Exception("Incorrect expression node!")
+        else:
+            raise Exception("Incorrect expression node!")
+
+
+
+
+    def _is_formula_satisfied(self):
+        global_variables = {}
+        for a in self.agent_local_states:
+            for k, v in a.persistent_variables.items():
+                global_variables[k] = v
+        return self._is_formula_satisfied_interpreter(self.formula, global_variables)
+
+
+    def _apply_actions(self, actions):
+        """Execute simultaneous actions."""
+        was_action_executed = self._execute_agent_actions(actions)
+
+        is_formula_satisfied
+
         # Detect deadlock
-        # TODO: Looping final transitions will need to be also somehow handled here
+        # TODO: Looping final transitions will need to be also somehow handled here; currently not handled
         if not was_action_executed:
             print("DEADLOCK")
             # self._is_terminal = True
