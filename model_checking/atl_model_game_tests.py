@@ -99,6 +99,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
         self.assertFalse(state.is_formula_satisfied(formula_1))
         self.assertFalse(state.is_formula_satisfied(formula_2))
+        self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
+        self.assertEqual(state.returns(), [0.0, 0.0, 0.0])
         state.apply_actions([0, 5, 7])  # synchronization on play_0_rock
         self.assertEqual(state.agent_local_states[0].current_node, "finish")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
@@ -111,6 +113,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.legal_actions(0), [3])
         self.assertEqual(state.legal_actions(1), [6])
         self.assertEqual(state.legal_actions(2), [8])
+        self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
+        self.assertEqual(state.returns(), [0.0, 0.0, 0.0])
         state.apply_actions([3, 6, 8])
         self.assertEqual(state.agent_local_states[0].current_node, "finish")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
@@ -118,6 +122,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 1)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 1)
+        self.assertEqual(state.rewards(), [1.0, -1.0, -1.0])
+        self.assertTrue(state.is_terminal())
         self.assertTrue(state.is_formula_satisfied(formula_1))
         self.assertFalse(state.is_formula_satisfied(formula_2))
 
@@ -151,6 +157,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
+        self.assertFalse(state.is_terminal())
+        self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])  # because the end of the game was not detected
 
 
     def test_synchronization_2(self):

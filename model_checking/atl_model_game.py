@@ -18,7 +18,7 @@ _GAME_TYPE = pyspiel.GameType(
     chance_mode=pyspiel.GameType.ChanceMode.DETERMINISTIC,
     information=pyspiel.GameType.Information.IMPERFECT_INFORMATION,
     utility=pyspiel.GameType.Utility.ZERO_SUM,
-    reward_model=pyspiel.GameType.RewardModel.REWARDS,  # TERMINAL
+    reward_model=pyspiel.GameType.RewardModel.TERMINAL,  # REWARDS | TERMINAL
     max_num_players=1000,
     min_num_players=1,
     provides_information_state_string=True,
@@ -32,7 +32,7 @@ _GAME_TYPE = pyspiel.GameType(
 class AtlModelGame(pyspiel.Game):
     """A Python version of the Tic-Tac-Toe game."""
 
-    def __init__(self, spec: StvSpecification, formula, params=None, silent=True):
+    def __init__(self, spec: StvSpecification, formula: ModalExprNode, params=None, silent=True):
         self.spec = spec
         self.formula = formula
         self.silent = silent
@@ -175,7 +175,7 @@ class AgentLocalState:
 class AtlModelState(pyspiel.State):
     """A state of the planning game. It is modified in place after each action."""
 
-    def __init__(self, game: AtlModelGame, spec: StvSpecification, formula: ExprNode, agent_actions=None, action_name_to_id_dict=None,
+    def __init__(self, game: AtlModelGame, spec: StvSpecification, formula: ModalExprNode, agent_actions=None, action_name_to_id_dict=None,
                  possible_actions=None, seed=None, silent=True):
         """Constructor; should only be called by Game.new_initial_state."""
         super().__init__(game)
@@ -403,7 +403,21 @@ class AtlModelState(pyspiel.State):
 
     def returns(self):
         """Total reward for each player over the course of the game so far."""
-        return self.player_rewards
+        return self.rewards()
+
+    def rewards(self):
+        """Total reward for each player over the course of the game so far."""
+        if not self._is_terminal:
+            return [0.0 for _ in self.agent_local_states]
+        else:
+            if self.formula.modal_op == "[]":
+                raise Exception("[] modal operator is not currently handled!")
+            else:
+                if self.is_formula_satisfied():
+                    # Coalition won
+                    return [1.0 if a.name in self.formula.coalition else -1.0 for a in self.agent_local_states]
+                else:
+                    return [-1.0 if a.name in self.formula.coalition else 1.0 for a in self.agent_local_states]
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""
