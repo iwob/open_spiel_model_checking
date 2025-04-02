@@ -120,6 +120,13 @@ class AgentLocalModelSpec:
             s.add(t.q1)
         return s
 
+    def state_names(self) -> set[str]:
+        s = set()
+        for t in self.transitions:
+            s.add(t.q0.name)
+            s.add(t.q1.name)
+        return s
+
     def nonterminal_states(self) -> set[State]:
         s = set()
         for t in self.transitions:

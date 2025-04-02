@@ -46,6 +46,9 @@ class AtlModelGame(pyspiel.Game):
             max_utility=1.0,
             utility_sum=0.0,
             max_game_length=100000)
+        # Persistent variables and states in the observation vector will be in the alphabetical order
+        self.persistent_variables_ordered = {a.name: sorted(a.local_variables_init_values.keys()) for a in spec.agents}
+        self.nodes_ordered = {a.name: sorted(a.state_names()) for a in spec.agents}
         super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
 
     @staticmethod
@@ -92,6 +95,7 @@ class AtlModelGame(pyspiel.Game):
         """Returns an object used for observing game state."""
         if ((iig_obs_type is None) or
                 (iig_obs_type.public_info and not iig_obs_type.perfect_recall)):
+            params["game"] = self
             params["positive_literals"] = self.positive_literals
             params["initial_state"] = self.problem.initial_state
             return AtlModelStateObserver(params)
@@ -107,6 +111,7 @@ class AgentLocalState:
         self.name = agent_spec.name
         self.current_node = agent_spec.init_state
         self.persistent_variables = agent_spec.local_variables_init_values.copy()
+
         # TODO: local non-persistent variables are currently not handled
 
     def execute_action(self, name):
@@ -426,14 +431,26 @@ class AtlModelState(pyspiel.State):
 
 
 class AtlModelStateObserver:
-    """Observer, conforming to the PyObserver interface (see observation.py)."""
+    """Observer, conforming to the PyObserver interface (see observation.py).
+
+    Assumptions for the type of ATL models that we consider (asynchronous, imperfect information,
+    imperfect recall):
+    - Each agent has access only to the persistent values of its private variables and in which state it currently is.
+    - Tensor representing observations for the given agent is represented as: Q + P, where Q is the set of all names
+     of states, and P are the values of all persistent variables.
+    """
 
     def __init__(self, params):
         """Initializes an empty observation tensor."""
+        self.game = params.get("game")
         self.positive_literals = params.get("positive_literals", None)
         initial_state = params.get("initial_state", None)
         if self.positive_literals is None or initial_state is None:
             raise ValueError(f"Set of positive literals or initial state was not specified")
+
+        # Build the single flat tensor.
+        total_size = sum(size for name, size, shape in pieces)
+        self.tensor = np.zeros(total_size, np.float32)
 
         # The observation should contain a 1-D tensor in `self.tensor` and a
         # dictionary of views onto the tensor, which may be of any shape.
@@ -446,24 +463,15 @@ class AtlModelStateObserver:
 
     def set_from(self, state, player):
         """Updates `tensor` and `dict` to reflect `state` from PoV of `player`."""
-        # del player
-        # We update the observation via the shaped tensor since indexing is more
-        # convenient than with the 1-D tensor. Both are views onto the same memory.
+        self.tensor.fill(0)
         self.tensor = np.zeros(len(self.positive_literals), np.float32)
         for i, lit in enumerate(self.positive_literals):
             if lit in state.state.predicates:
                 self.tensor[i] = 1.0
         self.dict = {"observation": self.tensor}
-        # obs = self.dict["observation"]
-        # obs.fill(0)
-        # for row in range(_NUM_ROWS):
-        #     for col in range(_NUM_COLS):
-        #         cell_state = ".ox".index(state.board[row, col])
-        #         obs[cell_state, row, col] = 1
 
     def string_from(self, state, player):
         """Observation of `state` from the PoV of `player`, as a string."""
-        # del player
         return str(state)
 
 
