@@ -1,7 +1,11 @@
 import sys
 from pathlib import Path
 from lark import Lark, Transformer, v_args
+from lark.visitors import merge_transformers
 from .stv_specification import StvSpecification, AgentLocalModelSpec, Transition, State
+
+_stv2_parser_lark_spec = (Path(__file__).parent / "grammar_stv_v2.lark").open().read()
+_formula_parser_lark_spec = (Path(__file__).parent / "formula.lark").open().read()
 
 
 #Some links:
@@ -27,11 +31,17 @@ class ConstantNode(ExprNode):
         super().__init__(value, [])
         self.is_constant = True
 
+    def __str__(self):
+        return str(self.name)
+
 
 class VariableNode(ExprNode):
     def __init__(self, value):
         super().__init__(value, [])
         self.is_variable = True
+
+    def __str__(self):
+        return self.name
 
 
 class ModalExprNode:
@@ -39,6 +49,47 @@ class ModalExprNode:
         self.modal_op = modal_op
         self.coalition = coalition
         self.formula = formula
+
+    def __str__(self):
+        return f"<<{', '.join(self.coalition)}>>{self.modal_op}({self.formula})"
+
+
+
+class FormulaTransformer(Transformer):
+    def __init__(self, silent=True):
+        super().__init__()
+        self.silent = silent
+
+    def start(self, args):
+        return args[0]
+
+    def formula_expr(self, args):
+        if len(args) == 2:
+            return ExprNode("!", [args[1]])
+        elif len(args) == 3:
+            if str(args[0]) == "(":
+                return args[1]
+            op = str(args[1])
+            if op in {"&&", "||"}:
+                return ExprNode(op, [args[0], args[2]])
+            else:
+                return ExprNode(op, [args[0], args[2]])
+        else:
+            # "<<" formula_agent_list ">>" "[]" "(" formula_expr ")"
+            coalition = args[1]
+            op = str(args[3])
+            formula = args[5]
+            return ModalExprNode(op, coalition, formula)
+
+    def constant(self, args):
+        return ConstantNode(int(args[0]))
+
+    def variable(self, args):
+        return VariableNode(str(args[0]))
+
+    def formula_agent_list(self, args):
+        return [str(a) for a in args]
+
 
 
 class Stv2Transformer(Transformer):
@@ -65,27 +116,6 @@ class Stv2Transformer(Transformer):
 
     def decl_formula(self, args):
         return "FORMULA:", args[0]
-
-    def formula_agent_list(self, args):
-        return [str(a) for a in args]
-
-    def formula_expr(self, args):
-        if len(args) == 2:
-            return ExprNode("!", [args[1]])
-        elif len(args) == 3:
-            if str(args[0]) == "(":
-                return args[1]
-            op = str(args[1])
-            if op in {"&&", "||"}:
-                return ExprNode(op, [args[0], args[2]])
-            else:
-                return ExprNode(op, [str(args[0]), str(args[2])])
-        else:
-            # "<<" formula_agent_list ">>" "[]" "(" formula_expr ")"
-            coalition = args[1]
-            op = str(args[3])
-            formula = args[5]
-            return ModalExprNode(op, coalition, formula)
 
     def agent(self, args):
         name, num = args[0]
@@ -178,10 +208,15 @@ class Stv2Transformer(Transformer):
 
 
 def getParser():
-    with open("grammar_stv_v2.lark") as f:
-        grammar = f.read()
-    return Lark(grammar, start='start')  #, parser='lalr'
+    return Lark(_stv2_parser_lark_spec, start='start')  #, parser='lalr'
 
+def getFormulaParser():
+    return Lark(_formula_parser_lark_spec, start='start')
+
+def parseAndTransformFormula(formula: str):
+    parser = getFormulaParser()
+    transformer = FormulaTransformer(silent=True)
+    return transformer.transform(parser.parse(formula))
 
 def do_test_parser():
     parser = getParser()
@@ -190,17 +225,18 @@ def do_test_parser():
     tree = parser.parse(text)
     print("TEST2:\n", tree.pretty())
 
-_stv2_parser_lark = (Path(__file__).parent / "grammar_stv_v2.lark").open().read()
-
 
 class Stv2Parser:
     """PDDL domain parser class."""
 
     def __init__(self, silent=True):
         """Initialize."""
-        self._transformer = Stv2Transformer(silent=silent)
+        # About merging transformers:
+        # - https://github.com/lark-parser/lark/blob/master/examples/composition/storage.lark
+        # - https://lark-parser.readthedocs.io/en/latest/examples/composition/main.html#sphx-glr-examples-composition-main-py
+        self._transformer = merge_transformers(Stv2Transformer(silent=silent), formula=FormulaTransformer(silent=silent))
         self._parser = Lark(
-            _stv2_parser_lark, parser="earley", import_paths=[]
+            _stv2_parser_lark_spec, parser="earley", import_paths=[str(Path(__file__).parent)]
         )  # earley supports rule priority, lalr supports terminal priority
 
     def __call__(self, text):

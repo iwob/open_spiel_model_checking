@@ -329,11 +329,12 @@ class AtlModelState(pyspiel.State):
 
         return was_action_executed
 
+
     def _is_formula_satisfied_interpreter(self, formula, global_variables):
         if isinstance(formula, ModalExprNode):
             if formula.modal_op != "<>":
                 raise Exception("Currently only <> modal operator is supported!")
-            self._is_formula_satisfied()
+            return self._is_formula_satisfied_interpreter(formula.formula, global_variables)
         elif len(formula.args) == 0:
             if formula.is_variable:
                 return global_variables[formula.name]
@@ -346,14 +347,14 @@ class AtlModelState(pyspiel.State):
             else:
                 raise Exception("Incorrect expression node!")
         elif len(formula.args) == 2:
-            R = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
-            L = self._is_formula_satisfied_interpreter(formula.args[1], global_variables)
+            L = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
+            R = self._is_formula_satisfied_interpreter(formula.args[1], global_variables)
             if formula.name == "==":
-                return R == L
+                return L == R
             elif formula.name == ">=":
-                return R >= L
+                return L >= R
             elif formula.name == "<=":
-                return R <= L
+                return L <= R
             elif formula.name == "&&":
                 return R and L
             elif formula.name == "||":
@@ -364,21 +365,22 @@ class AtlModelState(pyspiel.State):
             raise Exception("Incorrect expression node!")
 
 
-
-
-    def _is_formula_satisfied(self):
+    def is_formula_satisfied(self, formula=None):
+        if formula is None:
+            formula = self.formula
         global_variables = {}
         for a in self.agent_local_states:
             for k, v in a.persistent_variables.items():
                 global_variables[k] = v
-        return self._is_formula_satisfied_interpreter(self.formula, global_variables)
+        return self._is_formula_satisfied_interpreter(formula, global_variables)
 
 
     def _apply_actions(self, actions):
         """Execute simultaneous actions."""
         was_action_executed = self._execute_agent_actions(actions)
 
-        is_formula_satisfied
+        if self.is_formula_satisfied():
+            self._is_terminal = True
 
         # Detect deadlock
         # TODO: Looping final transitions will need to be also somehow handled here; currently not handled

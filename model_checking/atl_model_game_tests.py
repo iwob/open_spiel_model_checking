@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 from pathlib import Path
 import pyspiel
-from stv.parsers.parser_stv_v2 import Stv2Parser
+from stv.parsers.parser_stv_v2 import Stv2Parser, parseAndTransformFormula
 from atl_model_game import AtlModelGame
 
 
@@ -55,13 +55,13 @@ class TestAtlModel(unittest.TestCase):
         with file.open() as f:
             text = f.read()
         stv_spec, formula = parser(text)
-        self.game_simple = AtlModelGame(stv_spec)
+        self.game_simple = AtlModelGame(stv_spec, formula)
 
         file = Path(__file__).parent / "example_specifications" / "simple" / "simple2.stv"
         with file.open() as f:
             text = f.read()
         stv_spec, formula = parser(text)
-        self.game_simple_2 = AtlModelGame(stv_spec)
+        self.game_simple_2 = AtlModelGame(stv_spec, formula)
 
 
     def test_model_properties(self):
@@ -82,6 +82,10 @@ class TestAtlModel(unittest.TestCase):
 
 
     def test_synchronization_0(self):
+        formula_1 = parseAndTransformFormula("<<Player0,Player1>><>( (finished == 1) )")
+        formula_2 = parseAndTransformFormula("<<Player0,Player1>><>( (finished == 1) && (move_1 == 1))")
+        self.assertIsNotNone(formula_1)
+        self.assertIsNotNone(formula_2)
         state = self.game_simple.new_initial_state()
         self.assertEqual(state.current_player(), pyspiel.PlayerId.SIMULTANEOUS)
         self.assertEqual(state.legal_actions(0), [0, 1, 2])
@@ -93,6 +97,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
+        self.assertFalse(state.is_formula_satisfied(formula_1))
+        self.assertFalse(state.is_formula_satisfied(formula_2))
         state.apply_actions([0, 5, 7])  # synchronization on play_0_rock
         self.assertEqual(state.agent_local_states[0].current_node, "finish")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
@@ -100,6 +106,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 1)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
+        self.assertFalse(state.is_formula_satisfied(formula_1))
+        self.assertFalse(state.is_formula_satisfied(formula_2))
         self.assertEqual(state.legal_actions(0), [3])
         self.assertEqual(state.legal_actions(1), [6])
         self.assertEqual(state.legal_actions(2), [8])
@@ -110,6 +118,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 1)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 1)
+        self.assertTrue(state.is_formula_satisfied(formula_1))
+        self.assertFalse(state.is_formula_satisfied(formula_2))
 
 
     def test_synchronization_1(self):

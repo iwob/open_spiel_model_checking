@@ -1,0 +1,30 @@
+%import common.CNAME   -> CNAME
+%import common.SIGNED_NUMBER    -> NUMBER
+%import common.WS
+%ignore WS
+COMMENT: "#" /[^\n]*/ "\n"
+%ignore COMMENT
+
+// Examples:
+// <<Player0>><>( (finished == 1) )
+// <<Player1>><>( (finished == 1) && (player1win == 1))
+start: formula_expr
+
+!formula_expr: "<<" formula_agent_list ">>" "[]" "(" formula_expr ")"
+             | "<<" formula_agent_list ">>" "<>" "(" formula_expr ")"
+             | formula_expr "&&" formula_expr
+             | formula_expr "||" formula_expr
+             | "(" formula_expr ")"
+             | "!" formula_expr
+             | (variable|constant) "==" (variable|constant)
+             | (variable|constant) "==" (variable|constant)
+             | (variable|constant) ">=" (variable|constant)
+             | (variable|constant) "<=" (variable|constant)
+             | (variable|constant) ">" (variable|constant)
+             | (variable|constant) "<" (variable|constant)
+
+constant: NUMBER
+variable: CNAME
+
+formula_agent_list: CNAME "," CNAME
+                  | CNAME
