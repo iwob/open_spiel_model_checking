@@ -12,9 +12,9 @@ _NUM_ROWS = 3
 _NUM_COLS = 3
 _NUM_CELLS = _NUM_ROWS * _NUM_COLS
 _GAME_TYPE = pyspiel.GameType(
-    short_name="planning_game",
-    long_name="planning_game",
-    dynamics=pyspiel.GameType.Dynamics.SIMULTANEOUS,
+    short_name="atl_model",
+    long_name="atl_model",
+    dynamics=pyspiel.GameType.Dynamics.SIMULTANEOUS,  # SEQUENTIAL
     chance_mode=pyspiel.GameType.ChanceMode.DETERMINISTIC,
     information=pyspiel.GameType.Information.IMPERFECT_INFORMATION,
     utility=pyspiel.GameType.Utility.ZERO_SUM,
@@ -33,11 +33,13 @@ class AtlModelGame(pyspiel.Game):
     """A Python version of the Tic-Tac-Toe game."""
 
     def __init__(self, spec: StvSpecification, formula: ModalExprNode, params=None, silent=True):
+        # self.spec = params["spec"]
+        # self.formula = params["formula"]
         self.spec = spec
         self.formula = formula
         self.silent = silent
-        self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(spec)
-        self.possible_actions = self.get_possible_actions(spec, self.agent_actions)
+        self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(self.spec)
+        self.possible_actions = self.get_possible_actions(self.spec, self.agent_actions)
         self._GAME_INFO = pyspiel.GameInfo(
             num_distinct_actions=len(self.possible_actions),
             max_chance_outcomes=0,
@@ -47,9 +49,9 @@ class AtlModelGame(pyspiel.Game):
             utility_sum=0.0,
             max_game_length=100000)
         # Persistent variables and states in the observation vector will be in the alphabetical order
-        self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.local_variables_init_values.keys()) for a in spec.agents}
+        self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.local_variables_init_values.keys()) for a in self.spec.agents}
         self.persistent_variables_index_per_player = {k: {n: i for i, n in enumerate(sorted_vars)} for k, sorted_vars in self.persistent_variables_ordered.items()}
-        self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in spec.agents}
+        self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in self.spec.agents}
         self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
         super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
 
@@ -63,6 +65,14 @@ class AtlModelGame(pyspiel.Game):
             if a.name == player_name:
                 return i
         raise Exception(f"Player '{player_name}' was not found.")
+
+    @staticmethod
+    def from_spec(spec: StvSpecification, formula: ModalExprNode, params=None, silent=True):
+        if params is None:
+            params = {}
+        params["spec"] = spec
+        params["formula"] = formula
+        return AtlModelGame(params, silent=silent)
 
     @staticmethod
     def get_agent_actions_dict(spec):
@@ -495,5 +505,4 @@ class AtlModelStateObserver:
 
 
 # Register the game with the OpenSpiel library
-
-# pyspiel.register_game(_GAME_TYPE, PlanningGameGame) # is registering needed?
+# pyspiel.register_game(_GAME_TYPE, AtlModelGame) # is registering needed?

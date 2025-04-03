@@ -13,7 +13,7 @@ def simple_run_test(self):
     with file.open() as f:
         text = f.read()
     stv_spec, formula = parser(text)
-    game = AtlModelGame(stv_spec)
+    game = AtlModelGame(stv_spec, formula)
 
     state = game.new_initial_state()
     print(str(state) + '\n')
