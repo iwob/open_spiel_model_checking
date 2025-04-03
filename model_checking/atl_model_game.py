@@ -23,7 +23,7 @@ _GAME_TYPE = pyspiel.GameType(
     min_num_players=1,
     provides_information_state_string=True,
     provides_information_state_tensor=False,
-    provides_observation_string=True,
+    provides_observation_string=False,
     provides_observation_tensor=True,
     parameter_specification={})
 
@@ -47,9 +47,22 @@ class AtlModelGame(pyspiel.Game):
             utility_sum=0.0,
             max_game_length=100000)
         # Persistent variables and states in the observation vector will be in the alphabetical order
-        self.persistent_variables_ordered = {a.name: sorted(a.local_variables_init_values.keys()) for a in spec.agents}
-        self.nodes_ordered = {a.name: sorted(a.state_names()) for a in spec.agents}
+        self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.local_variables_init_values.keys()) for a in spec.agents}
+        self.persistent_variables_index_per_player = {k: {n: i for i, n in enumerate(sorted_vars)} for k, sorted_vars in self.persistent_variables_ordered.items()}
+        self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in spec.agents}
+        self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
         super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
+
+    def get_player_name(self, player_index):
+        """Converts a player's number ID in Open Spiel to an identifier used for actions."""
+        return self.spec.agents[player_index].name
+
+    def get_player_index(self, player_name):
+        """Converts a player's name to a number ID used in Open Spiel."""
+        for i, a in enumerate(self.spec.agents):
+            if a.name == player_name:
+                return i
+        raise Exception(f"Player '{player_name}' was not found.")
 
     @staticmethod
     def get_agent_actions_dict(spec):
@@ -95,9 +108,9 @@ class AtlModelGame(pyspiel.Game):
         """Returns an object used for observing game state."""
         if ((iig_obs_type is None) or
                 (iig_obs_type.public_info and not iig_obs_type.perfect_recall)):
+            if params is None:
+                params = {}
             params["game"] = self
-            params["positive_literals"] = self.positive_literals
-            params["initial_state"] = self.problem.initial_state
             return AtlModelStateObserver(params)
         else:
             return IIGObserverForPublicInfoGame(iig_obs_type, params)
@@ -109,7 +122,7 @@ class AgentLocalState:
     def __init__(self, agent_spec: AgentLocalModelSpec):
         self.agent_spec = agent_spec
         self.name = agent_spec.name
-        self.current_node = agent_spec.init_state
+        self.current_node: str = agent_spec.init_state
         self.persistent_variables = agent_spec.local_variables_init_values.copy()
 
         # TODO: local non-persistent variables are currently not handled
@@ -206,17 +219,6 @@ class AtlModelState(pyspiel.State):
         self.formula = formula
         self.agent_local_states = [AgentLocalState(a) for a in self.spec.agents]
 
-    def get_player_name(self, player_index):
-        """Converts a player's number ID in Open Spiel to an identifier used for actions."""
-        return self.spec.agents[player_index].name
-
-    def get_player_index(self, player_name):
-        """Converts a player's name to a number ID used in Open Spiel."""
-        for i, a in enumerate(self.spec.agents):
-            if a.name == player_name:
-                return i
-        raise Exception(f"Player '{player_name}' was not found.")
-
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
     # should be implemented by every perfect-information sequential-move game.
 
@@ -251,7 +253,7 @@ class AtlModelState(pyspiel.State):
         """Returns a list of legal actions, sorted in ascending order. In simultaneous games
          possible actions for each player are generated using function."""
         assert player >= 0
-        player_name = self.get_player_name(player)
+        player_name = self.game.get_player_name(player)
         actions = []
         for t in self.agent_local_states[player].get_available_transitions():
             t_name = t.local_name if t.is_shared else t.name
@@ -442,33 +444,47 @@ class AtlModelStateObserver:
 
     def __init__(self, params):
         """Initializes an empty observation tensor."""
-        self.game = params.get("game")
-        self.positive_literals = params.get("positive_literals", None)
-        initial_state = params.get("initial_state", None)
-        if self.positive_literals is None or initial_state is None:
-            raise ValueError(f"Set of positive literals or initial state was not specified")
+        self.game: AtlModelGame = params.get("game")
+        self.persistent_variables_index_per_player = self.game.persistent_variables_index_per_player
+        self.nodes_index_per_player = self.game.nodes_index_per_player
 
-        # Build the single flat tensor.
-        total_size = sum(size for name, size, shape in pieces)
-        self.tensor = np.zeros(total_size, np.float32)
+        # Build the single flat tensor, as suggested in a github issue (https://github.com/google-deepmind/open_spiel/issues/815):
+        # "For different observations / infostates the common way is to make it a constant size equal to the maximum
+        # across players and then just store different information in them (see the Sheriff game as an example)."
+        max_total_size = None
+        for k in self.game.persistent_variables_ordered:
+            Q = self._get_num_nodes(k)
+            P = self._get_num_variables(k)
+            total_size = Q + P
+            if max_total_size is None or total_size > max_total_size:
+                max_total_size = total_size
+        self.tensor = np.zeros(max_total_size, np.float32)
 
         # The observation should contain a 1-D tensor in `self.tensor` and a
         # dictionary of views onto the tensor, which may be of any shape.
         # Here the observation is indexed `(cell state, row, column)`.
-        self.tensor = np.zeros(len(self.positive_literals), np.float32)
-        for i, lit in enumerate(self.positive_literals):
-            if lit in initial_state.predicates:
-                self.tensor[i] = 1.0
         self.dict = {"observation": self.tensor}
+        # self.dict["nodes"] = self.tensor[0:1]  # dummy value, we don't know agent
+        # self.dict["variables"] = self.tensor[0:1]  # dummy value, we don't know agent
+
+    def _get_num_nodes(self, player):
+        return len(self.game.nodes_ordered[player])
+
+    def _get_num_variables(self, player):
+        return len(self.game.persistent_variables_ordered[player])
 
     def set_from(self, state, player):
         """Updates `tensor` and `dict` to reflect `state` from PoV of `player`."""
         self.tensor.fill(0)
-        self.tensor = np.zeros(len(self.positive_literals), np.float32)
-        for i, lit in enumerate(self.positive_literals):
-            if lit in state.state.predicates:
-                self.tensor[i] = 1.0
-        self.dict = {"observation": self.tensor}
+        Q = self._get_num_nodes(player)
+        P = self._get_num_variables(player)
+        self.dict["nodes"] = self.tensor[0:Q]
+        self.dict["variables"] = self.tensor[Q:Q+P]
+
+        node_index = self.nodes_index_per_player[player][state.agent_local_states[player].current_node]
+        self.dict["nodes"][node_index] = 1.0
+        for var_name, i in self.persistent_variables_index_per_player[player].items():
+            self.dict["variables"][i] = state.agent_local_states[player].persistent_variables[var_name]
 
     def string_from(self, state, player):
         """Observation of `state` from the PoV of `player`, as a string."""

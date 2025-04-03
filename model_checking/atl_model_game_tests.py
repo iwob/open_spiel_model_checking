@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from pathlib import Path
 import pyspiel
+from open_spiel.python.observation import make_observation
 from stv.parsers.parser_stv_v2 import Stv2Parser, parseAndTransformFormula
 from atl_model_game import AtlModelGame
 
@@ -87,6 +88,22 @@ class TestAtlModel(unittest.TestCase):
         self.assertIsNotNone(formula_1)
         self.assertIsNotNone(formula_2)
         state = self.game_simple.new_initial_state()
+        observation = make_observation(self.game_simple)
+        observation.set_from(state, player=0)
+        np.testing.assert_array_equal(observation.tensor, [0, 1, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
+        self.assertEqual(set(observation.dict), {"nodes", "variables", "observation"})
+        np.testing.assert_array_equal(observation.dict["nodes"], [0, 1])
+        np.testing.assert_array_equal(observation.dict["variables"], [])
+        observation.set_from(state, player=1)
+        np.testing.assert_array_equal(observation.tensor, [0, 1, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
+        self.assertEqual(set(observation.dict), {"nodes", "variables", "observation"})
+        np.testing.assert_array_equal(observation.dict["nodes"], [0, 1])
+        np.testing.assert_array_equal(observation.dict["variables"], [])
+        observation.set_from(state, player=2)
+        np.testing.assert_array_equal(observation.tensor, [1, 0, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
+        self.assertEqual(set(observation.dict), {"nodes", "variables", "observation"})
+        np.testing.assert_array_equal(observation.dict["nodes"], [1, 0])
+        np.testing.assert_array_equal(observation.dict["variables"], [0, 0, 0])
         self.assertEqual(state.current_player(), pyspiel.PlayerId.SIMULTANEOUS)
         self.assertEqual(state.legal_actions(0), [0, 1, 2])
         self.assertEqual(state.legal_actions(1), [4, 5])
@@ -101,7 +118,21 @@ class TestAtlModel(unittest.TestCase):
         self.assertFalse(state.is_formula_satisfied(formula_2))
         self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
         self.assertEqual(state.returns(), [0.0, 0.0, 0.0])
+
         state.apply_actions([0, 5, 7])  # synchronization on play_0_rock
+
+        observation.set_from(state, player=0)
+        np.testing.assert_array_equal(observation.tensor, [1, 0, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
+        np.testing.assert_array_equal(observation.dict["nodes"], [1, 0])
+        np.testing.assert_array_equal(observation.dict["variables"], [])
+        observation.set_from(state, player=1)
+        np.testing.assert_array_equal(observation.tensor, [1, 0, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
+        np.testing.assert_array_equal(observation.dict["nodes"], [1, 0])
+        np.testing.assert_array_equal(observation.dict["variables"], [])
+        observation.set_from(state, player=2)
+        np.testing.assert_array_equal(observation.tensor, [0, 1, 0, 1, 0])  # filled up to length of 5 because of uniform observation vector size between agents
+        np.testing.assert_array_equal(observation.dict["nodes"], [0, 1])
+        np.testing.assert_array_equal(observation.dict["variables"], [0, 1, 0])
         self.assertEqual(state.agent_local_states[0].current_node, "finish")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
         self.assertEqual(state.agent_local_states[2].current_node, "counted")
@@ -115,7 +146,13 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.legal_actions(2), [8])
         self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
         self.assertEqual(state.returns(), [0.0, 0.0, 0.0])
+
         state.apply_actions([3, 6, 8])
+
+        observation.set_from(state, player=2)
+        np.testing.assert_array_equal(observation.tensor, [0, 1, 1, 1, 0])  # filled up to length of 5 because of uniform observation vector size between agents
+        np.testing.assert_array_equal(observation.dict["nodes"], [0, 1])
+        np.testing.assert_array_equal(observation.dict["variables"], [1, 1, 0])
         self.assertEqual(state.agent_local_states[0].current_node, "finish")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
         self.assertEqual(state.agent_local_states[2].current_node, "counted")
