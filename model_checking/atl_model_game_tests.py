@@ -56,13 +56,13 @@ class TestAtlModel(unittest.TestCase):
         with file.open() as f:
             text = f.read()
         stv_spec, formula = parser(text)
-        self.game_simple = AtlModelGame(stv_spec, formula)
+        self.game_simple = AtlModelGame.from_spec(stv_spec, formula)
 
         file = Path(__file__).parent / "example_specifications" / "simple" / "simple2.stv"
         with file.open() as f:
             text = f.read()
         stv_spec, formula = parser(text)
-        self.game_simple_2 = AtlModelGame(stv_spec, formula)
+        self.game_simple_2 = AtlModelGame.from_spec(stv_spec, formula)
 
 
     def test_model_properties(self):
@@ -194,7 +194,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
-        self.assertFalse(state.is_terminal())
+        self.assertTrue(state.is_terminal())  # game detected cycle
+        # TODO: now end of game is detected, fix
         self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])  # because the end of the game was not detected
 
 

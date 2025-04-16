@@ -6,7 +6,10 @@ import pyspiel
 from stv.parsers.parser_stv_v2 import ExprNode, ModalExprNode
 from stv.parsers.stv_specification import *
 
-
+_DEFAULT_PARAMS = {
+    "spec": None,
+    "formula": None
+}
 _NUM_PLAYERS = 2
 _NUM_ROWS = 3
 _NUM_COLS = 3
@@ -22,38 +25,40 @@ _GAME_TYPE = pyspiel.GameType(
     max_num_players=1000,
     min_num_players=1,
     provides_information_state_string=True,
-    provides_information_state_tensor=False,
+    provides_information_state_tensor=True,
     provides_observation_string=False,
-    provides_observation_tensor=True,
-    parameter_specification={})
+    provides_observation_tensor=False,
+    parameter_specification=_DEFAULT_PARAMS)
 
 
 
 class AtlModelGame(pyspiel.Game):
     """A Python version of the Tic-Tac-Toe game."""
 
-    def __init__(self, spec: StvSpecification, formula: ModalExprNode, params=None, silent=True):
-        # self.spec = params["spec"]
-        # self.formula = params["formula"]
-        self.spec = spec
-        self.formula = formula
+    def __init__(self, params, silent=True):
+        assert "spec" in params, "Model specification not provided to the Game constructor!"
+        assert "formula" in params, "Formula not provided to the Game constructor!"
+        self.spec = params["spec"]
+        self.formula = params["formula"]
+        # self.spec = spec
+        # self.formula = formula
         self.silent = silent
         self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(self.spec)
         self.possible_actions = self.get_possible_actions(self.spec, self.agent_actions)
         self._GAME_INFO = pyspiel.GameInfo(
             num_distinct_actions=len(self.possible_actions),
             max_chance_outcomes=0,
-            num_players=len(self.spec.agents) + 1,
+            num_players=len(self.spec.agents),  # potentially +1 because of environment
             min_utility=-1.0,
             max_utility=1.0,
             utility_sum=0.0,
-            max_game_length=100000)
+            max_game_length=100)
         # Persistent variables and states in the observation vector will be in the alphabetical order
         self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.local_variables_init_values.keys()) for a in self.spec.agents}
         self.persistent_variables_index_per_player = {k: {n: i for i, n in enumerate(sorted_vars)} for k, sorted_vars in self.persistent_variables_ordered.items()}
         self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in self.spec.agents}
         self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
-        super().__init__(_GAME_TYPE, self._GAME_INFO, params or dict())
+        super().__init__(_GAME_TYPE, self._GAME_INFO, {})
 
     def get_player_name(self, player_index):
         """Converts a player's number ID in Open Spiel to an identifier used for actions."""
@@ -65,6 +70,19 @@ class AtlModelGame(pyspiel.Game):
             if a.name == player_name:
                 return i
         raise Exception(f"Player '{player_name}' was not found.")
+
+    def num_players(self):
+        return self._GAME_INFO.num_players
+
+    def get_max_tensor_size(self):
+        max_total_size = None
+        for k in self.persistent_variables_ordered:
+            Q = len(self.nodes_ordered[k])
+            P = len(self.persistent_variables_ordered[k])
+            total_size = Q + P
+            if max_total_size is None or total_size > max_total_size:
+                max_total_size = total_size
+        return max_total_size
 
     @staticmethod
     def from_spec(spec: StvSpecification, formula: ModalExprNode, params=None, silent=True):
@@ -129,13 +147,29 @@ class AtlModelGame(pyspiel.Game):
 
 
 class AgentLocalState:
-    def __init__(self, agent_spec: AgentLocalModelSpec):
+    def __init__(self,
+                 agent_id: int,
+                 agent_spec: AgentLocalModelSpec,
+                 game: AtlModelGame,
+                 max_tensor_size: int|None = None):
         self.agent_spec = agent_spec
+        self.id = agent_id
         self.name = agent_spec.name
         self.current_node: str = agent_spec.init_state
         self.persistent_variables = agent_spec.local_variables_init_values.copy()
-
+        self.persistent_variables_ordered = game.persistent_variables_ordered[self.id].copy()
+        self.persistent_variables_index = game.persistent_variables_index_per_player[self.id].copy()
+        self.nodes_ordered = game.nodes_ordered[self.id].copy()
+        self.nodes_index = game.nodes_index_per_player[self.id].copy()
+        self.max_tensor_size = max_tensor_size
         # TODO: local non-persistent variables are currently not handled
+
+
+    def get_num_nodes(self):
+        return len(self.nodes_ordered)
+
+    def get_num_variables(self):
+        return len(self.persistent_variables_ordered)
 
     def execute_action(self, name):
         """Executes an action and changes agent's local state. Name can be either a name (private actions) or
@@ -196,8 +230,27 @@ class AgentLocalState:
         return None
 
     def __str__(self):
-        return f"{self.name}: {self.current_node} [{','.join([f'{k}={v}' for k, v in self.persistent_variables.items()])}]"
+        return f"{self.name} (#{self.id}): {self.current_node} [{','.join([f'{k}={v}' for k, v in self.persistent_variables.items()])}]"
 
+    def information_state_tensor(self):
+        """Returns information state tensor of this agent."""
+        Q = self.get_num_nodes()
+        P = self.get_num_variables()
+        if self.max_tensor_size is not None:
+            tensor = np.zeros(self.max_tensor_size, np.float32)
+        else:
+            tensor = np.zeros(Q+P, np.float32)
+        t_nodes = tensor[0:Q]
+        t_variables = tensor[Q:Q + P]
+
+        node_index = self.nodes_index[self.current_node]
+        t_nodes[node_index] = 1.0
+        for var_name, i in self.persistent_variables_index.items():
+            t_variables[i] = self.persistent_variables[var_name]
+        return tensor
+
+    def information_state_string(self):
+        return str(self)
 
 
 class AtlModelState(pyspiel.State):
@@ -224,13 +277,30 @@ class AtlModelState(pyspiel.State):
         self._cur_num_steps = 0
         self._is_terminal = False
 
-        self.game = game
+        # self.game = game
         self.spec = spec
         self.formula = formula
-        self.agent_local_states = [AgentLocalState(a) for a in self.spec.agents]
+        self.agent_local_states = [AgentLocalState(i, a, game, max_tensor_size=game.get_max_tensor_size()) for i, a in enumerate(self.spec.agents)]
+        self.previous_global_state = self.get_global_state()
 
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
     # should be implemented by every perfect-information sequential-move game.
+
+    def get_global_state(self):
+        agent_states = [a.current_node for a in self.agent_local_states]
+        global_variables = self.combine_agents_variables()
+        return agent_states, global_variables
+
+    def get_player_name(self, player_index):
+        """Converts a player's number ID in Open Spiel to an identifier used for actions."""
+        return self.spec.agents[player_index].name
+
+    def get_player_index(self, player_name):
+        """Converts a player's name to a number ID used in Open Spiel."""
+        for i, a in enumerate(self.spec.agents):
+            if a.name == player_name:
+                return i
+        raise Exception(f"Player '{player_name}' was not found.")
 
     def get_action_id(self, player, action_name):
         pass
@@ -263,7 +333,7 @@ class AtlModelState(pyspiel.State):
         """Returns a list of legal actions, sorted in ascending order. In simultaneous games
          possible actions for each player are generated using function."""
         assert player >= 0
-        player_name = self.game.get_player_name(player)
+        player_name = self.get_player_name(player)
         actions = []
         for t in self.agent_local_states[player].get_available_transitions():
             t_name = t.local_name if t.is_shared else t.name
@@ -382,31 +452,46 @@ class AtlModelState(pyspiel.State):
             raise Exception("Incorrect expression node!")
 
 
-    def is_formula_satisfied(self, formula=None):
-        if formula is None:
-            formula = self.formula
+    def combine_agents_variables(self):
         global_variables = {}
         for a in self.agent_local_states:
             for k, v in a.persistent_variables.items():
                 global_variables[k] = v
+        return global_variables
+
+
+    def is_formula_satisfied(self, formula: ModalExprNode|None = None):
+        if formula is None:
+            formula = self.formula
+        global_variables = self.combine_agents_variables()
         return self._is_formula_satisfied_interpreter(formula, global_variables)
 
 
     def _apply_actions(self, actions):
         """Execute simultaneous actions."""
-        was_action_executed = self._execute_agent_actions(actions)
+        if self._is_terminal:
+            raise Exception("Trying to execute actions in a finished game!")
 
-        if self.is_formula_satisfied():
+        self._execute_agent_actions(actions)
+
+        y = self.is_formula_satisfied(self.formula)
+        if self.formula.modal_op == "[]" and not y or\
+           self.formula.modal_op == "<>" and y:
+            # case []: coalition failed to ensure property
+            # case <>: coalition managed to achieve property
             self._is_terminal = True
 
-        # Detect deadlock
-        # TODO: Looping final transitions will need to be also somehow handled here; currently not handled
-        if not was_action_executed:
-            print("DEADLOCK")
-            # self._is_terminal = True
+        new_global_state = self.get_global_state()
+        if new_global_state == self.previous_global_state:
+            if not self._silent:
+                print("GAME ENTERED CYCLE (global state didn't change)")
+            self._is_terminal = True
+        else:
+            self.previous_global_state = new_global_state
 
     def execute_transition(self, player, transition):
-        print(f"*** Executing transition for player {player}: {transition}")
+        if not self._silent:
+            print(f"*** Executing transition for player {player}: {transition}")
         self.agent_local_states[player].execute_transition(transition)
 
     def _action_to_string(self, player, action):
@@ -440,6 +525,14 @@ class AtlModelState(pyspiel.State):
         """String for debug purposes. No particular semantics are required."""
         text = "\n".join([f"{a.name}: {a.current_node} (vars: {a.persistent_variables})" for a in self.agent_local_states])
         return text
+
+    def information_state_string(self, player):
+        return self.agent_local_states[player].information_state_string()
+
+    def information_state_tensor(self, player):
+        return self.agent_local_states[player].information_state_tensor()
+
+
 
 
 class AtlModelStateObserver:
@@ -505,4 +598,4 @@ class AtlModelStateObserver:
 
 
 # Register the game with the OpenSpiel library
-# pyspiel.register_game(_GAME_TYPE, AtlModelGame) # is registering needed?
+pyspiel.register_game(_GAME_TYPE, AtlModelGame) # is registering needed?
