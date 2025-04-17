@@ -90,16 +90,19 @@ class TestAtlModel(unittest.TestCase):
         state = self.game_simple.new_initial_state()
         observation = make_observation(self.game_simple)
         observation.set_from(state, player=0)
+        np.testing.assert_array_equal(state.information_state_tensor(0), [0, 1, 0, 0, 0])
         np.testing.assert_array_equal(observation.tensor, [0, 1, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
         self.assertEqual(set(observation.dict), {"nodes", "variables", "observation"})
         np.testing.assert_array_equal(observation.dict["nodes"], [0, 1])
         np.testing.assert_array_equal(observation.dict["variables"], [])
         observation.set_from(state, player=1)
+        np.testing.assert_array_equal(state.information_state_tensor(1), [0, 1, 0, 0, 0])
         np.testing.assert_array_equal(observation.tensor, [0, 1, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
         self.assertEqual(set(observation.dict), {"nodes", "variables", "observation"})
         np.testing.assert_array_equal(observation.dict["nodes"], [0, 1])
         np.testing.assert_array_equal(observation.dict["variables"], [])
         observation.set_from(state, player=2)
+        np.testing.assert_array_equal(state.information_state_tensor(2), [1, 0, 0, 0, 0])
         np.testing.assert_array_equal(observation.tensor, [1, 0, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
         self.assertEqual(set(observation.dict), {"nodes", "variables", "observation"})
         np.testing.assert_array_equal(observation.dict["nodes"], [1, 0])
@@ -116,20 +119,23 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
         self.assertFalse(state.is_formula_satisfied(formula_1))
         self.assertFalse(state.is_formula_satisfied(formula_2))
+        self.assertEqual(state.returns(), state.rewards())
         self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
-        self.assertEqual(state.returns(), [0.0, 0.0, 0.0])
 
         state.apply_actions([0, 5, 7])  # synchronization on play_0_rock
 
         observation.set_from(state, player=0)
+        np.testing.assert_array_equal(state.information_state_tensor(0), [1, 0, 0, 0, 0])
         np.testing.assert_array_equal(observation.tensor, [1, 0, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
         np.testing.assert_array_equal(observation.dict["nodes"], [1, 0])
         np.testing.assert_array_equal(observation.dict["variables"], [])
         observation.set_from(state, player=1)
+        np.testing.assert_array_equal(state.information_state_tensor(1), [1, 0, 0, 0, 0])
         np.testing.assert_array_equal(observation.tensor, [1, 0, 0, 0, 0])  # filled up to length of 5 because of uniform observation vector size between agents
         np.testing.assert_array_equal(observation.dict["nodes"], [1, 0])
         np.testing.assert_array_equal(observation.dict["variables"], [])
         observation.set_from(state, player=2)
+        np.testing.assert_array_equal(state.information_state_tensor(2), [0, 1, 0, 1, 0])
         np.testing.assert_array_equal(observation.tensor, [0, 1, 0, 1, 0])  # filled up to length of 5 because of uniform observation vector size between agents
         np.testing.assert_array_equal(observation.dict["nodes"], [0, 1])
         np.testing.assert_array_equal(observation.dict["variables"], [0, 1, 0])
@@ -144,8 +150,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.legal_actions(0), [3])
         self.assertEqual(state.legal_actions(1), [6])
         self.assertEqual(state.legal_actions(2), [8])
+        self.assertEqual(state.returns(), state.rewards())
         self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
-        self.assertEqual(state.returns(), [0.0, 0.0, 0.0])
 
         state.apply_actions([3, 6, 8])
 
@@ -163,6 +169,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertTrue(state.is_terminal())
         self.assertTrue(state.is_formula_satisfied(formula_1))
         self.assertFalse(state.is_formula_satisfied(formula_2))
+        self.assertEqual(state.returns(), state.rewards())
+        self.assertEqual(state.rewards(), [1.0, -1.0, -1.0])
 
 
     def test_synchronization_1(self):
@@ -177,6 +185,7 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_0"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
+        self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
         state.apply_actions([0, 4, 7])  # synchronization fails because Player1 obstructs
         self.assertEqual(state.agent_local_states[0].current_node, "idle")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
@@ -187,6 +196,7 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.legal_actions(0), [0, 1, 2])
         self.assertEqual(state.legal_actions(1), [6])
         self.assertEqual(state.legal_actions(2), [7])
+        self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
         state.apply_actions([0, 6, 7])
         self.assertEqual(state.agent_local_states[0].current_node, "idle")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
@@ -195,8 +205,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
         self.assertTrue(state.is_terminal())  # game detected cycle
-        # TODO: now end of game is detected, fix
-        self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])  # because the end of the game was not detected
+        self.assertEqual(state.rewards(), [-1.0, 1.0, 1.0])
+        self.assertEqual(state.returns(), [-1.0, 1.0, 1.0])
 
 
     def test_synchronization_2(self):
@@ -211,11 +221,10 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].current_node, "idle")
         self.assertEqual(state.agent_local_states[3].current_node, "count")
         self.assertEqual(state.agent_local_states[3].persistent_variables["move_0"], 0)
-        print("test_synchronization_2")
         state.apply_actions([0, 5, 7, 9])
         # Player0 and Player2 both are leaders of shared transitions, but Player1 may support either
         # of them and must choose. Below we check that it is impossible to use Player1's support twice.
-        self.assertTrue(True)  # currently we eliminate this case by making as assumption
+        self.assertTrue(True)  # currently we eliminate this case by making an assumption
         #self.assertFalse(state.agent_local_states[0].current_node == "finish" and state.agent_local_states[2].current_node == "finish")
 
 

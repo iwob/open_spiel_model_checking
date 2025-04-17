@@ -508,12 +508,12 @@ class AtlModelState(pyspiel.State):
         return self.rewards()
 
     def rewards(self):
-        """Total reward for each player over the course of the game so far."""
+        """Returns reward from the most recent state transition (s, a, s') for all players."""
         if not self._is_terminal:
             return [0.0 for _ in self.agent_local_states]
         else:
             if self.formula.modal_op == "[]":
-                raise Exception("[] modal operator is not currently handled!")
+                raise Exception("[] modal operator is currently not handled!")
             else:
                 if self.is_formula_satisfied():
                     # Coalition won
