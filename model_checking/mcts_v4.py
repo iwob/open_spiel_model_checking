@@ -538,7 +538,10 @@ def main(argv):
         results_root = Path(FLAGS.submodels_dir)
 
     if FLAGS.formula is None and FLAGS.coalition is None:
-        formula, coalition = game_utils.get_default_formula_and_coalition()
+        if FLAGS.game == "atl_model":
+            formula, coalition = game_utils.formula, game_utils.coalition
+        else:
+            formula, coalition = game_utils.get_default_formula_and_coalition()
     elif FLAGS.formula is not None and FLAGS.coalition is not None:
         formula, coalition = FLAGS.formula, {int(a) for a in FLAGS.coalition.split(",")}
     else:

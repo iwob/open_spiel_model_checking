@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 from model_checking.atl_model_game import AtlModelGame, AtlModelState
 from model_checking.game_mnk import GameInterface
@@ -16,6 +17,10 @@ class GameInterfaceAtlModel(GameInterface):
         with Path(atl_spec_path).open() as f:
             text = f.read()
         self.stv_spec, self.formula = parser(text)
+        self.coalition = set()
+        for i, a in enumerate(self.stv_spec.agents):
+            if a.name in self.formula.coalition:
+                self.coalition.add(i)
         GameInterface.__init__(self, players={"cross": 0, "nought": 1})
 
     def get_name(self):
