@@ -2,6 +2,9 @@ import unittest
 import numpy as np
 from pathlib import Path
 import pyspiel
+
+from model_checking.game_atl_model import GameInterfaceAtlModel
+from stv.parsers.stv_specification import generate_stv2_encoding
 from open_spiel.python.observation import make_observation
 from stv.parsers.parser_stv_v2 import Stv2Parser, parseAndTransformFormula
 from atl_model_game import AtlModelGame
@@ -227,6 +230,40 @@ class TestAtlModel(unittest.TestCase):
         self.assertTrue(True)  # currently we eliminate this case by making an assumption
         #self.assertFalse(state.agent_local_states[0].current_node == "finish" and state.agent_local_states[2].current_node == "finish")
 
+
+    def test_spec_generation_1(self):
+        file = Path(__file__).parent / "example_specifications" / "simple" / "simple.stv"
+        with file.open() as f:
+            original_text = f.read()
+        game_utils = GameInterfaceAtlModel(str(file))
+        state = self.game_simple.new_initial_state()
+        state.apply_actions([0, 4, 7])  # synchronization fails because Player1 obstructs
+        text = game_utils.formal_subproblem_description(state, None, state.formula)
+        original_text = original_text.split("\n")
+        text = text.split("\n")
+        self.assertTrue("init idle" in original_text[16])
+        self.assertTrue("init finish" in text[16-2])
+
+
+    def test_spec_generation_2(self):
+        file = Path(__file__).parent / "example_specifications" / "simple" / "simple.stv"
+        with file.open() as f:
+            original_text = f.read()
+        game_utils = GameInterfaceAtlModel(str(file))
+        state = self.game_simple.new_initial_state()
+        state.apply_actions([0, 5, 7])  # synchronization on play_0_rock
+        state.apply_actions([3, 6, 8])  # game finishes
+        text = game_utils.formal_subproblem_description(state, None, state.formula)
+        original_text = original_text.split("\n")
+        text = text.split("\n")
+        self.assertTrue("init idle" in original_text[6])
+        self.assertTrue("init idle" in original_text[16])
+        self.assertTrue("init count" in original_text[31])
+        self.assertTrue("move_0:=0, move_1:=0, finished:=0" in original_text[30])
+        self.assertTrue("init finish" in text[6-2])
+        self.assertTrue("init finish" in text[16-2])
+        self.assertTrue("init counted" in text[31-6])
+        self.assertTrue("move_0:=1, move_1:=0, finished:=1" in text[30-6])
 
 
 if __name__ == "__main__":

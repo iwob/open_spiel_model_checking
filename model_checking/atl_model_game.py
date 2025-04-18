@@ -596,6 +596,5 @@ class AtlModelStateObserver:
 
 
 
-
 # Register the game with the OpenSpiel library
 pyspiel.register_game(_GAME_TYPE, AtlModelGame) # is registering needed?

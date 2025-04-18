@@ -12,6 +12,7 @@ import logging
 from action_selectors import *
 from solvers import Solver, SolverMCMAS
 from open_spiel.python.algorithms import mcts
+from open_spiel.python.algorithms import ismcts
 from open_spiel.python.algorithms import tabular_qlearner
 from open_spiel.python.bots import gtp
 from open_spiel.python.bots import human
@@ -20,6 +21,7 @@ import pyspiel
 from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
 from game_kuhn_poker import GameKuhnPoker
+from game_atl_model import GameInterfaceAtlModel
 import os
 from dataclasses import *
 from typing import Optional
@@ -81,10 +83,13 @@ class QueueNode:
 
 
 
-_KNOWN_GAMES = ["mnk", "nim", "kuhn_poker"]
+_KNOWN_GAMES = ["mnk", "nim", "kuhn_poker", "atl_model"]
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
     "mcts",
+
+    #Information Set Monte Carlo Tree Search (MCTS variant for imperfect information games)
+    "ismcts",
 
     # A generic random agent.
     "random",
@@ -115,10 +120,12 @@ flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in t
 flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
 flags.DEFINE_string("coalition", None, help="Player coalition provided as integers divided by commas, e.g. '1,2'.")
 flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
-flags.DEFINE_enum("player1", "mcts", _KNOWN_PLAYERS, help="Who controls player 1.")
-flags.DEFINE_enum("player2", "mcts", _KNOWN_PLAYERS, help="Who controls player 2.")
+flags.DEFINE_enum("player", "mcts", _KNOWN_PLAYERS, help="Who controls all agents. Applies to the games with != 2 players.")
+flags.DEFINE_enum("player1", None, _KNOWN_PLAYERS, help="Who controls player 1. Only applies to games with exactly 2 players.")
+flags.DEFINE_enum("player2", None, _KNOWN_PLAYERS, help="Who controls player 2. Only applies to games with exactly 2 players.")
 flags.DEFINE_enum("action_selector1", "most2", _KNOWN_SELECTORS, help="Action selector for the coalition. If action_selector2 is none, it will be also used for the anti-coalition.")
 flags.DEFINE_enum("action_selector2", "none", _KNOWN_SELECTORS, help="Action selector for the anti-coalition.")
+flags.DEFINE_string("atl_spec_path", None, help="Path to the ATL specification.")
 flags.DEFINE_string("gtp_path", None, help="Where to find a binary for gtp.")
 flags.DEFINE_multi_string("gtp_cmd", [], help="GTP commands to run at init.")
 flags.DEFINE_string("az_path", None, help="Path to an alpha_zero checkpoint. Needed by an az player.")
@@ -157,6 +164,19 @@ def _init_bot(bot_type, game, player_id):
             random_state=rng,
             solve=FLAGS.solve,
             verbose=False)
+    elif bot_type == "ismcts":
+        evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng)
+        return ismcts.ISMCTSBot(
+            game,
+            evaluator,
+            FLAGS.uct_c,
+            FLAGS.max_simulations,
+            random_state=rng,
+            max_world_samples=ismcts.UNLIMITED_NUM_WORLD_SAMPLES,  # default
+            final_policy_type=ismcts.ISMCTSFinalPolicyType.MAX_VISIT_COUNT,  # default
+            use_observation_string=False,  # default
+            allow_inconsistent_action_sets=False,  # default
+            child_selection_policy=ismcts.ChildSelectionPolicy.PUCT)  # default
     elif bot_type == "q-learner":
         return tabular_qlearner.QLearner(player_id=player_id, num_actions=num_actions)
     elif bot_type == "az":
@@ -507,6 +527,8 @@ def main(argv):
         game_utils = GameNim(FLAGS.piles)
     elif FLAGS.game == "kuhn_poker":
         game_utils = GameKuhnPoker()
+    elif FLAGS.game == "atl_model":
+        game_utils = GameInterfaceAtlModel(FLAGS.atl_spec_path)
     else:
         raise Exception("Unknown game!")
 
@@ -573,13 +595,14 @@ def main(argv):
     collected_results = []
     collected_subproblem_dirs = []
     game = game_utils.load_game()
-    if game.num_players() > 2:
-        sys.exit("This game requires more players than the example can handle.")
 
-    bots = [
-        _init_bot(FLAGS.player1, game, 0),
-        _init_bot(FLAGS.player2, game, 1),
-    ]
+    if game.num_players() == 2 and (FLAGS.player1 is not None or FLAGS.player2 is not None):
+        bots = [
+            _init_bot(FLAGS.player1, game, 0),
+            _init_bot(FLAGS.player2, game, 1),
+        ]
+    else:
+        bots = [_init_bot(FLAGS.player, game, i) for i in range(game.num_players())]
 
     initial_moves = "" if FLAGS.initial_moves is None else FLAGS.initial_moves
 
@@ -610,8 +633,10 @@ def main(argv):
         results_dict["max_game_depth"] = FLAGS.max_game_depth
         results_dict["max_simulations"] = FLAGS.max_simulations
         results_dict["game"] = FLAGS.game
-        results_dict["player1"] = FLAGS.player1
-        results_dict["player2"] = FLAGS.player2
+        results_dict["player"] = FLAGS.player
+        if FLAGS.player1 is not None and FLAGS.player2 is not None:
+            results_dict["player1"] = FLAGS.player1
+            results_dict["player2"] = FLAGS.player2
         results_dict["formula"] = formula
         results_dict["coalition"] = coalition
         results_dict["num_submodels"] = 0  # to be filled by collect_game_tree_stats

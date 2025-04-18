@@ -179,19 +179,32 @@ class StvSpecification:
 
 
 
-def generate_stv2_encoding(model: StvSpecification, formula: str):
+def generate_stv2_encoding(model: StvSpecification, formula: str, replacements: dict[str, tuple[str, dict[str,int]]]|None = None):
     text = ""
     for i, a in enumerate(model.agents):
         if i > 0:
             text += "\n"
         text_name = a.name if a.num_instances is None else f"{a.name}[{a.num_instances}]"
-        text_local_vars = ",".join(a.local_variables)
-        text_local_vars_init = ",".join([f"{k}:={v}" for k, v in a.local_variables_init_values.items()])
+        text_local_vars = ", ".join(a.local_variables)
+        text_persistent_vars = ", ".join(a.persistent_variables)
+
+        repl_tuple = replacements.get(a.name, None)
+        if repl_tuple is None:
+            text_local_vars_init = ", ".join([f"{k}:={v}" for k, v in a.local_variables_init_values.items()])
+            init_state = a.init_state
+        else:
+            var_values = a.local_variables_init_values.copy()
+            for k, v in repl_tuple[1].items():
+                var_values[k] = v
+            text_local_vars_init = ", ".join([f"{k}:={v}" for k, v in var_values.items()])
+            init_state = repl_tuple[0]
+
         text +=\
 f"""Agent {text_name}:
 LOCAL: [{text_local_vars}]
+PERSISTENT: [{text_persistent_vars}]
 INITIAL: [{text_local_vars_init}]
-init {a.init_state}\n"""
+init {init_state}\n"""
 
         for t in a.transitions:
             text += t.stv2_string() + "\n"
