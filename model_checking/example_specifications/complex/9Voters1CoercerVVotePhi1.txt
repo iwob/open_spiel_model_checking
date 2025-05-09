@@ -1,0 +1,319 @@
+Agent Voter1:
+LOCAL: [Voter1_vote1, Voter1_vote2, Voter1_end, Voter1_requested1, Voter1_requested2, start, polling_station, printing, has_ballot, scanning, voted, check2_ok, check2_fail, cast, error, check3, outside_ps, send, shred, checkWBB, checkWBB_fail, checkWBB_ok, check_request]
+PERSISTENT: [Voter1_vote1, Voter1_vote2, Voter1_end, Voter1_requested1, Voter1_requested2, start, polling_station, printing, has_ballot, scanning, voted, check2_ok, check2_fail, cast, error, check3, outside_ps, send, shred, checkWBB, checkWBB_fail, checkWBB_ok, check_request]
+INITIAL: [start:=1]
+init start
+shared[2] coerce1[coerce]: start -> polling_station [Voter1_requested1:=1, polling_station:=1, start:=0]
+shared[2] coerce2[coerce]: start -> polling_station [Voter1_requested2:=1, polling_station:=1, start:=0]
+move_next: start -> polling_station [polling_station:=1, start:=0]
+give_document: polling_station -> printing [printing:=1, polling_station:=0]
+print: printing -> has_ballot [has_ballot:=1, printing:=0]
+scan_ballot: has_ballot -> scanning [scanning:=1, has_ballot:=0]
+enter_vote1: scanning -> voted [Voter1_vote1:=1, voted:=1, scanning:=0]
+enter_vote2: scanning -> voted [Voter1_vote2:=1, voted:=1, scanning:=0]
+check2: voted -> check2_ok [check2_ok:=1, voted:=0]
+check2: voted -> check2_fail [check2_fail:=1, voted:=0]
+skip: voted -> cast [cast:=1, voted:=0]
+raise_error: check2_fail -> error [error:=1, check2_fail:=0]
+check3: check2_fail -> check3 [check3:=1, check2_fail:=0]
+check3: check2_ok -> check3 [check3:=1, check2_ok:=0]
+raise_error: check3 -> error [error:=1, check3:=0]
+move_next: check3 -> cast [cast:=1, check3:=0]
+move_next: check2_fail -> cast [cast:=1, check2_fail:=0]
+move_next: check2_ok -> cast [cast:=1, check2_ok:=0]
+send_to_wbb: cast -> send [send:=1, cast:=0]
+shred: send -> shred [shred:=1, send:=0]
+leave: send -> outside_ps [outside_ps:=1, send:=0]
+leave: shred -> outside_ps [outside_ps:=1, shred:=0]
+shared[2] request[request]: outside_ps -> check_request [check_request:=1, outside_ps:=0]
+shared[2] share1[share]: check_request [Voter1_vote1==1] -> checkWBB [checkWBB:=1, check_request:=0]
+shared[2] share2[share]: check_request [Voter1_vote2==1] -> checkWBB [checkWBB:=1, check_request:=0]
+shared[2] not_share[not_share]: check_request -> checkWBB [checkWBB:=1, check_request:=0]
+move_next: outside_ps -> checkWBB [checkWBB:=1, outside_ps:=0]
+checkWBB: checkWBB -> checkWBB_fail [checkWBB_fail:=1, checkWBB:=0]
+checkWBB: checkWBB -> checkWBB_ok [checkWBB_ok:=1, checkWBB:=0]
+raise_error: checkWBB_fail -> error [error:=1, checkWBB_fail:=0]
+finish: checkWBB_fail -> end [Voter1_end:=1, checkWBB_fail:=0]
+finish: checkWBB_ok -> end [Voter1_end:=1, checkWBB_ok:=0]
+idle: end -> end
+
+Agent Voter2:
+LOCAL: [Voter2_vote1, Voter2_vote2, Voter2_end]
+PERSISTENT: [Voter2_vote1, Voter2_vote2, Voter2_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter2_vote1:=1]
+enter_vote2: scanning -> voted [Voter2_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter2_end:=1]
+finish: checkWBB_ok -> end [Voter2_end:=1]
+
+Agent Voter3:
+LOCAL: [Voter3_vote1, Voter3_vote2, Voter3_end]
+PERSISTENT: [Voter3_vote1, Voter3_vote2, Voter3_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter3_vote1:=1]
+enter_vote2: scanning -> voted [Voter3_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter3_end:=1]
+finish: checkWBB_ok -> end [Voter3_end:=1]
+
+Agent Voter4:
+LOCAL: [Voter4_vote1, Voter4_vote2, Voter4_end]
+PERSISTENT: [Voter4_vote1, Voter4_vote2, Voter4_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter4_vote1:=1]
+enter_vote2: scanning -> voted [Voter4_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter4_end:=1]
+finish: checkWBB_ok -> end [Voter4_end:=1]
+
+Agent Voter5:
+LOCAL: [Voter5_vote1, Voter5_vote2, Voter5_end]
+PERSISTENT: [Voter5_vote1, Voter5_vote2, Voter5_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter5_vote1:=1]
+enter_vote2: scanning -> voted [Voter5_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter5_end:=1]
+finish: checkWBB_ok -> end [Voter5_end:=1]
+
+Agent Voter6:
+LOCAL: [Voter6_vote1, Voter6_vote2, Voter6_end]
+PERSISTENT: [Voter6_vote1, Voter6_vote2, Voter6_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter6_vote1:=1]
+enter_vote2: scanning -> voted [Voter6_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter6_end:=1]
+finish: checkWBB_ok -> end [Voter6_end:=1]
+
+Agent Voter7:
+LOCAL: [Voter7_vote1, Voter7_vote2, Voter7_end]
+PERSISTENT: [Voter7_vote1, Voter7_vote2, Voter7_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter7_vote1:=1]
+enter_vote2: scanning -> voted [Voter7_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter7_end:=1]
+finish: checkWBB_ok -> end [Voter7_end:=1]
+
+Agent Voter8:
+LOCAL: [Voter8_vote1, Voter8_vote2, Voter8_end]
+PERSISTENT: [Voter8_vote1, Voter8_vote2, Voter8_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter8_vote1:=1]
+enter_vote2: scanning -> voted [Voter8_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter8_end:=1]
+finish: checkWBB_ok -> end [Voter8_end:=1]
+
+Agent Voter9:
+LOCAL: [Voter9_vote1, Voter9_vote2, Voter9_end]
+PERSISTENT: [Voter9_vote1, Voter9_vote2, Voter9_end]
+INITIAL: []
+init start
+move_next: start -> polling_station
+give_document: polling_station -> printing
+print: printing -> has_ballot
+scan_ballot: has_ballot -> scanning
+enter_vote1: scanning -> voted [Voter9_vote1:=1]
+enter_vote2: scanning -> voted [Voter9_vote2:=1]
+check2: voted -> check2_ok
+check2: voted -> check2_fail
+skip: voted -> cast
+raise_error: check2_fail -> error
+check3: check2_fail -> check3
+check3: check2_ok -> check3
+raise_error: check3 -> error
+move_next: check3 -> cast
+move_next: check2_fail -> cast
+move_next: check2_ok -> cast
+send_to_wbb: cast -> send
+shred: send -> shred
+leave: send -> outside_ps
+leave: shred -> outside_ps
+move_next: outside_ps -> checkWBB
+checkWBB: checkWBB -> checkWBB_fail
+checkWBB: checkWBB -> checkWBB_ok
+raise_error: checkWBB_fail -> error
+finish: checkWBB_fail -> end [Voter9_end:=1]
+finish: checkWBB_ok -> end [Voter9_end:=1]
+
+Agent Coercer:
+LOCAL: [Coercer_requested1, Coercer_requested2, Coercer_Voter1_vote1, Coercer_Voter1_vote2, Coercer_Voter1_novote]
+PERSISTENT: [Coercer_requested1, Coercer_requested2, Coercer_Voter1_vote1, Coercer_Voter1_vote2, Coercer_Voter1_novote]
+INITIAL: []
+init start
+shared[2] coerce1[coerce1]: start -> coerce [Coercer_requested1:=1]
+shared[2] coerce2[coerce2]: start -> coerce [Coercer_requested2:=1] 
+shared[2] request[request]: coerce -> request
+move_next: request -> no_info
+shared[2] share1[share]: no_info -> share3 [Coercer_Voter1_vote1:=1]
+shared[2] share2[share]: no_info -> share3 [Coercer_Voter1_vote2:=1]
+shared[2] not_share[share]: no_info -> nshare3 [Coercer_Voter1_novote:=-1]
+check_wbb: share3 -> check3
+check_wbb: nshare3 -> check3
+punish: share3 -> punish
+punish: check3 -> punish
+punish: nshare3 -> punish
+not_punish: share3 -> not_punish
+not_punish: check3 -> not_punish
+not_punish: nshare3 -> not_punish
+idle: punish -> punish
+idle: not_punish -> not_punish
+
+FORMULA: <<Voter1>><>(checkWBB_ok==1 || checkWBB_fail==1)

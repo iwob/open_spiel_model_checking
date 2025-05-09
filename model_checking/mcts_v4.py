@@ -597,7 +597,7 @@ def main(argv):
     final_log = ""
     collected_results = []
     collected_subproblem_dirs = []
-    game = game_utils.load_game()
+    game = game_utils.load_game_as_turn_game()
 
     if game.num_players() == 2 and (FLAGS.player1 is not None or FLAGS.player2 is not None):
         bots = [

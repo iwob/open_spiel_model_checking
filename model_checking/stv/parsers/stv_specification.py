@@ -153,6 +153,9 @@ class StvSpecification:
     def __iter__(self):
         return self.agents
 
+    def __getitem__(self, item):
+        return self.agents[item]
+
     def has_agent(self, name: str):
         for a in self.agents:
             if name == a.name:

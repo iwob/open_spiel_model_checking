@@ -1,0 +1,117 @@
+Agent Voter1:
+LOCAL: [Voter1_vote]
+PERSISTENT: [Voter1_vote]
+INITIAL: []
+init q0
+vote1: q0 -> q1 [Voter1_vote:=1]
+shared[2] gv_1_Voter1[gv_1_Voter1]: q1 [Voter1_vote==1] -> q2
+vote2: q0 -> q1 [Voter1_vote:=2]
+shared[2] gv_2_Voter1[gv_2_Voter1]: q1 [Voter1_vote==2] -> q2
+vote3: q0 -> q1 [Voter1_vote:=3]
+shared[2] gv_3_Voter1[gv_3_Voter1]: q1 [Voter1_vote==3] -> q2
+shared[2] ng_Voter1[ng_Voter1]: q1 -> q2
+shared[2] pun_Voter1[pn_Voter1]: q2 -> q3
+shared[2] npun_Voter1[pn_Voter1]: q2 -> q3
+idle: q3->q3
+
+Agent Voter2:
+LOCAL: [Voter2_vote]
+PERSISTENT: [Voter2_vote]
+INITIAL: []
+init q0
+vote1: q0 -> q1 [Voter2_vote:=1]
+shared[2] gv_1_Voter2[gv_1_Voter2]: q1 [Voter2_vote==1] -> q2
+vote2: q0 -> q1 [Voter2_vote:=2]
+shared[2] gv_2_Voter2[gv_2_Voter2]: q1 [Voter2_vote==2] -> q2
+vote3: q0 -> q1 [Voter2_vote:=3]
+shared[2] gv_3_Voter2[gv_3_Voter2]: q1 [Voter2_vote==3] -> q2
+shared[2] ng_Voter2[ng_Voter2]: q1 -> q2
+shared[2] pun_Voter2[pn_Voter2]: q2 -> q3
+shared[2] npun_Voter2[pn_Voter2]: q2 -> q3
+idle: q3->q3
+
+Agent Voter3:
+LOCAL: [Voter3_vote]
+PERSISTENT: [Voter3_vote]
+INITIAL: []
+init q0
+vote1: q0 -> q1 [Voter3_vote:=1]
+shared[2] gv_1_Voter3[gv_1_Voter3]: q1 [Voter3_vote==1] -> q2
+vote2: q0 -> q1 [Voter3_vote:=2]
+shared[2] gv_2_Voter3[gv_2_Voter3]: q1 [Voter3_vote==2] -> q2
+vote3: q0 -> q1 [Voter3_vote:=3]
+shared[2] gv_3_Voter3[gv_3_Voter3]: q1 [Voter3_vote==3] -> q2
+shared[2] ng_Voter3[ng_Voter3]: q1 -> q2
+shared[2] pun_Voter3[pn_Voter3]: q2 -> q3
+shared[2] npun_Voter3[pn_Voter3]: q2 -> q3
+idle: q3->q3
+
+Agent Voter4:
+LOCAL: [Voter4_vote]
+PERSISTENT: [Voter4_vote]
+INITIAL: []
+init q0
+vote1: q0 -> q1 [Voter4_vote:=1]
+shared[2] gv_1_Voter4[gv_1_Voter4]: q1 [Voter4_vote==1] -> q2
+vote2: q0 -> q1 [Voter4_vote:=2]
+shared[2] gv_2_Voter4[gv_2_Voter4]: q1 [Voter4_vote==2] -> q2
+vote3: q0 -> q1 [Voter4_vote:=3]
+shared[2] gv_3_Voter4[gv_3_Voter4]: q1 [Voter4_vote==3] -> q2
+shared[2] ng_Voter4[ng_Voter4]: q1 -> q2
+shared[2] pun_Voter4[pn_Voter4]: q2 -> q3
+shared[2] npun_Voter4[pn_Voter4]: q2 -> q3
+idle: q3->q3
+
+Agent Voter5:
+LOCAL: [Voter5_vote]
+PERSISTENT: [Voter5_vote]
+INITIAL: []
+init q0
+vote1: q0 -> q1 [Voter5_vote:=1]
+shared[2] gv_1_Voter5[gv_1_Voter5]: q1 [Voter5_vote==1] -> q2
+vote2: q0 -> q1 [Voter5_vote:=2]
+shared[2] gv_2_Voter5[gv_2_Voter5]: q1 [Voter5_vote==2] -> q2
+vote3: q0 -> q1 [Voter5_vote:=3]
+shared[2] gv_3_Voter5[gv_3_Voter5]: q1 [Voter5_vote==3] -> q2
+shared[2] ng_Voter5[ng_Voter5]: q1 -> q2
+shared[2] pun_Voter5[pn_Voter5]: q2 -> q3
+shared[2] npun_Voter5[pn_Voter5]: q2 -> q3
+idle: q3->q3
+
+Agent Coercer1:
+LOCAL: [Coercer1_Voter1_vote, Coercer1_Voter1_gv, Coercer1_pun1, Coercer1_npun1,Coercer1_Voter2_vote, Coercer1_Voter2_gv, Coercer1_pun2, Coercer1_npun2,Coercer1_Voter3_vote, Coercer1_Voter3_gv, Coercer1_pun3, Coercer1_npun3,Coercer1_Voter4_vote, Coercer1_Voter4_gv, Coercer1_pun4, Coercer1_npun4,Coercer1_Voter5_vote, Coercer1_Voter5_gv, Coercer1_pun5, Coercer1_npun5]
+PERSISTENT: [Coercer1_Voter1_vote, Coercer1_Voter1_gv, Coercer1_pun1, Coercer1_npun1,Coercer1_Voter2_vote, Coercer1_Voter2_gv, Coercer1_pun2, Coercer1_npun2,Coercer1_Voter3_vote, Coercer1_Voter3_gv, Coercer1_pun3, Coercer1_npun3,Coercer1_Voter4_vote, Coercer1_Voter4_gv, Coercer1_pun4, Coercer1_npun4,Coercer1_Voter5_vote, Coercer1_Voter5_gv, Coercer1_pun5, Coercer1_npun5]
+INITIAL: []
+init q0
+shared[2] gv_1_Voter1[g_Voter1]: q0 -> q1 [Coercer1_Voter1_vote:=1, Coercer1_Voter1_gv:=1]    
+shared[2] gv_2_Voter1[g_Voter1]: q0 -> q1 [Coercer1_Voter1_vote:=2, Coercer1_Voter1_gv:=1]    
+shared[2] gv_3_Voter1[g_Voter1]: q0 -> q1 [Coercer1_Voter1_vote:=3, Coercer1_Voter1_gv:=1]    
+shared[2] ng_Voter1[g_Voter1]: q0 -> q1 [Coercer1_Voter1_gv:=2]
+shared[2] pun_Voter1[pun_Voter1]: q5 -> q6 [Coercer1_pun1:=1]
+shared[2] npun_Voter1[npun_Voter1]: q5 -> q6 [Coercer1_npun1:=1]
+shared[2] gv_1_Voter2[g_Voter2]: q1 -> q2 [Coercer1_Voter2_vote:=1, Coercer1_Voter2_gv:=1]    
+shared[2] gv_2_Voter2[g_Voter2]: q1 -> q2 [Coercer1_Voter2_vote:=2, Coercer1_Voter2_gv:=1]    
+shared[2] gv_3_Voter2[g_Voter2]: q1 -> q2 [Coercer1_Voter2_vote:=3, Coercer1_Voter2_gv:=1]    
+shared[2] ng_Voter2[g_Voter2]: q1 -> q2 [Coercer1_Voter2_gv:=2]
+shared[2] pun_Voter2[pun_Voter2]: q6 -> q7 [Coercer1_pun2:=1]
+shared[2] npun_Voter2[npun_Voter2]: q6 -> q7 [Coercer1_npun2:=1]
+shared[2] gv_1_Voter3[g_Voter3]: q2 -> q3 [Coercer1_Voter3_vote:=1, Coercer1_Voter3_gv:=1]    
+shared[2] gv_2_Voter3[g_Voter3]: q2 -> q3 [Coercer1_Voter3_vote:=2, Coercer1_Voter3_gv:=1]    
+shared[2] gv_3_Voter3[g_Voter3]: q2 -> q3 [Coercer1_Voter3_vote:=3, Coercer1_Voter3_gv:=1]    
+shared[2] ng_Voter3[g_Voter3]: q2 -> q3 [Coercer1_Voter3_gv:=2]
+shared[2] pun_Voter3[pun_Voter3]: q7 -> q8 [Coercer1_pun3:=1]
+shared[2] npun_Voter3[npun_Voter3]: q7 -> q8 [Coercer1_npun3:=1]
+shared[2] gv_1_Voter4[g_Voter4]: q3 -> q4 [Coercer1_Voter4_vote:=1, Coercer1_Voter4_gv:=1]    
+shared[2] gv_2_Voter4[g_Voter4]: q3 -> q4 [Coercer1_Voter4_vote:=2, Coercer1_Voter4_gv:=1]    
+shared[2] gv_3_Voter4[g_Voter4]: q3 -> q4 [Coercer1_Voter4_vote:=3, Coercer1_Voter4_gv:=1]    
+shared[2] ng_Voter4[g_Voter4]: q3 -> q4 [Coercer1_Voter4_gv:=2]
+shared[2] pun_Voter4[pun_Voter4]: q8 -> q9 [Coercer1_pun4:=1]
+shared[2] npun_Voter4[npun_Voter4]: q8 -> q9 [Coercer1_npun4:=1]
+shared[2] gv_1_Voter5[g_Voter5]: q4 -> q5 [Coercer1_Voter5_vote:=1, Coercer1_Voter5_gv:=1]    
+shared[2] gv_2_Voter5[g_Voter5]: q4 -> q5 [Coercer1_Voter5_vote:=2, Coercer1_Voter5_gv:=1]    
+shared[2] gv_3_Voter5[g_Voter5]: q4 -> q5 [Coercer1_Voter5_vote:=3, Coercer1_Voter5_gv:=1]    
+shared[2] ng_Voter5[g_Voter5]: q4 -> q5 [Coercer1_Voter5_gv:=2]
+shared[2] pun_Voter5[pun_Voter5]: q9 -> q10 [Coercer1_pun5:=1]
+shared[2] npun_Voter5[npun_Voter5]: q9 -> q10 [Coercer1_npun5:=1]
+
+FORMULA: <<Coercer1>>[]((Voter1_vote == 1) || ((Coercer1_pun1 == 1) && (Coercer1_npun1 == 0)))

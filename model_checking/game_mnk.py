@@ -342,9 +342,13 @@ class GameInterface:
         """Returns a name of the game."""
         raise Exception("Not implemented!")
 
-    def load_game(self):
+    def load_game(self) -> pyspiel.Game:
         """Loads OpenSpiel game implementing the game."""
         raise Exception("Not implemented!")
+
+    def load_game_as_turn_game(self) -> pyspiel.Game:
+        """Loads a game and converts it to a turn game if it was not."""
+        return self.load_game()
 
     def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
         """Generates a formal description of a subproblem based on the current history of the game."""

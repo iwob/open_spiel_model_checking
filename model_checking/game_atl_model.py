@@ -30,6 +30,10 @@ class GameInterfaceAtlModel(GameInterface):
         params = {"spec": self.stv_spec, "formula": self.formula}
         return AtlModelGame(params)
 
+    def load_game_as_turn_game(self) -> pyspiel.Game:
+        game = self.load_game()
+        return pyspiel.convert_to_turn_based(game)
+
     def formal_subproblem_description(self, game_state: AtlModelState, history, formulae_to_check: str = None) -> str:
         replacements = {}
         for a in game_state.agent_local_states:

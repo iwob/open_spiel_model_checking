@@ -40,6 +40,9 @@ class AtlModelGame(pyspiel.Game):
         assert "formula" in params, "Formula not provided to the Game constructor!"
         self.spec = params["spec"]
         self.formula = params["formula"]
+        for a in self.spec.agents:
+            if any([x not in a.persistent_variables for x in a.local_variables]):
+                raise Exception("Local variables which are not persistent are currently not supported!")
         # self.spec = spec
         # self.formula = formula
         self.silent = silent
@@ -54,7 +57,7 @@ class AtlModelGame(pyspiel.Game):
             utility_sum=0.0,
             max_game_length=100)
         # Persistent variables and states in the observation vector will be in the alphabetical order
-        self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.local_variables_init_values.keys()) for a in self.spec.agents}
+        self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.persistent_variables) for a in self.spec.agents}
         self.persistent_variables_index_per_player = {k: {n: i for i, n in enumerate(sorted_vars)} for k, sorted_vars in self.persistent_variables_ordered.items()}
         self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in self.spec.agents}
         self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
@@ -156,14 +159,19 @@ class AgentLocalState:
         self.id = agent_id
         self.name = agent_spec.name
         self.current_node: str = agent_spec.init_state
-        self.persistent_variables = agent_spec.local_variables_init_values.copy()
+        self.persistent_variables = self._get_initialized_persistent_variables(agent_spec)
         self.persistent_variables_ordered = game.persistent_variables_ordered[self.id].copy()
         self.persistent_variables_index = game.persistent_variables_index_per_player[self.id].copy()
         self.nodes_ordered = game.nodes_ordered[self.id].copy()
         self.nodes_index = game.nodes_index_per_player[self.id].copy()
         self.max_tensor_size = max_tensor_size
-        # TODO: local non-persistent variables are currently not handled
+        # TODO: local non-persistent variables are currently not handled (appropriate exception raised if such variables are used)
 
+    def _get_initialized_persistent_variables(self, agent_spec):
+        res = {}
+        for x in agent_spec.persistent_variables:
+            res[x] = agent_spec.local_variables_init_values.get(x, 0)
+        return res
 
     def get_num_nodes(self):
         return len(self.nodes_ordered)
@@ -418,15 +426,14 @@ class AtlModelState(pyspiel.State):
 
 
     def _is_formula_satisfied_interpreter(self, formula, global_variables):
+        """Checks, if the formula is satisfied in the current state."""
         if isinstance(formula, ModalExprNode):
-            if formula.modal_op != "<>":
-                raise Exception("Currently only <> modal operator is supported!")
             return self._is_formula_satisfied_interpreter(formula.formula, global_variables)
         elif len(formula.args) == 0:
             if formula.is_variable:
                 return global_variables[formula.name]
             else:
-                return formula.name
+                return formula.name  # constant
         elif len(formula.args) == 1:
             X = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
             if formula.name == "!":
@@ -437,11 +444,11 @@ class AtlModelState(pyspiel.State):
             L = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
             R = self._is_formula_satisfied_interpreter(formula.args[1], global_variables)
             if formula.name == "==":
-                return L == R
+                return int(L) == int(R)
             elif formula.name == ">=":
-                return L >= R
+                return int(L) >= int(R)
             elif formula.name == "<=":
-                return L <= R
+                return int(L) <= int(R)
             elif formula.name == "&&":
                 return R and L
             elif formula.name == "||":

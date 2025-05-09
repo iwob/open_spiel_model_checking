@@ -250,7 +250,8 @@ class Stv2Parser:
 
 def do_test_STV_parser():
     parser = Stv2Parser()
-    with (Path(__file__).parent / "benchmarks" / "rps.stv").open() as f:
+    # with (Path(__file__).parent / "benchmarks" / "rps.stv").open() as f:
+    with (Path(__file__).parent.parent.parent / "example_specifications" / "complex" / "Voters5Candidates3.txt").open() as f:
         text = f.read()
     model, formula = parser(text)
     print("TEST2\nagent0: ", model.agents[0])
