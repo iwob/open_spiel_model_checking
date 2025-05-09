@@ -284,6 +284,7 @@ class AtlModelState(pyspiel.State):
         self._cur_executable_steps_dict = None
         self._cur_num_steps = 0
         self._is_terminal = False
+        self.formula_eval = None
 
         # self.game = game
         self.spec = spec
@@ -369,6 +370,8 @@ class AtlModelState(pyspiel.State):
         for player, action in enumerate(actions):
             action_name = self.possible_actions[action]
             transition = self.agent_local_states[player].get_transition_for_action(action_name)
+            if transition is None:
+                print("None transition!")  # TODO: Fix None transition error
             if transition.is_shared:
                 assert transition.is_abstract
                 # At this point we have an abstract shared transition which can correspond to any of the
@@ -468,6 +471,7 @@ class AtlModelState(pyspiel.State):
 
 
     def is_formula_satisfied(self, formula: ModalExprNode|None = None):
+        """Checks, if the formula is satisfied in the current state."""
         if formula is None:
             formula = self.formula
         global_variables = self.combine_agents_variables()
@@ -481,9 +485,9 @@ class AtlModelState(pyspiel.State):
 
         self._execute_agent_actions(actions)
 
-        y = self.is_formula_satisfied(self.formula)
-        if self.formula.modal_op == "[]" and not y or\
-           self.formula.modal_op == "<>" and y:
+        self.formula_eval = self.is_formula_satisfied(self.formula)
+        if self.formula.modal_op == "[]" and not self.formula_eval or\
+           self.formula.modal_op == "<>" and self.formula_eval:
             # case []: coalition failed to ensure property
             # case <>: coalition managed to achieve property
             self._is_terminal = True
@@ -519,14 +523,13 @@ class AtlModelState(pyspiel.State):
         if not self._is_terminal:
             return [0.0 for _ in self.agent_local_states]
         else:
-            if self.formula.modal_op == "[]":
-                raise Exception("[] modal operator is currently not handled!")
+            # For [] we can get here if the game terminates naturally with formula_eval=1 or terminates prematurely with formula_eval=0
+            # For <> we can get here if the game terminates naturally with formula_eval=0 or terminates prematurely with formula_eval=1
+            if self.formula_eval:
+                # Coalition won
+                return [1.0 if a.name in self.formula.coalition else -1.0 for a in self.agent_local_states]
             else:
-                if self.is_formula_satisfied():
-                    # Coalition won
-                    return [1.0 if a.name in self.formula.coalition else -1.0 for a in self.agent_local_states]
-                else:
-                    return [-1.0 if a.name in self.formula.coalition else 1.0 for a in self.agent_local_states]
+                return [-1.0 if a.name in self.formula.coalition else 1.0 for a in self.agent_local_states]
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""
