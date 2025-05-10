@@ -113,5 +113,6 @@ shared[2] gv_3_Voter5[g_Voter5]: q4 -> q5 [Coercer1_Voter5_vote:=3, Coercer1_Vot
 shared[2] ng_Voter5[g_Voter5]: q4 -> q5 [Coercer1_Voter5_gv:=2]
 shared[2] pun_Voter5[pun_Voter5]: q9 -> q10 [Coercer1_pun5:=1]
 shared[2] npun_Voter5[npun_Voter5]: q9 -> q10 [Coercer1_npun5:=1]
+idle: q10 -> q10
 
 FORMULA: <<Coercer1>>[]((Voter1_vote == 1) || ((Coercer1_pun1 == 1) && (Coercer1_npun1 == 0)))

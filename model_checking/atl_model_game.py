@@ -317,19 +317,9 @@ class AtlModelState(pyspiel.State):
     def get_action_name(self, action_id):
         return self.possible_actions[action_id]
 
-    def _select_current_player(self):
-        """Selects current player using semantics of ATL as implemented in STV. In order to do that, synchronizations
-        are selected based on repertoires.
-         """
-        pass
-
-    # ----------------------------------------------------------
-    # legacy
-
     def _print(self, text):
         if not self._silent:
             print(text)
-
 
     # -----------------------------------------------------------------------------------
     # Below is the implementation of State's API in Open Spiel
@@ -348,6 +338,7 @@ class AtlModelState(pyspiel.State):
             t_name = t.local_name if t.is_shared else t.name
             action_idx = self.action_name_to_id_dict[player_name][t_name]
             actions.append(action_idx)
+        assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
         return actions
 
     # def _apply_action(self, action):
