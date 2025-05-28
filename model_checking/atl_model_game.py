@@ -361,8 +361,6 @@ class AtlModelState(pyspiel.State):
         for player, action in enumerate(actions):
             action_name = self.possible_actions[action]
             transition = self.agent_local_states[player].get_transition_for_action(action_name)
-            if transition is None:
-                print("None transition!")  # TODO: Fix None transition error
             if transition.is_shared:
                 assert transition.is_abstract
                 # At this point we have an abstract shared transition which can correspond to any of the
