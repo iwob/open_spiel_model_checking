@@ -47,8 +47,6 @@ constexpr int kInitialCardsPerPlayer = 2;
 const char kSuitNames[kNumSuits + 1] = "CDHS";
 const char kRanks[kCardsPerSuit + 1] = "A23456789TJQK";
 
-constexpr const char* kHiddenCardStr = "??";
-
 namespace {
 // Facts about the game
 const GameType kGameType{/*short_name=*/"blackjack",
@@ -73,7 +71,31 @@ static std::shared_ptr<const Game> Factory(const GameParameters& params) {
 REGISTER_SPIEL_GAME(kGameType, Factory);
 
 RegisterSingleTensorObserver single_tensor(kGameType.short_name);
+
+std::vector<int> SetToSortedVector(const std::set<int>& set) {
+  std::vector<int> vec;
+  vec.reserve(set.size());
+  for (int i : set) {
+    vec.push_back(i);
+  }
+  std::sort(vec.begin(), vec.end());
+  return vec;
+}
+
 }  // namespace
+
+std::string PhaseToString(Phase phase) {
+  switch (phase) {
+    case kInitialDeal:
+      return "Initial Deal";
+    case kPlayerTurn:
+      return "Player Turn";
+    case kDealerTurn:
+      return "Dealer Turn";
+    default:
+      SpielFatalError("Unknown phase");
+  }
+}
 
 std::string CardToString(int card) {
   return std::string(1, kSuitNames[card / kCardsPerSuit]) +
@@ -133,42 +155,32 @@ std::string BlackjackState::InformationStateString(Player player) const {
 std::unique_ptr<State> BlackjackState::ResampleFromInfostate(
     int player_id, std::function<double()> rng) const {
   if (IsTerminal() || cards_[DealerId()].empty()) {
-    return this->Clone();
+    return Clone();
   }
 
-  // Dealer's first card is the only non-public information.
-  // Collect all visible cards in a set.
-  std::set<int> visible_cards = VisibleCards();
-
+  // The possible cards to choose from are the cards in the deck, plus the
+  // dealer's current card.
+  std::vector<int> possible_cards = deck_;
   int dealer_down_card = cards_[DealerId()][0];
+  possible_cards.push_back(dealer_down_card);
 
-  // Pick a random card from the remaining cards.
-  std::vector<int> deck_cards;
-  for (int i = 0; i < kDeckSize; ++i) {
-    if (visible_cards.find(i) == visible_cards.end()) {
-      deck_cards.push_back(i);
-    }
-  }
-
-  std::vector<double> probs(deck_cards.size(),
-                            1.0 / static_cast<double>(deck_cards.size()));
-
-  int sampled_index = SamplerFromRng(rng)(probs);
-  int dealer_new_down_card = deck_cards[sampled_index];
+  double z = rng();
+  int sampled_index = static_cast<int>(z * possible_cards.size());
+  int dealer_new_down_card = possible_cards[sampled_index];
 
   std::unique_ptr<State> new_state = game_->NewInitialState();
   std::vector<Action> history = History();
 
-  bool found_dealer_down_card = false;
-  for (auto& action : history) {
-    if (action == dealer_down_card && !found_dealer_down_card) {
-      found_dealer_down_card = true;
+  // The dealer down card is always the third action in the history.
+  int dealer_down_card_index = 2;
+  SPIEL_CHECK_EQ(history[dealer_down_card_index], dealer_down_card);
+  for (int i = 0; i < history.size(); ++i) {
+    if (i == dealer_down_card_index) {
       new_state->ApplyAction(dealer_new_down_card);
     } else {
-      new_state->ApplyAction(action);
+      new_state->ApplyAction(history[i]);
     }
   }
-  SPIEL_CHECK_TRUE(found_dealer_down_card);
   return new_state;
 }
 
@@ -202,13 +214,35 @@ std::vector<double> BlackjackState::Returns() const {
 std::string BlackjackState::ObservationString(Player player) const {
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, game_->NumPlayers());
-  if (player == 0 && cur_player_ == 0) {
-    // Don't show dealer's first card if it's the player's turn and they are
-    // the observer.
-    return StateToString(false);
+  if (IsTurnOver(player)) {
+    // Show dealer's face-down card after player's hand is settled.
+    return StateToString(/*show_all_dealers_card=*/true);
   } else {
-    return StateToString(true);
+    return StateToString(/*show_all_dealers_card=*/false);
   }
+}
+
+std::string BlackjackState::StateToString(bool show_all_dealers_card) const {
+  std::vector<int> players;
+  std::string result = absl::StrCat(
+    "Current Phase: ", PhaseToString(phase_), "\n",
+    "Current Player: ", cur_player_, "\n");
+
+  for (int p = 0; p <= NumPlayers(); ++p) {
+    absl::StrAppend(
+        &result, p == DealerId() ? "Dealer" : absl::StrCat("Player ", p), ": ");
+    // Don't show dealer's first card if we're not showing all of them.
+    int start_index = (p == 1 && !show_all_dealers_card ? 1 : 0);
+    absl::StrAppend(&result, "Cards: ",
+                    absl::StrJoin(CardsToStrings(cards_[p], start_index), " "),
+                    "\n");
+  }
+
+  return result;
+}
+
+std::string BlackjackState::ToString() const {
+  return StateToString(/*show_all_dealers_card=*/true);
 }
 
 void BlackjackState::ObservationTensor(Player player,
@@ -223,18 +257,32 @@ void BlackjackState::ObservationTensor(Player player,
   offset += game_->NumPlayers() + 1;
 
   // Terminal?
-  values[offset] = IsTerminal();
+  values[offset] = IsTerminal() ? 1 : 0;
   offset += 1;
 
-  // Number of aces for each player (incl. dealer)
-  for (std::size_t player_id = 0; player_id < cards_.size(); player_id++) {
-    values[offset + num_aces_[player_id]] = 1.0;
-    offset += (kNumSuits + 1);
+  // Player's best sum (thermometer of ones up to the value)
+  int player_best_sum = GetBestPlayerTotal(player);
+  for (int i = 0; i < kMaxSum; ++i) {
+    values[offset + i] = i <= player_best_sum ? 1 : 0;
   }
+  offset += kMaxSum;
 
-  // Cards used by each player (incl. dealer)
+  // Dealer's initial visible card
+  if (cards_[DealerId()].size() > 1) {
+    values[offset + cards_[DealerId()][1]] = 1;
+  }
+  offset += kDeckSize;
+
+  // Show each player's cards that are visible.
+  bool show_all_dealers_cards = player == kChancePlayerId || IsTurnOver(player);
+
   for (std::size_t player_id = 0; player_id < cards_.size(); player_id++) {
-    for (const int& card : cards_[player_id]) {
+    int start_index = 0;
+    if (player_id == DealerId() && !show_all_dealers_cards) {
+      start_index = 1;
+    }
+    for (int i = start_index; i < cards_[player_id].size(); ++i) {
+      int card = cards_[player_id][i];
       values[offset + card] = 1;
     }
     offset += kDeckSize;
@@ -276,6 +324,7 @@ void BlackjackState::DealCardToPlayer(int player, int card) {
 }
 
 BlackjackState::BlackjackState(std::shared_ptr<const Game> game) : State(game) {
+  phase_ = kInitialDeal;
   total_moves_ = 0;
   cur_player_ = kChancePlayerId;
   turn_player_ = kPlayerId;
@@ -320,6 +369,7 @@ void BlackjackState::EndPlayerTurn(int player) {
   turn_over_[player] = true;
   turn_player_ = NextTurnPlayer();
   cur_player_ = turn_player_;
+  phase_ = kDealerTurn;
 }
 
 void BlackjackState::DoApplyAction(Action move) {
@@ -338,6 +388,7 @@ void BlackjackState::DoApplyAction(Action move) {
         // Hit/stand part of the game commences.
         turn_player_ = kPlayerId;
         cur_player_ = kPlayerId;
+        phase_ = kPlayerTurn;
       }
     }
     return;
@@ -401,28 +452,6 @@ ActionsAndProbs BlackjackState::ChanceOutcomes() const {
   return outcomes;
 }
 
-std::string BlackjackState::ToString() const {
-  return StateToString(/*show_all_dealers_card=*/true);
-}
-
-std::string BlackjackState::StateToString(bool show_all_dealers_card) const {
-  std::vector<int> players;
-
-  std::string result = absl::StrCat("Current Player: ", cur_player_, "\n");
-  for (int p = 0; p <= NumPlayers(); ++p) {
-    absl::StrAppend(&result,
-                    p == DealerId() ? "Dealer" : absl::StrCat("Player ", p),
-                    ": ");
-    // Don't show dealer's first card if we're not showing all of them.
-    int start_index = (p == 1 && !show_all_dealers_card ? 1 : 0);
-    absl::StrAppend(&result, "Cards: ",
-                    absl::StrJoin(CardsToStrings(cards_[p], start_index), " "),
-                    "\n");
-  }
-
-  return result;
-}
-
 std::set<int> BlackjackState::VisibleCards() const {
   std::set<int> visible_cards;
   for (int i = 0; i < cards_.size(); ++i) {
@@ -434,6 +463,24 @@ std::set<int> BlackjackState::VisibleCards() const {
     }
   }
   return visible_cards;
+}
+
+std::vector<int> BlackjackState::VisibleCardsSortedVector() const {
+  return SetToSortedVector(VisibleCards());
+}
+
+int BlackjackState::DealersVisibleCard() const {
+  if (cards_[DealerId()].size() < 2) {
+    return -1;
+  } else {
+    return cards_[DealerId()][1];
+  }
+}
+
+std::vector<int> BlackjackState::PlayerCardsSortedVector() const {
+  std::vector<int> player_visible_cards = cards_[0];
+  std::sort(player_visible_cards.begin(), player_visible_cards.end());
+  return player_visible_cards;
 }
 
 std::unique_ptr<State> BlackjackState::Clone() const {
