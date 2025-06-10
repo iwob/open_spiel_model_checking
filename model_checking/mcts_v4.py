@@ -10,7 +10,7 @@ import textwrap
 import logging
 
 from action_selectors import *
-from solvers import Solver, SolverMCMAS
+from solvers import *
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms import ismcts
 from open_spiel.python.algorithms import tabular_qlearner
@@ -110,6 +110,7 @@ _KNOWN_PLAYERS = [
 ]
 _KNOWN_SELECTORS = ["most2", "all", "k-best", "1-best", "2-best", "3-best", "4-best", "5-best", "10-best", "none",
                     "0.25-total-value", "0.5-total-value", "0.75-total-value", "k-total-value"]
+_KNOWN_SOLVERS = ["mcmas", "stv"]
 
 
 flags.DEFINE_enum("game", "mnk", _KNOWN_GAMES, help="Name of the game.")
@@ -125,11 +126,13 @@ flags.DEFINE_enum("player1", None, _KNOWN_PLAYERS, help="Who controls player 1. 
 flags.DEFINE_enum("player2", None, _KNOWN_PLAYERS, help="Who controls player 2. Only applies to games with exactly 2 players.")
 flags.DEFINE_enum("action_selector1", "most2", _KNOWN_SELECTORS, help="Action selector for the coalition. If action_selector2 is none, it will be also used for the anti-coalition.")
 flags.DEFINE_enum("action_selector2", "none", _KNOWN_SELECTORS, help="Action selector for the anti-coalition.")
+flags.DEFINE_enum("solver", "mcmas", _KNOWN_SOLVERS, help="Type of the solver to be used for verification.")
 flags.DEFINE_string("atl_spec_path", None, help="Path to the ATL specification.")
 flags.DEFINE_string("gtp_path", None, help="Where to find a binary for gtp.")
 flags.DEFINE_multi_string("gtp_cmd", [], help="GTP commands to run at init.")
 flags.DEFINE_string("az_path", None, help="Path to an alpha_zero checkpoint. Needed by an az player.")
 flags.DEFINE_string("mcmas_path", None, required=False, help="Path to the MCMAS executable.")
+flags.DEFINE_string("stv_path", None, required=False, help="Path to the STV executable.")
 flags.DEFINE_string("output_file", None, required=False, help="Path to the file in which the results of this run will be stored.")
 flags.DEFINE_string("submodels_dir", None, required=False, help="Path to the directory in which will be stored the generated submodels.")
 flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
@@ -518,7 +521,15 @@ def main(argv):
         mcmas_path = "/home/iwob/Programs/MCMAS/mcmas-linux64-1.3.0"
     else:
         mcmas_path = FLAGS.mcmas_path
-    solver = SolverMCMAS(mcmas_path, time_limit=1000*3600*4)
+    if FLAGS.stv_path is None:
+        stv_path = "/home/iwob/Programs/STV/stv"
+    else:
+        stv_path = FLAGS.stv_path
+
+    if FLAGS.solver == "mcmas":
+        solver = SolverMCMAS(mcmas_path, time_limit=1000*3600*4)
+    elif FLAGS.solver == "stv":
+        solver = SolverSTV(stv_path, time_limit=1000 * 3600 * 4)
 
     if FLAGS.game == "mnk":
         # Example initial moves for mnk; "x(2,2),o(3,2)"

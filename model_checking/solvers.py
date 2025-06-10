@@ -1,5 +1,7 @@
 import subprocess
 import time
+from pathlib import Path
+import shutil
 
 
 class Solver:
@@ -77,6 +79,62 @@ class SolverMCMAS(Solver):
             elif "BDD memory in use =" in line:
                 meta["bdd_memory"] = float(line.split('=')[-1].strip())
         return meta
+
+
+
+class SolverSTV(Solver):
+    def __init__(self, path_exec, time_limit=1000*3600*4, additional_solver_args=None):
+        if additional_solver_args is None:
+            additional_solver_args = []
+        self.path_exec = path_exec
+        self.additional_solver_args = additional_solver_args
+        super().__init__("stv", time_limit)
+
+    def verify_from_file(self, file_path):
+        # STV requires config.txt to be present in the working directory (and not location of the solver...)
+        p_from = Path(self.path_exec).parent / "config.txt"
+        p_to = Path(file_path).parent / "config.txt"
+        shutil.copy(p_from, p_to)
+
+        args = [self.path_exec] + self.additional_solver_args + ["--ADD_EPSILON_TRANSITIONS", "-f", file_path]
+        result = subprocess.run(args, capture_output=True, text=True, cwd=Path(file_path).parent)
+        output = result.stdout  # Capturing standard output
+        output_err = result.stderr
+        print("Command to run:", " ".join(args))
+        print("Solver output:\n", output)
+        if output_err is not None and len(output_err) > 0:
+            print("Errors:")
+            print(output_err)
+
+        if "Verification result:" not in output:
+            raise Exception(output) # There was an error, print
+
+        meta = self.parse_output(output)
+
+        verification_result = meta["Formula 1"] == "TRUE"
+        meta["decision"] = verification_result
+        meta["status"] = "ok"
+        # TODO: Handle the case of program failure or exceeding time limit
+        # meta["status"] = "unknown"
+        # meta["status"] = "timeout"
+        return verification_result, meta
+
+    def verify(self, script):
+        raise Exception("Currently SolverSTV handles only verification of files.")
+
+    @staticmethod
+    def parse_output(output):
+        # Example output from STV:
+        # -------------------------------------------------------------------------------------------------------
+        # Verification result: FALSE
+        # -------------------------------------------------------------------------------------------------------
+        meta = {}
+        for line in output.split('\n'):
+            if "Verification result:" in line:
+                meta["Formula 1"] = "TRUE" if line.split([":"])[1].strip() == "TRUE" else "FALSE"
+        return meta
+
+
 
 
 if __name__ == "__main__":
