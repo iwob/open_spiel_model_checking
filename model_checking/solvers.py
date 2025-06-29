@@ -96,12 +96,19 @@ class SolverSTV(Solver):
         p_to = Path(file_path).parent / "config.txt"
         shutil.copy(p_from, p_to)
 
-        args = [self.path_exec] + self.additional_solver_args + ["--ADD_EPSILON_TRANSITIONS", "-f", file_path]
+        args = [self.path_exec] + self.additional_solver_args + ["--ADD_EPSILON_TRANSITIONS", "-f", Path(file_path).name]
+        # print("Working directory:", Path(file_path).parent)
+        # print("File path:", file_path)
         result = subprocess.run(args, capture_output=True, text=True, cwd=Path(file_path).parent)
         output = result.stdout  # Capturing standard output
         output_err = result.stderr
         print("Command to run:", " ".join(args))
         print("Solver output:\n", output)
+
+        if result.returncode < 0:
+            msg = "Solver crashed. Stderr: " + result.stderr
+            raise Exception(msg)
+
         if output_err is not None and len(output_err) > 0:
             print("Errors:")
             print(output_err)

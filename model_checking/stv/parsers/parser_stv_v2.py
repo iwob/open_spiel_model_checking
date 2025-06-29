@@ -20,7 +20,12 @@ class ExprNode:
         self.is_variable = False
 
     def __str__(self):
-        return f"{self.name}({', '.join([str(a) for a in self.args])})"
+        if len(self.args) == 1:
+            return f"({self.name} {self.args[0]})"
+        elif len(self.args) == 2:
+            return f"({self.args[0]} {self.name} {self.args[1]})"
+        else:
+            return f"{self.name}({', '.join([str(a) for a in self.args])})"
 
     def __repr__(self):
         return str(self)
@@ -244,8 +249,8 @@ class Stv2Parser:
         sys.tracebacklimit = 0  # noqa
         tree = self._parser.parse(text)
         sys.tracebacklimit = None  # noqa
-        formula = self._transformer.transform(tree)
-        return formula
+        stv_spec, formula = self._transformer.transform(tree)
+        return stv_spec, formula
 
 
 def do_test_STV_parser():
