@@ -113,9 +113,6 @@ class SolverSTV(Solver):
             print("Errors:")
             print(output_err)
 
-        if "Verification result:" not in output:
-            raise Exception(output) # There was an error, print
-
         meta = self.parse_output(output)
 
         verification_result = meta["Formula 1"] == "TRUE"
@@ -135,10 +132,12 @@ class SolverSTV(Solver):
         # -------------------------------------------------------------------------------------------------------
         # Verification result: FALSE
         # -------------------------------------------------------------------------------------------------------
+        if "Verification result:" not in output:
+            raise Exception(output) # There was an error, print
         meta = {}
         for line in output.split('\n'):
             if "Verification result:" in line:
-                meta["Formula 1"] = "TRUE" if line.split([":"])[1].strip() == "TRUE" else "FALSE"
+                meta["Formula 1"] = "TRUE" if line.split(":")[1].strip() == "TRUE" else "FALSE"
         return meta
 
 

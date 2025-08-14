@@ -63,6 +63,9 @@ class AtlModelGame(pyspiel.Game):
         self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
         super().__init__(_GAME_TYPE, self._GAME_INFO, {})
 
+    def __deepcopy__(self, memo):
+        return self  # Game is by design immutable. For efficiency reasons, and to avoid copying bugs, we handle this like that.
+
     def get_player_name(self, player_index):
         """Converts a player's number ID in Open Spiel to an identifier used for actions."""
         return self.spec.agents[player_index].name
@@ -286,7 +289,7 @@ class AtlModelState(pyspiel.State):
         self._is_terminal = False
         self.formula_eval = None
 
-        # self.game = game
+        self.game = game
         self.spec = spec
         self.formula = formula
         self.agent_local_states = [AgentLocalState(i, a, game, max_tensor_size=game.get_max_tensor_size()) for i, a in enumerate(self.spec.agents)]
@@ -340,6 +343,17 @@ class AtlModelState(pyspiel.State):
             actions.append(action_idx)
         assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
         return actions
+
+    def resample_from_infostate(self, player_id, rng=None):
+        """Given a player's observation vector in an imperfect game, return a possible full game state consistent with that
+        observation vector."""
+
+        # We deal here with ir scenario, so the agent is aware only of its current state.
+        pass
+
+
+
+
 
     # def _apply_action(self, action):
     #     """Applies the specified action to the state."""

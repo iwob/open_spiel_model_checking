@@ -121,7 +121,7 @@ flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in t
 flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
 flags.DEFINE_string("coalition", None, help="Player coalition provided as integers divided by commas, e.g. '1,2'.")
 flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
-flags.DEFINE_enum("player", "mcts", _KNOWN_PLAYERS, help="Who controls all agents. Applies to the games with != 2 players.")
+flags.DEFINE_enum("player", "mcts", _KNOWN_PLAYERS, help="Who controls all agents. Is taken into account only if the player1 and player2 arguments are not provided.")
 flags.DEFINE_enum("player1", None, _KNOWN_PLAYERS, help="Who controls player 1. Only applies to games with exactly 2 players.")
 flags.DEFINE_enum("player2", None, _KNOWN_PLAYERS, help="Who controls player 2. Only applies to games with exactly 2 players.")
 flags.DEFINE_enum("action_selector1", "most2", _KNOWN_SELECTORS, help="Action selector for the coalition. If action_selector2 is none, it will be also used for the anti-coalition.")
@@ -544,7 +544,7 @@ def main(argv):
         raise Exception("Unknown game!")
 
     if FLAGS.submodels_dir is None:
-        results_root = Path(f"results(v4)__{game_utils.get_name()}_{FLAGS.piles}")  # TODO: change name to constant and independent
+        results_root = Path(f"results(v4)__{game_utils.get_name()}")  # TODO: change name to constant and independent
     else:
         results_root = Path(FLAGS.submodels_dir)
 
