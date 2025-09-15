@@ -13,13 +13,57 @@
 # limitations under the License.
 """General tests for pyspiel python bindings."""
 
+import importlib
 import os
+
 from absl.testing import absltest
+from absl.testing import parameterized
 
 from open_spiel.python import games  # pylint: disable=unused-import
 from open_spiel.python import policy
 from open_spiel.python.mfg import games as mfgs  # pylint: disable=unused-import
 import pyspiel
+
+
+def _try_importing_game(import_statement):
+  # First get the fully-qualified module name from the import statement.
+  parts = import_statement.split(" ")
+  if len(parts) == 2:
+    # "import module" -> "module"
+    fully_qualified_module_name = import_statement.split(" ")[-1]
+  elif len(parts) == 4 and parts[0] == "from" and parts[2] == "import":
+    # "from this import that" -> "this.that"
+    fully_qualified_module_name = f"{parts[1]}.{parts[3]}"
+  else:
+    raise ValueError(f"Invalid import statement: {import_statement}")
+  # Now try to import the module and return True if it worked.
+  try:
+    importlib.import_module(fully_qualified_module_name)
+    return True
+  except ImportError:
+    return False
+  except (SyntaxError, TypeError, ValueError, RuntimeError) as e:
+    print(
+        f"Failed to import {fully_qualified_module_name}, but with common"
+        f" non-import error: {e}"
+    )
+    return False
+
+# pylint: disable=line-too-long
+_PYTHON_OPTIONAL_GAMES = frozenset([
+    game
+    for game, import_statement in [
+        # TODO: b/437724266 - enable once we've finished implemention here.
+        # tuple(["python_pokerkit_wrapper",
+        #        "from open_spiel.python.games import pokerkit_wrapper",
+        #        ]),
+        tuple([
+            "python_pokerkit_wrapper_acpc_style",
+            "from open_spiel.python.games import pokerkit_wrapper",
+        ])
+    ]
+    if _try_importing_game(import_statement)
+])
 
 # Specify game names in alphabetical order, to make the test easier to read.
 EXPECTED_GAMES = frozenset([
@@ -70,10 +114,12 @@ EXPECTED_GAMES = frozenset([
     "kriegspiel",
     "kuhn_poker",
     "laser_tag",
+    "latent_ttt",
     "lewis_signaling",
     "leduc_poker",
     "liars_dice",
     "liars_dice_ir",
+    "lines_of_action",
     "maedn",
     "mancala",
     "markov_soccer",
@@ -144,10 +190,10 @@ EXPECTED_GAMES = frozenset([
     "ultimate_tic_tac_toe",
     "y",
     "zerosum",
-])
+]).union(_PYTHON_OPTIONAL_GAMES)
 
 
-class PyspielTest(absltest.TestCase):
+class PyspielTest(parameterized.TestCase):
 
   def test_registered_names(self):
     game_names = pyspiel.registered_names()
@@ -340,6 +386,39 @@ class PyspielTest(absltest.TestCase):
                                           python_policy.state_lookup,
                                           batch_size, include_full_observations,
                                           seed, -1)
+
+  def test_get_game_parameters(self):
+    if "universal_poker" in pyspiel.registered_names():
+      game = pyspiel.load_game(pyspiel.hunl_game_string("fullgame"))
+      print(game)
+      params = game.get_parameters()
+      print(params)
+      param_string = pyspiel.game_parameters_to_string(params)
+      print(param_string)
+      params2 = pyspiel.game_parameters_from_string(param_string)
+      assert params2 is not None
+      game_from_params = pyspiel.load_game(
+          f"{game.get_type().short_name}{param_string}")
+      self.assertGreaterEqual(len(params2), len(params))
+      assert game_from_params is not None
+
+  @parameterized.parameters(
+      ("universal_poker", pyspiel.hunl_game_string("fullgame")),
+      (
+          "python_pokerkit_wrapper_acpc_style",
+          "python_pokerkit_wrapper_acpc_style(variant=NoLimitTexasHoldem,"
+          + "num_players=2,blinds=5 10,stack_sizes=10000 10000,min_bet=100,"
+          + "bring_in=100,small_bet=100,big_bet=100)",
+      ),
+      ("kuhn_poker", "kuhn_poker(players=3)"),
+      ("tic_tac_toe", "tic_tac_toe"),
+      ("breakthrough", "breakthrough(rows=6,columns=6)"))
+  def test_game_serialize_deserialize(self, game_name, game_string):
+    if game_name in pyspiel.registered_names():
+      game = pyspiel.load_game(game_string)
+      serialized_game = game.serialize()
+      game2 = pyspiel.deserialize_game(serialized_game)
+      self.assertEqual(str(game), str(game2))
 
 
 if __name__ == "__main__":

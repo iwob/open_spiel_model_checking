@@ -50,7 +50,8 @@ class IsmctsTest(parameterized.TestCase):
     }
     node.total_visits = 4
     self.assertAlmostEqual(
-        ismcts_bot._action_value(node, node.child_info[0]).item(), 8.0
+        ismcts_bot._action_value(node, node.child_info[0]).item(),
+        8.177410022515474,
     )
     candidates = ismcts_bot._select_candidate_actions(node)
     self.assertLen(candidates, 2)
@@ -83,6 +84,21 @@ class IsmctsTest(parameterized.TestCase):
         max_simulations=10,
     )
     self.play_game(game, ismcts_bot)
+
+  def test_invalid_action_at_chance_node(self):
+    game = pyspiel.load_game("kuhn_poker")
+    state = game.new_initial_state()
+    assert state.is_chance_node(), "Kuhn poker should start at a chance node."
+    ismcts_bot = ismcts.ISMCTSBot(
+        game=game,
+        uct_c=4.0,
+        evaluator=mcts.RandomRolloutEvaluator(),
+        max_simulations=10,
+    )
+    policy, action = ismcts_bot.step_with_policy(state)
+    self.assertLen(policy, 1)
+    self.assertEqual(policy[0][0], pyspiel.INVALID_ACTION)
+    self.assertEqual(action, pyspiel.INVALID_ACTION)
 
   @absltest.skip("Skipping. This one does not work.")
   def test_play_universal_poker(self):

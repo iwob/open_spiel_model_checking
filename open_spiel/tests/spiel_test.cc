@@ -357,6 +357,26 @@ void ConcreteGamesTest() {
   }
 }
 
+void PlayerIdToStringTest() {
+  SPIEL_CHECK_EQ(DefaultPlayerString(0), "Player_0");
+  SPIEL_CHECK_EQ(DefaultPlayerString(1), "Player_1");
+  SPIEL_CHECK_EQ(DefaultPlayerString(10), "Player_10");
+  SPIEL_CHECK_EQ(DefaultPlayerString(kChancePlayerId), "Chance");
+  SPIEL_CHECK_EQ(DefaultPlayerString(kSimultaneousPlayerId), "Simultaneous");
+  SPIEL_CHECK_EQ(DefaultPlayerString(kInvalidPlayer), "Invalid");
+  SPIEL_CHECK_EQ(DefaultPlayerString(kTerminalPlayerId), "Terminal");
+  SPIEL_CHECK_EQ(DefaultPlayerString(kMeanFieldPlayerId), "MeanField");
+}
+
+void GetParametersFromStringTest() {
+  std::string params_str = "(betting=nolimit,bettingAbstraction=fullgame,"
+      "blind=100 50,boardCards=,firstPlayer=2 1 1 1,handReaches=,maxRaises=,"
+      "numBoardCards=0 3 1 1,numHoleCards=2,numPlayers=2,numRanks=13,"
+      "numRounds=4,numSuits=4,potSize=0,stack=20000 20000)";
+  auto params = GameParametersFromString(params_str);
+  SPIEL_CHECK_EQ(params.size(), 16);  // extra one for "name"
+}
+
 }  // namespace
 }  // namespace testing
 }  // namespace open_spiel
@@ -372,4 +392,6 @@ int main(int argc, char** argv) {
   open_spiel::testing::GameParametersTest();
   open_spiel::testing::PolicySerializationTest();
   open_spiel::testing::ConcreteGamesTest();
+  open_spiel::testing::PlayerIdToStringTest();
+  open_spiel::testing::GetParametersFromStringTest();
 }
