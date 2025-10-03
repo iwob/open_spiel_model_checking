@@ -92,6 +92,7 @@ class SelectTotalValuePercent(ActionSelector):
     def select_actions(self, actions: list[(float, str)], cur_player: int, coalition: set[int] = None) -> list[(float, str)]:
         total = 0.
         for v, _ in actions:
+            # TODO: What if v is negative? Can this happen?
             total += v
         thresh = self.percent * total
         cur_sum = 0
@@ -99,6 +100,6 @@ class SelectTotalValuePercent(ActionSelector):
         for a in actions:
             cur_sum += a[0]
             selected_actions.append(a)
-            if cur_sum > thresh:
+            if cur_sum >= thresh:
                 return selected_actions
         return actions

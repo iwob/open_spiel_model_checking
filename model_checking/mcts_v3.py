@@ -11,8 +11,6 @@ import textwrap
 from action_selectors import *
 from solvers import Solver, SolverMCMAS
 from open_spiel.python.algorithms import mcts
-from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
-from open_spiel.python.algorithms.alpha_zero import model as az_model
 from open_spiel.python.bots import gtp
 from open_spiel.python.bots import human
 from open_spiel.python.bots import uniform_random
@@ -175,6 +173,8 @@ def _init_bot(bot_type, game, player_id):
             solve=FLAGS.solve,
             verbose=False)
     if bot_type == "az":
+        from open_spiel.python.algorithms.alpha_zero import evaluator as az_evaluator
+        from open_spiel.python.algorithms.alpha_zero import model as az_model
         model = az_model.Model.from_checkpoint(FLAGS.az_path)
         evaluator = az_evaluator.AlphaZeroEvaluator(game, model)
         return mcts.MCTSBot(

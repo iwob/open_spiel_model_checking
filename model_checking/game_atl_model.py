@@ -1,8 +1,8 @@
 from pathlib import Path
 import re
 
-from model_checking.atl_model_game import AtlModelGame, AtlModelState
-from model_checking.game_mnk import GameInterface
+from atl_model_game import AtlModelGame, AtlModelState
+from game_mnk import GameInterface
 import pyspiel
 from stv.parsers.parser_stv_v2 import Stv2Parser
 from stv.parsers.stv_specification import *

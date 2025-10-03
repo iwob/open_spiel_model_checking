@@ -332,6 +332,8 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
     # The state can be of three different types: chance node, simultaneous node, or decision node
     if node.state.is_chance_node():
         if unroll_chance_nodes:
+            # All possible chance actions/outcomes are enumerated and traversed
+            # Chance node acts as part of anti-coalition
             for action in node.state.legal_actions():
                 action_str = node.state.action_to_string(node.state.current_player(), action)
                 new_state = node.state.clone()
@@ -356,7 +358,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                     return 0
                 else:
                     logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent continues search")
-            return 1  # chance node acts as part of anti-coalition
+            return 1
         else:
             raise ValueError("Game cannot have chance nodes.")
     elif node.state.is_simultaneous_node():
@@ -595,6 +597,8 @@ def main(argv):
             return SelectTotalValuePercent(0.75)
         elif name == "k-total-value":
             return SelectTotalValuePercent(FLAGS.selector_k)
+        else:
+            return None
 
     if FLAGS.action_selector1 == "none":
         raise Exception("action_selector1 cannot be empty.")
