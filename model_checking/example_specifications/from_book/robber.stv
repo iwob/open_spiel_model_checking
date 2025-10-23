@@ -1,0 +1,51 @@
+# Command: ~/Programs/STV/stv --OUTPUT_DOT_FILES --ADD_EPSILON_TRANSITIONS -f robber.stv
+
+# Source: W. Jamroga, "Logical Methods for Specification and Verification of Multi-Agent Systems", page 89
+#
+# Example 52 (Schobbens’ Robber) Figure 6.1 models the following scenario. A vault
+# containing a large sum of money is protected by a binary code. Realistically, the code
+# should be ca. 20 digits long, but in order to simplify the graph, we assume that it
+# consists of only 1 digit, either 0 or 1. If someone enters the right code, the vault opens
+# and gives access to what is stored there. If an incorrect code is entered, the alarm
+# system switches on. The code is set anew every morning by the guard agent g. Some
+# time later during the day, the robber (r) enters the bank and tries to open the vault.
+# However, he doesn’t know the current code, which is indicated by indistinguishability
+# of states q1 and q2.
+# Can we say that the rober has the ability to open the vault and get access to the
+# money? Intuitively not. He has all the necessary physical capabilities, but at the same
+# time lacks an important “soft” resource: knowledge which action should be used to
+# achieve the goal.
+
+Agent Guard:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+shared[2] guard_set0[set0]: idle -> finish
+shared[2] guard_set1[set1]: idle -> finish
+loop: finish -> finish
+
+Agent Robber:
+LOCAL: []
+PERSISTENT: []
+INITIAL: []
+init idle
+shared[2] robber_try0[try0]: idle -> finish
+shared[2] robber_try1[try1]: idle -> finish
+loop: finish -> finish
+
+Agent Environment:
+LOCAL: [access, alarm]
+PERSISTENT: [access, alarm]
+INITIAL: [access:=0, alarm:=0]
+init idle
+shared[2] guard_set0[action_Guard]: idle -> alarm_set [code := 0]
+shared[2] guard_set1[action_Guard]: idle -> alarm_set [code := 1]
+shared[2] robber_try0[action_Robber]: alarm_set [code == 0] -> finish [access := 1]
+shared[2] robber_try1[action_Robber]: alarm_set [code == 0] -> finish [alarm := 1]
+shared[2] robber_try0[action_Robber]: alarm_set [code == 1] -> finish [alarm := 1]
+shared[2] robber_try1[action_Robber]: alarm_set [code == 1] -> finish [access := 1]
+loop: finish -> finish
+
+
+FORMULA: <<Robber>><>( access == 1 )
