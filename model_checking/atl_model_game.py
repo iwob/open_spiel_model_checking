@@ -345,10 +345,21 @@ class AtlModelState(pyspiel.State):
         return actions
 
     def resample_from_infostate(self, player_id, rng=None):
-        """Given a player's observation vector in an imperfect game, return a possible full game state consistent with that
-        observation vector."""
+        """Given a player's observation vector (in this case: agent's local state)
+         in an imperfect game, return a possible full game state consistent with that observation vector."""
 
-        # We deal here with ir scenario, so the agent is aware only of its current state.
+        # We deal here with ir scenario, so the agent is aware only of its current state. This means that
+        # what we are sampling here are the states of other agents.
+        # Idea:
+        # 1. Rewind the actions of other agent's
+
+        # Optimization: create for each executed shared transition a snapshot of the state as the last common root.
+
+        # Earliest possible ancestor? Motivation - MCTS will be able to explore different paths, nothing is excluded.
+
+        # Assumptions
+        # - Resampling is done in the R (Perfect Recall) fashion - we assume that a sequence of agent_id moves happened
+        #  exactly that way.
         pass
 
 
