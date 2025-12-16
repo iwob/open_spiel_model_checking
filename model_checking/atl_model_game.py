@@ -374,7 +374,7 @@ class AtlModelState(pyspiel.State):
 
 
     def _execute_agent_actions(self, actions):
-        shared_transactions = []
+        shared_transitions = []
         was_action_executed = False  # Can be used to detect deadlock
 
         # Execute all selected private actions - these agents, under imperfect information, won't get any new
@@ -391,14 +391,14 @@ class AtlModelState(pyspiel.State):
                 # At this point we have an abstract shared transition which can correspond to any of the
                 # concrete transitions contained in it (e.g., A in "action1[A] ... action2[A]").
                 # Agent can only decide on A and isn't aware of the underlying actions.
-                shared_transactions.append((player, transition))
+                shared_transitions.append((player, transition))
             else:
                 self.execute_transition(player, transition)
                 was_action_executed = True
 
         # Aggregate instances of shared actions
         shared_trans_support_dict = {}
-        for p, at in shared_transactions:
+        for p, at in shared_transitions:
             # p = 1  (player id of the action executioner)
             # at - represents play_0 in the example below
             # at.transition_set = {play_0_rock, play_0_paper, play_0_scissors}
