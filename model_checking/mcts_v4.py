@@ -119,12 +119,12 @@ flags.DEFINE_integer("n", 5, help="(Game: mnk) Height of the board (i.e., number
 flags.DEFINE_integer("k", 4, help="(Game: mnk) Number of elements forming a line to win.")
 flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
 flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
-flags.DEFINE_string("coalition", None, help="Player coalition provided as integers divided by commas, e.g. '1,2'.")
+flags.DEFINE_string("coalition", None, help="Player coalition provided as integers divided by commas, e.g. '0,2'. The ids of agents are the same as their order in the specification file, starting from 0.")
 flags.DEFINE_string("initial_moves", None, help="Initial actions to be specified in the game-specific format.")
 flags.DEFINE_enum("player", "mcts", _KNOWN_PLAYERS, help="Who controls all agents. Is taken into account only if the player1 and player2 arguments are not provided.")
 flags.DEFINE_enum("player1", None, _KNOWN_PLAYERS, help="Who controls player 1. Only applies to games with exactly 2 players.")
 flags.DEFINE_enum("player2", None, _KNOWN_PLAYERS, help="Who controls player 2. Only applies to games with exactly 2 players.")
-flags.DEFINE_enum("action_selector1", "most2", _KNOWN_SELECTORS, help="Action selector for the coalition. If action_selector2 is none, it will be also used for the anti-coalition.")
+flags.DEFINE_enum("action_selector1", "2-best", _KNOWN_SELECTORS, help="Action selector for the coalition. If action_selector2 is none, action_selector1 will be also used for the anti-coalition.")
 flags.DEFINE_enum("action_selector2", "none", _KNOWN_SELECTORS, help="Action selector for the anti-coalition.")
 flags.DEFINE_enum("solver", "mcmas", _KNOWN_SOLVERS, help="Type of the solver to be used for verification.")
 flags.DEFINE_string("atl_spec_path", None, help="Path to the ATL specification.")
@@ -143,8 +143,8 @@ flags.DEFINE_integer("selector_k", 3, required=False, help="How many best action
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
 flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
+flags.DEFINE_integer("use_mcts_outcome_information", 1, help="Uses the 'outcome' field accessible in OpenSpiel, which corresponds to proven outcomes according to the MCTS-Solver algorithm.")
 flags.DEFINE_bool("use_reward_in_terminal_states", False, help="If true, then a solver won't be called in terminal states. Instead, rewards will be summed between the players and if the reward of the coalition is greater than anti-coalition, then verification is assumed to be successful.")
-flags.DEFINE_bool("random_first", False, help="Play the first move randomly.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
 flags.DEFINE_bool("verbose", False, help="Show the MCTS stats of possible moves.")
@@ -310,7 +310,8 @@ def _debug_player_name(node: QueueNode):
 def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                       bots: list, action_selector: ActionSelector, formula: str, coalition: set,
                       node: QueueNode, game_tree: GameTreeNode, run_results_dir, results_dict,
-                      max_game_depth, use_reward_in_terminal_states, unroll_chance_nodes):
+                      max_game_depth, use_reward_in_terminal_states, unroll_chance_nodes,
+                      use_mcts_outcome_information):
     debug_indent = "\t" * node.priority
     logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Processing state:\n{textwrap.indent(str(node.state), debug_indent)}")
 
@@ -352,7 +353,8 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                                         results_dict=results_dict,
                                         max_game_depth=max_game_depth,
                                         use_reward_in_terminal_states=use_reward_in_terminal_states,
-                                        unroll_chance_nodes=unroll_chance_nodes)
+                                        unroll_chance_nodes=unroll_chance_nodes,
+                                        use_mcts_outcome_information=use_mcts_outcome_information)
                 if not dec:
                     logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent has a path to prevent coalition from winning, move to the previous layer")
                     return 0
@@ -378,18 +380,37 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 
         def get_name(data_str: str) -> str:
             return data_str.split(": player:")[0].strip()
+        def get_outcome(data_str: str) -> float:
+            s = data_str.split(", outcome:")[1]
+            f = s[:s.index(",")].strip()
+            return 0.0 if f == "none" else float(f)
         def get_value(data_str: str) -> float:
             value = float(my_policy_value_pattern.search(data_str).group(1))
             return value
 
         # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
         # doesn't give that information on the outside
-        actions_list = [(get_value(line), get_name(line)) for line in bot.my_policy.split("\n")]
+        actions_list = [(get_outcome(line), get_value(line), get_name(line)) for line in bot.my_policy.split("\n")]
         actions_list = sorted(actions_list, reverse=True)  # sort by value
-        actions_to_explore = action_selector(actions_list, current_player, coalition)
+        # logger.debug("Sorted actions list:")
+        # for a in actions_list:
+        #     logger.debug(str(a))
+
+        if use_mcts_outcome_information:
+            if actions_list[0][0] == 1.0:  # The outcome of the first action for the current player is a proven victory
+                actions_to_explore = actions_list[:1]
+            elif actions_list[0][0] == -1.0:  # All actions lead to a defeat
+                actions_to_explore = actions_list[:1]
+            else:
+                actions_to_explore = action_selector(actions_list, current_player, coalition)
+        else:
+            actions_to_explore = action_selector(actions_list, current_player, coalition)
         # Assumption: actions_to_explore are returned sorted by the action_selector
 
-        for val, a in actions_to_explore:
+        for outcome, val, a in actions_to_explore:
+            if use_mcts_outcome_information and outcome == -1.0:
+                logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {a}, which cannot benefit the current player")
+                continue
             action_id = _get_action_id(node.state, a)
             new_state = node.state.clone()
             # TODO: clone() method not implemented
@@ -408,7 +429,8 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                                     results_dict=results_dict,
                                     max_game_depth=max_game_depth,
                                     use_reward_in_terminal_states=use_reward_in_terminal_states,
-                                    unroll_chance_nodes=unroll_chance_nodes)
+                                    unroll_chance_nodes=unroll_chance_nodes,
+                                    use_mcts_outcome_information=use_mcts_outcome_information)
 
             # Here we implement a minmax part depending on the decision returned by the lower layers
             if current_player in coalition:
@@ -435,7 +457,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list,
                   action_selector: ActionSelector, formula: str, coalition: set, run_results_dir,
                   results_dict, initial_moves: str="", max_game_depth=5, use_reward_in_terminal_states=False,
-                  unroll_chance_nodes=True):
+                  unroll_chance_nodes=True, use_mcts_outcome_information=True):
     global SPEC_FILE_COUNTER
     SPEC_FILE_COUNTER = 0
     results_dict["time_solver"] = 0.0
@@ -458,7 +480,8 @@ def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver,
                             results_dict=results_dict,
                             max_game_depth=max_game_depth,
                             use_reward_in_terminal_states=use_reward_in_terminal_states,
-                            unroll_chance_nodes=unroll_chance_nodes)
+                            unroll_chance_nodes=unroll_chance_nodes,
+                            use_mcts_outcome_information=use_mcts_outcome_information)
     return dec, game_tree
 
 
@@ -634,7 +657,8 @@ def main(argv):
         result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
                                           run_results_dir, results_dict, initial_moves,
                                           max_game_depth=FLAGS.max_game_depth,
-                                          use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states)
+                                          use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
+                                          use_mcts_outcome_information=FLAGS.use_mcts_outcome_information)
 
         end = time.time()
         results_dict["decision"] = result
