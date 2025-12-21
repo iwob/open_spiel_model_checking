@@ -401,6 +401,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                 actions_to_explore = actions_list[:1]
             elif actions_list[0][0] == -1.0:  # All actions lead to a defeat
                 actions_to_explore = actions_list[:1]
+                # This whole elif block can be commented out to generate a valid game tree.
             else:
                 actions_to_explore = action_selector(actions_list, current_player, coalition)
         else:
@@ -411,9 +412,10 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             if use_mcts_outcome_information and outcome == -1.0:
                 logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {a}, which cannot benefit the current player")
                 continue
+                # This whole if block can be commented out to generate a valid game tree.
             action_id = _get_action_id(node.state, a)
             new_state = node.state.clone()
-            # TODO: clone() method not implemented
+            # TODO: clone() method not implemented in the line below
             # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
             new_bots = bots
             _inform_bots(new_bots, node.state, action_id)
@@ -569,7 +571,7 @@ def main(argv):
         raise Exception("Unknown game!")
 
     if FLAGS.submodels_dir is None:
-        results_root = Path(f"results(v4)__{game_utils.get_name()}")  # TODO: change name to constant and independent
+        results_root = Path(f"tmp_submodels/{game_utils.get_name()}")  # TODO: change name to constant and independent
     else:
         results_root = Path(FLAGS.submodels_dir)
 
@@ -659,6 +661,13 @@ def main(argv):
                                           max_game_depth=FLAGS.max_game_depth,
                                           use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
                                           use_mcts_outcome_information=FLAGS.use_mcts_outcome_information)
+
+        ## Uncomment this block to generate a decision tree (works only for mnk, probably to be removed in the future)
+        # if False:
+        #     with open(results_root / f"game_tree.ispl", "w") as f:
+        #         print("Saving specification file for tree encoding")
+        #         spec = game_utils.formal_subproblem_description_game_tree(game_tree, history="", formulae_to_check=formula)
+        #         f.write(spec)
 
         end = time.time()
         results_dict["decision"] = result

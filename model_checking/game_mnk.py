@@ -187,7 +187,7 @@ def translate_player(player_id, capitalize_first=False):
     else:
         return "Nought" if capitalize_first else "nought"
 
-def get_additional_env_evolution_items(tree, conditions_rhs_list, results):
+def get_additional_env_evolution_items_legacy(tree, conditions_rhs_list, results):
     if GAME_TREE_LEAF_ID in tree:
         return
     else:
@@ -211,6 +211,29 @@ def get_additional_env_evolution_items(tree, conditions_rhs_list, results):
                 get_additional_env_evolution_items(tree[a], conditions_rhs_list, results)
                 del conditions_rhs_list[-1]
 
+
+def get_additional_env_evolution_items(tree, conditions_rhs_list, results):
+    if tree.is_leaf:
+        return
+    else:
+        for a, child in tree.children.items():
+            move_no = len(conditions_rhs_list) + 1
+            act = translate_action(a)
+            p1 = translate_player(tree.cur_player)
+            p1c = translate_player(tree.cur_player, capitalize_first=True)
+            lhs = f"move_{move_no} = {act}"
+            rhs = f"turn = {p1} and {p1c}.Action = {act} and move_{move_no} = none"
+            if len(conditions_rhs_list) > 0:
+                rhs += f" and {' and '.join(conditions_rhs_list)}"
+            item = f"{lhs} if {rhs};"
+            results.append(item)
+
+            if child.is_leaf:
+                item2 = f"moves_frozen = false if {rhs};"
+                results.append(item2)
+            conditions_rhs_list.append(lhs)
+            get_additional_env_evolution_items(child, conditions_rhs_list, results)
+            del conditions_rhs_list[-1]
 
 def get_move_variables_text(depth, player_actions):
     text = ""
@@ -242,13 +265,13 @@ Agent Environment
     end Evolution
 end Agent"""
 
-def compute_tree_depth(game_tree, depth):
+def compute_tree_depth_legacy(game_tree, depth):
     if GAME_TREE_LEAF_ID in game_tree:
         return depth
     else:
         return max([compute_tree_depth(game_tree[a], depth+1) for a in game_tree if a not in RESERVED_TREE_IDS])
 
-def generate_player_protocol_game_tree(m, n, player_id, game_tree):
+def generate_player_protocol_game_tree_legacy(m, n, player_id, game_tree):
     conditions = []
     # Forcing player moves as defined in the tree
     def traverse_tree(tree, conditions_lhs_list):
@@ -265,6 +288,43 @@ def generate_player_protocol_game_tree(m, n, player_id, game_tree):
                     conditions_lhs_list.append(f"Environment.move_{move_no} = {translate_action(a)}")
                     traverse_tree(tree[a], conditions_lhs_list)
                     del conditions_lhs_list[-1]
+
+    traverse_tree(game_tree, ["Environment.moves_frozen = true"])
+
+    # Unrestricted actions according to the rules
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if game_tree is None:
+                condition = f"Environment.b{i}{j}=b: {{a{i}{j}}};"
+            else:
+                condition = f"Environment.moves_frozen = false and Environment.b{i}{j}=b: {{a{i}{j}}};"
+            conditions.append(condition)
+    return conditions
+
+
+def compute_tree_depth(game_tree, depth):
+    if game_tree.is_leaf:
+        return depth
+    else:
+        return max([compute_tree_depth(child, depth+1) for a, child in game_tree.children.items()])
+
+
+def generate_player_protocol_game_tree(m, n, player_id, game_tree):
+    conditions = []
+    # Forcing player moves as defined in the tree
+    def traverse_tree(tree, conditions_lhs_list):
+        move_no = len(conditions_lhs_list)
+        if tree.is_leaf:
+            return
+        else:
+            if tree.cur_player == player_id:
+                lhs = " and ".join(conditions_lhs_list) + f" and Environment.move_{move_no} = none"
+                rhs = "{" + ",".join([translate_action(a) for a in tree.children]) + "}"
+                conditions.append(f"{lhs}: {rhs};")
+            for a, child in tree.children.items():
+                conditions_lhs_list.append(f"Environment.move_{move_no} = {translate_action(a)}")
+                traverse_tree(child, conditions_lhs_list)
+                del conditions_lhs_list[-1]
 
     traverse_tree(game_tree, ["Environment.moves_frozen = true"])
 
