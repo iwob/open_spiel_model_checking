@@ -294,6 +294,7 @@ class AtlModelState(pyspiel.State):
         self.formula = formula
         self.agent_local_states = [AgentLocalState(i, a, game, max_tensor_size=game.get_max_tensor_size()) for i, a in enumerate(self.spec.agents)]
         self.previous_global_state = self.get_global_state()
+        self._check_if_terminal_position()
 
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
     # should be implemented by every perfect-information sequential-move game.
@@ -492,19 +493,24 @@ class AtlModelState(pyspiel.State):
         return self._is_formula_satisfied_interpreter(formula, global_variables)
 
 
+    def _check_if_terminal_position(self):
+        self.formula_eval = self.is_formula_satisfied(self.formula)
+        if self.formula.modal_op == "[]" and not self.formula_eval or \
+           self.formula.modal_op == "<>" and self.formula_eval:
+            # case []: coalition failed to ensure property
+            # case <>: coalition managed to achieve property
+            self._is_terminal = True
+        else:
+            self._is_terminal = False
+
+
     def _apply_actions(self, actions):
         """Execute simultaneous actions."""
         if self._is_terminal:
             raise Exception("Trying to execute actions in a finished game!")
 
         self._execute_agent_actions(actions)
-
-        self.formula_eval = self.is_formula_satisfied(self.formula)
-        if self.formula.modal_op == "[]" and not self.formula_eval or\
-           self.formula.modal_op == "<>" and self.formula_eval:
-            # case []: coalition failed to ensure property
-            # case <>: coalition managed to achieve property
-            self._is_terminal = True
+        self._check_if_terminal_position()
 
         new_global_state = self.get_global_state()
         if new_global_state == self.previous_global_state:

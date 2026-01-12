@@ -35,4 +35,4 @@ shared[3] play_0_paper[play0]: count [move_0 == 0] -> counted [move_0 := 2]
 shared[3] play_0_scissors[play0]: count [move_0 == 0] -> counted [move_0 := 3]
 loop: counted -> counted [finished := 1]
 
-FORMULA: <<Player0>>[]( did_obstruction == 0 )
+FORMULA: <<Player1>>[]( did_obstruction == 0 )

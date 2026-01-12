@@ -232,7 +232,7 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.agent_local_states[2].persistent_variables["move_1"], 0)
         self.assertEqual(state.agent_local_states[2].persistent_variables["finished"], 0)
         self.assertEqual(state.rewards(), [0.0, 0.0, 0.0])
-        state.apply_actions([0, 4, 7])  # synchronization fails because Player1 obstructs. This leads to the G formula failure
+        state.apply_actions([0, 4, 7])  # Player1 obstructs and this leads to the G formula failure
         self.assertEqual(state.agent_local_states[0].current_node, "idle")
         self.assertEqual(state.agent_local_states[1].current_node, "finish")
         self.assertEqual(state.agent_local_states[2].current_node, "count")
@@ -244,8 +244,8 @@ class TestAtlModel(unittest.TestCase):
         self.assertEqual(state.legal_actions(1), [])
         self.assertEqual(state.legal_actions(2), [])
         self.assertTrue(state.is_terminal())
-        self.assertEqual(state.rewards(), [-1.0, 1.0, 1.0])
-        self.assertEqual(state.returns(), [-1.0, 1.0, 1.0])
+        self.assertEqual(state.rewards(), [1.0, -1.0, 1.0])
+        self.assertEqual(state.returns(), [1.0, -1.0, 1.0])
 
 
     def test_synchronization_2(self):
