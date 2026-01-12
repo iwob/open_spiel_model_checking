@@ -399,9 +399,9 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             # doesn't give that information on the outside
             actions_list = [(get_outcome(line), get_value(line), get_name(line), None) for line in bot.my_policy.split("\n")]
             actions_list = sorted(actions_list, reverse=True)  # sort by value
-            logger.debug("Sorted actions list:")
-            for a in actions_list:
-                logger.debug(str(a))
+            # logger.debug("Sorted actions list:")
+            # for a in actions_list:
+            #     logger.debug(str(a))
 
             if use_mcts_outcome_information:
                 if actions_list[0][0] == 1.0:  # The outcome of the first action for the current player is a proven victory
