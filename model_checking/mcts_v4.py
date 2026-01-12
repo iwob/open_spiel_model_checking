@@ -215,6 +215,9 @@ def _get_action_id(state, action_str):
     raise Exception(f"No id was found for the action: '{action_str}'.")
 
 
+def _get_action_name(state, current_player, action_id):
+    return state.action_to_string(current_player, action_id)
+
 def _restart_bots(bots: list):
     for b in bots:
         b.restart()
@@ -388,32 +391,36 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             value = float(my_policy_value_pattern.search(data_str).group(1))
             return value
 
-        # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
-        # doesn't give that information on the outside
-        actions_list = [(get_outcome(line), get_value(line), get_name(line)) for line in bot.my_policy.split("\n")]
-        actions_list = sorted(actions_list, reverse=True)  # sort by value
-        # logger.debug("Sorted actions list:")
-        # for a in actions_list:
-        #     logger.debug(str(a))
+        if isinstance(bot, uniform_random.UniformRandomBot):
+            actions_to_explore = [(None, None, _get_action_name(node.state, bot._player_id, action), action)]
+            actions_list = actions_to_explore
+        else:
+            # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
+            # doesn't give that information on the outside
+            actions_list = [(get_outcome(line), get_value(line), get_name(line), None) for line in bot.my_policy.split("\n")]
+            actions_list = sorted(actions_list, reverse=True)  # sort by value
+            logger.debug("Sorted actions list:")
+            for a in actions_list:
+                logger.debug(str(a))
 
-        if use_mcts_outcome_information:
-            if actions_list[0][0] == 1.0:  # The outcome of the first action for the current player is a proven victory
-                actions_to_explore = actions_list[:1]
-            elif actions_list[0][0] == -1.0:  # All actions lead to a defeat
-                actions_to_explore = actions_list[:1]
-                # This whole elif block can be commented out to generate a valid game tree.
+            if use_mcts_outcome_information:
+                if actions_list[0][0] == 1.0:  # The outcome of the first action for the current player is a proven victory
+                    actions_to_explore = actions_list[:1]
+                elif actions_list[0][0] == -1.0:  # All actions lead to a defeat
+                    actions_to_explore = actions_list[:1]
+                    # This whole elif block can be commented out to generate a valid game tree.
+                else:
+                    actions_to_explore = action_selector(actions_list, current_player, coalition)
             else:
                 actions_to_explore = action_selector(actions_list, current_player, coalition)
-        else:
-            actions_to_explore = action_selector(actions_list, current_player, coalition)
-        # Assumption: actions_to_explore are returned sorted by the action_selector
+            # Assumption: actions_to_explore are returned sorted by the action_selector
 
-        for outcome, val, a in actions_to_explore:
+        for outcome, val, a, a_id in actions_to_explore:
             if use_mcts_outcome_information and outcome == -1.0:
                 logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {a}, which cannot benefit the current player")
                 continue
                 # This whole if block can be commented out to generate a valid game tree.
-            action_id = _get_action_id(node.state, a)
+            action_id = _get_action_id(node.state, a) if a_id is None else a_id
             new_state = node.state.clone()
             # TODO: clone() method not implemented in the line below
             # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
