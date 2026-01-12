@@ -238,7 +238,7 @@ class TestAtlModel(unittest.TestCase):
         game_utils = GameInterfaceAtlModel(str(file))
         state = self.game_simple.new_initial_state()
         state.apply_actions([0, 4, 7])  # synchronization fails because Player1 obstructs
-        text = game_utils.formal_subproblem_description(state, None, state.formula)
+        text = game_utils.formal_subproblem_description(state, None, state.formula, is_in_turn_wrapper=False)
         original_text = original_text.split("\n")
         text = text.split("\n")
         self.assertTrue("init idle" in original_text[16])
@@ -253,7 +253,7 @@ class TestAtlModel(unittest.TestCase):
         state = self.game_simple.new_initial_state()
         state.apply_actions([0, 5, 7])  # synchronization on play_0_rock
         state.apply_actions([3, 6, 8])  # game finishes
-        text = game_utils.formal_subproblem_description(state, None, state.formula)
+        text = game_utils.formal_subproblem_description(state, None, state.formula, is_in_turn_wrapper=False)
         original_text = original_text.split("\n")
         text = text.split("\n")
         self.assertTrue("init idle" in original_text[6])

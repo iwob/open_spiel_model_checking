@@ -34,8 +34,9 @@ class GameInterfaceAtlModel(GameInterface):
         game = self.load_game()
         return pyspiel.convert_to_turn_based(game)
 
-    def formal_subproblem_description(self, game_state: AtlModelState, history, formulae_to_check: str = None) -> str:
-        game_state = game_state.simultaneous_game_state()
+    def formal_subproblem_description(self, game_state: AtlModelState, history, formulae_to_check: str = None, is_in_turn_wrapper=True) -> str:
+        # game_state is assumed here to be a simultanous AtlModelState in a turn wrapper; if not wrapped, it will lead to errors.
+        game_state = game_state.simultaneous_game_state() if is_in_turn_wrapper else game_state
         replacements = {}
         for a in game_state.agent_local_states:
             replacements[a.name] = (a.current_node, a.persistent_variables)
