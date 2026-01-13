@@ -668,12 +668,13 @@ def main(argv):
 
     initial_moves = "" if FLAGS.initial_moves is None else FLAGS.initial_moves
 
-    def run_subprocess(queue):
+    def run_subprocess(queue, results_dict):
         result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
                       run_results_dir, results_dict, initial_moves,
                       max_game_depth=FLAGS.max_game_depth,
                       use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
                       use_mcts_outcome_information=FLAGS.use_mcts_outcome_information)
+        queue.put(results_dict)
         queue.put(game_tree)
         queue.put(result)
 
@@ -715,7 +716,7 @@ def main(argv):
 
         # New multiprocessing function call with timeout check
         queue = Queue()
-        p = Process(target=run_subprocess, args=[queue], daemon=True)
+        p = Process(target=run_subprocess, args=[queue, results_dict], daemon=True)
         p.start()
         p.join(timeout=timeout)
         end = time.time()
@@ -726,8 +727,9 @@ def main(argv):
             results_dict["was_timeout"] = 1
             results_dict["decision"] = "timeout"
         else:
-            result = queue.get()
+            results_dict = queue.get()
             game_tree = queue.get()
+            result = queue.get()
 
             ## Uncomment this block to generate a decision tree (works only for mnk, probably to be removed in the future)
             # if False:
