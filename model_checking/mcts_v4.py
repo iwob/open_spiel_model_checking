@@ -8,6 +8,7 @@ import time
 import datetime
 import textwrap
 import logging
+from multiprocessing import Process, Queue
 
 from action_selectors import *
 from solvers import *
@@ -136,14 +137,15 @@ flags.DEFINE_string("stv_path", None, required=False, help="Path to the STV exec
 flags.DEFINE_string("output_file", None, required=False, help="Path to the file in which the results of this run will be stored.")
 flags.DEFINE_string("submodels_dir", None, required=False, help="Path to the directory in which will be stored the generated submodels.")
 flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
-flags.DEFINE_integer("rollout_count", 1, help="How many rollouts to do.")
-flags.DEFINE_integer("max_simulations", 60000, help="How many simulations to run.")
+flags.DEFINE_integer("rollout_count", 5, help="How many rollouts to do in MCTS.")
+flags.DEFINE_integer("max_simulations", 5000, help="How many simulations to run in MCTS.")
 flags.DEFINE_float("selector_epsilon", 0.95, required=False, help="Seed for the random number generator.")
 flags.DEFINE_integer("selector_k", 3, required=False, help="How many best actions will be selected by selector.")
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
 flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
 flags.DEFINE_integer("use_mcts_outcome_information", 1, help="Uses the 'outcome' field accessible in OpenSpiel, which corresponds to proven outcomes according to the MCTS-Solver algorithm.")
+flags.DEFINE_integer("timeout", 2 * 24 * 3600, help="Time after which the process will terminate in seconds.")
 flags.DEFINE_bool("use_reward_in_terminal_states", False, help="If true, then a solver won't be called in terminal states. Instead, rewards will be summed between the players and if the reward of the coalition is greater than anti-coalition, then verification is assumed to be successful.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
@@ -519,15 +521,21 @@ def create_final_report(collected_results, output_file):
         rl_times = []
         num_result_one = 0
         num_result_zero = 0
+        num_timeouts = 0
+        num_standard_termination = 0
         for i, d in enumerate(collected_results):
-            if d["decision"]:
-                num_result_one += 1
+            if d["was_timeout"]:
+                num_timeouts += 1
             else:
-                num_result_zero += 1
-            total_times.append(d["time_total"])
-            solver_times.append(d["time_solver"])
-            rl_times.append(d["time_rl"])
-            num_submodels.append(d["num_submodels"])
+                num_standard_termination += 1
+                if d["decision"]:
+                    num_result_one += 1
+                else:
+                    num_result_zero += 1
+                total_times.append(d["time_total"])
+                solver_times.append(d["time_solver"])
+                rl_times.append(d["time_rl"])
+                num_submodels.append(d["num_submodels"])
             f.write("# " + "-" * 30 + "\n")
             f.write(f"# Run {i}\n")
             f.write("# " + "-" * 30 + "\n")
@@ -537,16 +545,18 @@ def create_final_report(collected_results, output_file):
         f.write("# " + "-" * 30 + "\n")
         f.write(f"# Total\n")
         f.write("# " + "-" * 30 + "\n")
-        f.write(f"avg.num_submodels = {sum(num_submodels) / len(num_submodels)}\n")
-        f.write(f"avg.time_rl = {sum(rl_times) / len(rl_times)}\n")
-        f.write(f"avg.time_solver = {sum(solver_times) / len(solver_times)}\n")
-        f.write(f"avg.time_total = {sum(total_times) / len(total_times)}\n")
-        f.write(f"stddev.num_submodels = {np.std(num_submodels)}\n")
-        f.write(f"stddev.time_rl = {np.std(rl_times)}\n")
-        f.write(f"stddev.time_solver = {np.std(solver_times)}\n")
-        f.write(f"stddev.time_total = {np.std(total_times)}\n")
+        if num_standard_termination > 0:
+            f.write(f"avg.num_submodels = {sum(num_submodels) / len(num_submodels)}\n")
+            f.write(f"avg.time_rl = {sum(rl_times) / len(rl_times)}\n")
+            f.write(f"avg.time_solver = {sum(solver_times) / len(solver_times)}\n")
+            f.write(f"avg.time_total = {sum(total_times) / len(total_times)}\n")
+            f.write(f"stddev.num_submodels = {np.std(num_submodels)}\n")
+            f.write(f"stddev.time_rl = {np.std(rl_times)}\n")
+            f.write(f"stddev.time_solver = {np.std(solver_times)}\n")
+            f.write(f"stddev.time_total = {np.std(total_times)}\n")
         f.write(f"sum.result_0 = {num_result_zero}\n")
         f.write(f"sum.result_1 = {num_result_one}\n")
+        f.write(f"sum.timeouts = {num_timeouts}\n")
         f.write(f"timestamp = {timestamp}")
 
 
@@ -564,6 +574,8 @@ def main(argv):
         solver = SolverMCMAS(mcmas_path, time_limit=1000*3600*4)
     elif FLAGS.solver == "stv":
         solver = SolverSTV(stv_path, time_limit=1000 * 3600 * 4)
+
+    timeout = FLAGS.timeout
 
     if FLAGS.game == "mnk":
         # Example initial moves for mnk; "x(2,2),o(3,2)"
@@ -656,30 +668,21 @@ def main(argv):
 
     initial_moves = "" if FLAGS.initial_moves is None else FLAGS.initial_moves
 
+    def run_subprocess(queue):
+        result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
+                      run_results_dir, results_dict, initial_moves,
+                      max_game_depth=FLAGS.max_game_depth,
+                      use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
+                      use_mcts_outcome_information=FLAGS.use_mcts_outcome_information)
+        queue.put(game_tree)
+        queue.put(result)
+
+
     for i in range(FLAGS.num_games):
-        start = time.time()
         run_results_dir = results_root / f"mcts_{i}"
         collected_subproblem_dirs.append(run_results_dir)
         run_results_dir.mkdir(parents=True, exist_ok=False)
         results_dict = {"submodels_dir": run_results_dir, "name": f"mcts_{i}"}
-
-        result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
-                                          run_results_dir, results_dict, initial_moves,
-                                          max_game_depth=FLAGS.max_game_depth,
-                                          use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
-                                          use_mcts_outcome_information=FLAGS.use_mcts_outcome_information)
-
-        ## Uncomment this block to generate a decision tree (works only for mnk, probably to be removed in the future)
-        # if False:
-        #     with open(results_root / f"game_tree.ispl", "w") as f:
-        #         print("Saving specification file for tree encoding")
-        #         spec = game_utils.formal_subproblem_description_game_tree(game_tree, history="", formulae_to_check=formula)
-        #         f.write(spec)
-
-        end = time.time()
-        results_dict["decision"] = result
-        results_dict["time_total"] = end - start
-        results_dict["time_rl"] = results_dict["time_total"] - results_dict["time_solver"]
         results_dict["action_selector1"] = FLAGS.action_selector1
         results_dict["action_selector2"] = FLAGS.action_selector2
         if FLAGS.game == "nim":
@@ -690,17 +693,57 @@ def main(argv):
             results_dict["selector_k"] = FLAGS.selector_k
         results_dict["max_game_depth"] = FLAGS.max_game_depth
         results_dict["max_simulations"] = FLAGS.max_simulations
+        results_dict["rollout_count"] = FLAGS.rollout_count
+        results_dict["use_mcts_outcome_information"] = FLAGS.use_mcts_outcome_information
+        results_dict["use_reward_in_terminal_states"] = FLAGS.use_reward_in_terminal_states
         results_dict["game"] = FLAGS.game
         results_dict["player"] = FLAGS.player
+        results_dict["timeout"] = timeout
         if FLAGS.player1 is not None and FLAGS.player2 is not None:
             results_dict["player1"] = FLAGS.player1
             results_dict["player2"] = FLAGS.player2
         results_dict["formula"] = formula
         results_dict["coalition"] = coalition
-        results_dict["num_submodels"] = 0  # to be filled by collect_game_tree_stats
-        collect_game_tree_stats(game_tree, results_dict)
-        create_single_run_report(results_dict)
-        print("FINAL ANSWER:", result, f" (time: {end - start})")
+        start = time.time()
+
+        # Older and simpler function call without timeout check
+        # result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
+        #                                   run_results_dir, results_dict, initial_moves,
+        #                                   max_game_depth=FLAGS.max_game_depth,
+        #                                   use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
+        #                                   use_mcts_outcome_information=FLAGS.use_mcts_outcome_information)
+
+        # New multiprocessing function call with timeout check
+        queue = Queue()
+        p = Process(target=run_subprocess, args=[queue], daemon=True)
+        p.start()
+        p.join(timeout=timeout)
+        end = time.time()
+
+        if p.is_alive():
+            # Process reached timeout, terminate it
+            p.terminate()
+            results_dict["was_timeout"] = 1
+            results_dict["decision"] = "timeout"
+        else:
+            result = queue.get()
+            game_tree = queue.get()
+
+            ## Uncomment this block to generate a decision tree (works only for mnk, probably to be removed in the future)
+            # if False:
+            #     with open(results_root / f"game_tree.ispl", "w") as f:
+            #         print("Saving specification file for tree encoding")
+            #         spec = game_utils.formal_subproblem_description_game_tree(game_tree, history="", formulae_to_check=formula)
+            #         f.write(spec)
+
+            results_dict["was_timeout"] = 0
+            results_dict["decision"] = result
+            results_dict["time_total"] = end - start
+            results_dict["time_rl"] = results_dict["time_total"] - results_dict["time_solver"]
+            results_dict["num_submodels"] = 0  # to be filled by collect_game_tree_stats
+            collect_game_tree_stats(game_tree, results_dict)
+            create_single_run_report(results_dict)
+            print("FINAL ANSWER:", result, f" (time: {end - start})")
         collected_results.append(results_dict)
         final_log += f"mcts ({run_results_dir}): {end - start}\n"
 
