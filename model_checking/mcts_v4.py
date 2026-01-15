@@ -8,6 +8,7 @@ import time
 import datetime
 import textwrap
 import logging
+import psutil
 from multiprocessing import Process, Queue
 
 from action_selectors import *
@@ -39,6 +40,17 @@ except Exception:
     pass
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+
+def killtree(pid, including_parent=True, silent=False):
+    parent = psutil.Process(pid)
+    for child in parent.children(recursive=True):
+        if not silent:
+            print("Teminating child:", child)
+        child.kill()
+
+    if including_parent:
+        parent.kill()
 
 
 @dataclass(init=True, order=True)
@@ -138,14 +150,14 @@ flags.DEFINE_string("output_file", None, required=False, help="Path to the file 
 flags.DEFINE_string("submodels_dir", None, required=False, help="Path to the directory in which will be stored the generated submodels.")
 flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 5, help="How many rollouts to do in MCTS.")
-flags.DEFINE_integer("max_simulations", 5000, help="How many simulations to run in MCTS.")
+flags.DEFINE_integer("max_simulations", 500, help="How many simulations to run in MCTS.")
 flags.DEFINE_float("selector_epsilon", 0.95, required=False, help="Seed for the random number generator.")
 flags.DEFINE_integer("selector_k", 3, required=False, help="How many best actions will be selected by selector.")
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
 flags.DEFINE_integer("seed", None, help="Seed for the random number generator.")
 flags.DEFINE_integer("max_game_depth", 10, help="Maximum number of moves from the initial position that can be explored in the game tree.")
 flags.DEFINE_integer("use_mcts_outcome_information", 1, help="Uses the 'outcome' field accessible in OpenSpiel, which corresponds to proven outcomes according to the MCTS-Solver algorithm.")
-flags.DEFINE_integer("timeout", 2 * 24 * 3600, help="Time after which the process will terminate in seconds.")
+flags.DEFINE_float("timeout", 2 * 24 * 3600., help="Time after which the process will terminate in seconds.")
 flags.DEFINE_bool("use_reward_in_terminal_states", False, help="If true, then a solver won't be called in terminal states. Instead, rewards will be summed between the players and if the reward of the coalition is greater than anti-coalition, then verification is assumed to be successful.")
 flags.DEFINE_bool("solve", True, help="Whether to use MCTS-Solver.")
 flags.DEFINE_bool("quiet", False, help="Don't show the moves as they're played.")
@@ -722,7 +734,8 @@ def main(argv):
         end = time.time()
 
         if p.is_alive():
-            # Process reached timeout, terminate it
+            # Process reached timeout, terminate it and its children
+            killtree(p.pid, including_parent=False)
             p.terminate()
             results_dict["was_timeout"] = 1
             results_dict["decision"] = "timeout"
