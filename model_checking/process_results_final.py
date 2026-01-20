@@ -63,10 +63,13 @@ def process_dict(d):
             'action_selector2': d['action_selector2'],
             'avg.time_total': float(d['avg.time_total']) if 'avg.time_total' in d else None,
             'avg.num_submodels': float(d['avg.num_submodels']) if 'avg.num_submodels' in d else None,
-            # 'sum.result_0': int(d['sum.result_0']),
+            'sum.result_0': int(d['sum.result_0']),
             'sum.result_1': int(d['sum.result_1']),
             'sum.timeouts': int(d['sum.timeouts']),
+            'results_tuple': (int(d['sum.result_1']), int(d['sum.result_0']), int(d['sum.timeouts'])),
             'stddev.time_total': float(d['stddev.time_total']) if 'stddev.time_total' in d else None,
+            'max_simulations': int(d['max_simulations']),
+            'rollout_count': int(d['rollout_count']),
             }
 
 def process_first():
@@ -243,7 +246,7 @@ def create_report(data, report_dir_path):
 
 
     report = evoplotter.reporting.ReportPDF(packages=["multirow"],
-                                            geometry_params="[paperwidth=35cm, paperheight=100cm, margin=0.3cm]")
+                                            geometry_params="[paperwidth=55cm, paperheight=100cm, margin=0.3cm]")
 
     s0 = evoplotter.reporting.SectionRelative("Full data")
     s0.add(data["table_full"])
@@ -264,16 +267,21 @@ def create_report(data, report_dir_path):
     ss2.add(data["table_depthPercent_cases0_all"])
     ss2.add(data["table_decision1_cases0_all"])
 
-    ss3 = evoplotter.reporting.SectionRelative("Processing time ratios")
+    ss3 = evoplotter.reporting.SectionRelative("Other tables")
     ss3.add(r"\begin{minipage}{25cm}"
-            r"This table is computed based on the table in Section~\ref{sec:exp1-processed-data}. r/nr-ratio is computed "
+            r" "
             r"" + "\n" + r"\end{minipage}\vspace{0.5cm}" + "\n\n" + r"\noindent")
-    # ss3.add(text3)
+    ss3.add(data["table_time_by_selectors_k3"])
+    ss3.add(data["table_time_by_selectors_knon3"])
+    ss3.add(data["table_decision1_by_selectors_k3"])
+    ss3.add(data["table_decision1_by_selectors_knon3"])
+    ss3.add(data["table_timeouts_by_selectors_k3"])
+    ss3.add(data["table_timeouts_by_selectors_knon3"])
     # ss_errors = evoplotter.reporting.SectionRelative("Runs with STV errors (exit code != 0)")
     # ss_errors.add(text_errors)
     s1_exp1.add(ss1)
     s1_exp1.add(ss2)
-    # s1_exp1.add(ss3)
+    s1_exp1.add(ss3)
     report.add(s0)
     report.add(s1_exp1)
     f = results_dir / "report_final.tex"
@@ -281,15 +289,42 @@ def create_report(data, report_dir_path):
 
 
 def get_latex_table_default(df):
-    return df.to_latex(float_format=lambda x: "{:.2f}".format(x))
+    return df.style \
+           .format(precision=2, thousands=" ", decimal=".", na_rep="--") \
+           .to_latex(convert_css=True, hrules=True)  #float_format=lambda x: "{:.2f}".format(x)
 
 
-def get_latex_table_pivot1(df, values):
-    df = df.pivot_table(values=values, index=["n", "k"], columns=["depth_percent"], dropna=False)
+def get_latex_table_pivot1(df, values, columns):
+    df = df.pivot_table(values=values, index=["n", "k"], columns=columns, dropna=False)
     # cmap="Greys",
     text = df.style \
         .format(precision=2, thousands=" ", decimal=".", na_rep="--") \
         .background_gradient(axis=None) \
+        .applymap(lambda x: 'color: black; background-color: white' if pd.isnull(x) else '') \
+        .to_latex(convert_css=True, hrules=True)
+    text = text.replace("_", r"\_") + r"\\"  # .replace("0000", "")
+    return text
+
+
+def get_latex_table_pivot1_other(df, values, columns):
+    df = df.pivot_table(values=values, index=["n", "k"], columns=columns)  #, dropna=False
+    if len(df.columns) < 3:
+        return "Not enough columns"
+    if "sum.result_0" in values:
+        result_x = "sum.result_0"
+    elif "sum.result_1" in values:
+        result_x = "sum.result_1"
+    else:
+        raise Exception("sum.result_* was not specified!")
+    # cmap="Greys",
+    # .format(subset=["sum.timeouts", "sum.result_1"], precision=1, thousands=" ", decimal=".", na_rep="--") \
+    # idx[:, ('sum.result_1', '1-best')]
+    # .format(subset=[('sum.timeouts', '1-best'), ('sum.timeouts', 'all')], precision=1, thousands=" ", decimal=".", na_rep="--") \
+    text = df.style \
+        .format(subset=[('avg.time_total', '1-best'), ('avg.time_total', 'all')], precision=1, thousands=" ", decimal=".", na_rep="--") \
+        .format(subset=[(result_x, '1-best'), (result_x, 'all')], precision=1, thousands=" ", decimal=".", na_rep="--") \
+        .background_gradient(subset=[(result_x, '1-best'), (result_x, 'all')], axis=None) \
+        .background_gradient(subset=[('avg.time_total', '1-best'), ('avg.time_total', 'all')], axis=None) \
         .applymap(lambda x: 'color: black; background-color: white' if pd.isnull(x) else '') \
         .to_latex(convert_css=True, hrules=True)
     text = text.replace("_", r"\_") + r"\\"  # .replace("0000", "")
@@ -306,36 +341,53 @@ def process_final(summary_folders, report_dir_path):
 
     df = pd.DataFrame.from_records(dicts)
     df.sort_values(by=["n", "k", "max_game_depth", "action_selector1", "action_selector2"], inplace=True)
+    df_k3 = df[df["k"] == 3]
+    df_knon3 = df[df["k"] != 3]
     print(df.dtypes)
     data["table_full"] = get_latex_table_default(df)
+    data["table_time_by_selectors_k3"] = get_latex_table_pivot1(df_k3, values=["avg.time_total"], columns=["action_selector1"])
+    data["table_time_by_selectors_knon3"] = get_latex_table_pivot1(df_knon3, values=["avg.time_total"], columns=["action_selector1"])
+    data["table_decision1_by_selectors_k3"] = get_latex_table_pivot1_other(df_k3, values=["avg.time_total", "sum.result_1"], columns=["action_selector1"])
+    data["table_decision1_by_selectors_knon3"] = get_latex_table_pivot1_other(df_knon3, values=["avg.time_total", "sum.result_0"], columns=["action_selector1"])
+    data["table_timeouts_by_selectors_k3"] = get_latex_table_pivot1(df_k3, values=["sum.timeouts"], columns=["action_selector1"])
+    data["table_timeouts_by_selectors_knon3"] = get_latex_table_pivot1(df_knon3, values=["sum.timeouts"], columns=["action_selector1"])
     print(df)
 
     df2_1 = df[(df["k"] == 3) & (df["action_selector1"] == "1-best")]
-    df2_2 = df[(df["k"] == 3) & (df["action_selector1"] == "all")]
+    df2_all = df[(df["k"] == 3) & (df["action_selector1"] == "all")]
     df3_1 = df[(df["k"] != 3) & (df["action_selector1"] == "1-best")]
-    df3_2 = df[(df["k"] != 3) & (df["action_selector1"] == "all")]
+    df3_all = df[(df["k"] != 3) & (df["action_selector1"] == "all")]
 
-    data["table_depthPercent_1"] = get_latex_table_pivot1(df2_1, values=["avg.time_total"])
-    data["table_decision1_1"] = get_latex_table_pivot1(df2_1, values=["sum.result_1"])
-    data["table_depthPercent_cases0_1"] = get_latex_table_pivot1(df3_1, values=["avg.time_total"])
-    data["table_decision1_cases0_1"] = get_latex_table_pivot1(df3_1, values=["sum.result_1"])
+    data["table_depthPercent_1"] = get_latex_table_pivot1(df2_1, values=["avg.time_total"], columns=["depth_percent"])
+    data["table_decision1_1"] = get_latex_table_pivot1(df2_1, values=["sum.result_1"], columns=["depth_percent"])
+    data["table_depthPercent_cases0_1"] = get_latex_table_pivot1(df3_1, values=["avg.time_total"], columns=["depth_percent"])
+    data["table_decision1_cases0_1"] = get_latex_table_pivot1(df3_1, values=["sum.result_0"], columns=["depth_percent"])
 
-    data["table_depthPercent_all"] = get_latex_table_pivot1(df2_2, values=["avg.time_total"])
-    data["table_decision1_all"] = get_latex_table_pivot1(df2_2, values=["sum.result_1"])
-    data["table_depthPercent_cases0_all"] = get_latex_table_pivot1(df3_2, values=["avg.time_total"])
-    data["table_decision1_cases0_all"] = get_latex_table_pivot1(df3_2, values=["sum.result_1"])
+    data["table_depthPercent_all"] = get_latex_table_pivot1(df2_all, values=["avg.time_total"], columns=["depth_percent"])
+    data["table_decision1_all"] = get_latex_table_pivot1(df2_all, values=["sum.result_1"], columns=["depth_percent"])
+    data["table_depthPercent_cases0_all"] = get_latex_table_pivot1(df3_all, values=["avg.time_total"], columns=["depth_percent"])
+    data["table_decision1_cases0_all"] = get_latex_table_pivot1(df3_all, values=["sum.result_0"], columns=["depth_percent"])
 
     create_report(data, report_dir_path=report_dir_path)
 
 
 
-# summary_folders = ["exp_final/summary", "exp_final_correct_timeout/summary"]
-summary_folders = ["exp_final_tmp/summary_1", "exp_final_tmp/summary_2"]
+summary_folders = ["exp_final/summary", "exp_final_correct_timeout/summary"]
+# summary_folders = ["exp_final_tmp/summary_1", "exp_final_tmp/summary_2"]
 process_final(summary_folders, report_dir_path=Path("exp_final_report"))
 
 
+summary_folders = ["exp_final_r2s200/summary"]
+process_final(summary_folders, report_dir_path=Path("exp_final_report_r2s200"))
+
 summary_folders = ["exp_final_r2s2000/summary"]
 process_final(summary_folders, report_dir_path=Path("exp_final_report_r2s2000"))
+
+summary_folders = ["exp_final_r2s5000/summary"]
+process_final(summary_folders, report_dir_path=Path("exp_final_report_r2s5000"))
+
+# summary_folders = ["exp_final_reruns_r2s200/summary"]
+# process_final(summary_folders, report_dir_path=Path("exp_final_report_reruns_r2s200"))
 
 # process_first()
 # process_second()
