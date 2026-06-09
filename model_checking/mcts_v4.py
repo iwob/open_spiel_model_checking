@@ -419,9 +419,19 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 
             if use_mcts_outcome_information:
                 if actions_list[0][0] == 1.0:  # The outcome of the first action for the current player is a proven victory
-                    actions_to_explore = actions_list[:1]
+                    logger.debug(f"{debug_indent}[MCTS-Solver] Action '{actions_list[0][2]}' was found to be a guaranteed win for the current player ({_debug_player_name(node)})")
+                    # actions_to_explore = actions_list[:1]
+                    if current_player in coalition:
+                        return 1
+                    else:
+                        return 0
                 elif actions_list[0][0] == -1.0:  # All actions lead to a defeat
-                    actions_to_explore = actions_list[:1]
+                    logger.debug(f"{debug_indent}[MCTS-Solver] All actions were found to be a guaranteed loss for the current player ({_debug_player_name(node)})")
+                    # actions_to_explore = actions_list[:1]
+                    if current_player in coalition:
+                        return 0
+                    else:
+                        return 1
                     # This whole elif block can be commented out to generate a valid game tree.
                 else:
                     actions_to_explore = action_selector(actions_list, current_player, coalition)
