@@ -6,6 +6,15 @@ from game_mnk import GameInterface
 
 MAX_PILE_VALUE = 20
 
+def is_position_winning(piles: list[int]) -> bool:
+    # To win the game of Nim, your goal is to always leave your opponent with a "balanced" state (a Nim-sum of zero).
+    # You can guarantee a win by removing objects so that the exclusive OR (XOR) sum of all the pile sizes equals zero.
+    res = 0
+    for pile in piles:
+        res = res ^ pile
+    return res != 0
+
+
 def generate_player_protocol(piles, player_no):
     conditions = []
     for i in range(0, len(piles)):
@@ -29,6 +38,7 @@ def generate_piles_init_conditions(piles, player_to_move, history, add_comment=T
         comment  = f"--  History: {history}\n"
         comment += f"--  Game state:\n"
         comment += f"--  ({player_to_move}): {' '.join([str(x) for x in piles])}\n"
+        comment += f"--  Is a winning position: {is_position_winning(piles)}\n"
         return comment + text
     else:
         return text
@@ -170,10 +180,6 @@ class GameNim(GameInterface):
     def get_default_formula_and_coalition(cls):
         return "<player0> F player0wins;", {0}
 
-
-
-def is_position_winning(piles: list) -> bool:
-    pass
 
 
 
