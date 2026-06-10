@@ -4,7 +4,7 @@ import pyspiel
 from game_mnk import GameInterface
 
 
-MAX_PILE_VALUE = 10
+MAX_PILE_VALUE = 20
 
 def generate_player_protocol(piles, player_no):
     conditions = []
@@ -25,7 +25,7 @@ def generate_piles_init_conditions(piles, player_to_move, history, add_comment=T
     #     text += f"Environment.pile{i+1} = {piles[i]}"
     # text = " and ".join(conditions)[:-1]
 
-    if history and add_comment:
+    if add_comment:
         comment  = f"--  History: {history}\n"
         comment += f"--  Game state:\n"
         comment += f"--  ({player_to_move}): {' '.join([str(x) for x in piles])}\n"
@@ -83,7 +83,7 @@ Agent {agent_name}
     end Evolution
 end Agent"""
 
-def make_nim_specification(piles: list, history, player_to_move: int, formulae) -> str:
+def make_nim_specification(piles: list, history, player_to_move: int, formulae: str) -> str:
     player_actions = ", ".join(generate_actions(piles))
     player_protocol_0 = "\n".join(generate_player_protocol(piles, 0))  # conditions on actions, the same for both players
     player_protocol_1 = "\n".join(generate_player_protocol(piles, 1))  # conditions on actions, the same for both players
@@ -174,3 +174,31 @@ class GameNim(GameInterface):
 
 def is_position_winning(piles: list) -> bool:
     pass
+
+
+
+if __name__ == "__main__":
+    from absl import app
+    from absl import flags
+
+    flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.", required=True)
+    flags.DEFINE_integer("player_to_move", 0, required=False, help="Player which has the move.")
+    flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
+    flags.DEFINE_string("initial_moves", "", required=False, help="Initial actions to be specified in the game-specific format.")
+    flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
+    FLAGS = flags.FLAGS
+
+    def main(argv):
+        piles = [int(x) for x in FLAGS.piles.split(';')]
+        if FLAGS.formula is not None:
+            formula = FLAGS.formula
+        else:
+            formula, _ = GameNim.get_default_formula_and_coalition()
+        text = make_nim_specification(piles, history=FLAGS.initial_moves, player_to_move=FLAGS.player_to_move, formulae=formula)
+        if FLAGS.output_file is None:
+            print(text)
+        else:
+            with open(FLAGS.output_file, "w") as f:
+                f.write(text)
+
+    app.run(main)
