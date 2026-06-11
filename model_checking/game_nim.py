@@ -4,8 +4,6 @@ import pyspiel
 from game_mnk import GameInterface
 
 
-MAX_PILE_VALUE = 20
-
 def is_position_winning(piles: list[int]) -> bool:
     # To win the game of Nim, your goal is to always leave your opponent with a "balanced" state (a Nim-sum of zero).
     # You can guarantee a win by removing objects so that the exclusive OR (XOR) sum of all the pile sizes equals zero.
@@ -60,7 +58,7 @@ def generate_piles_evolution(piles: list):
     return conditions
 
 def get_env_str(piles: list):
-    obsvars = "\n".join([f"pile{i} : 0 .. {MAX_PILE_VALUE};" for i in range(1, len(piles)+1)])
+    obsvars = "\n".join([f"pile{i+1} : 0 .. {pile};" for i, pile in enumerate(piles)])
     piles_evolution = "\n".join(generate_piles_evolution(piles))
     return f"""\
 Agent Environment
