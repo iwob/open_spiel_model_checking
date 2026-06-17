@@ -4,13 +4,17 @@ import pyspiel
 from game_mnk import GameInterface
 
 
-def is_position_winning(piles: list[int]) -> bool:
-    # To win the game of Nim, your goal is to always leave your opponent with a "balanced" state (a Nim-sum of zero).
-    # You can guarantee a win by removing objects so that the exclusive OR (XOR) sum of all the pile sizes equals zero.
+def get_nim_sum(piles: list[int]) -> int:
     res = 0
     for pile in piles:
         res = res ^ pile
-    return res != 0
+    return res
+
+
+def is_position_winning(piles: list[int]) -> bool:
+    # To win the game of Nim, your goal is to always leave your opponent with a "balanced" state (a Nim-sum of zero).
+    # You can guarantee a win by removing objects so that the exclusive OR (XOR) sum of all the pile sizes equals zero.
+    return get_nim_sum(piles) != 0
 
 
 def generate_player_protocol(piles, player_no):
@@ -185,6 +189,8 @@ if __name__ == "__main__":
     from absl import app
     from absl import flags
 
+    _KNOWN_MODES = ["generator", "move_tester"]
+    flags.DEFINE_enum("mode", "generator", _KNOWN_MODES, help="Mode of the application. 'Generator': generates a Nim specification. 'Move_tester': executes all possible moves to find their value.")
     flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.", required=True)
     flags.DEFINE_integer("player_to_move", 0, required=False, help="Player which has the move.")
     flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
@@ -194,15 +200,29 @@ if __name__ == "__main__":
 
     def main(argv):
         piles = [int(x) for x in FLAGS.piles.split(';')]
-        if FLAGS.formula is not None:
-            formula = FLAGS.formula
-        else:
-            formula, _ = GameNim.get_default_formula_and_coalition()
-        text = make_nim_specification(piles, history=FLAGS.initial_moves, player_to_move=FLAGS.player_to_move, formulae=formula)
-        if FLAGS.output_file is None:
-            print(text)
-        else:
-            with open(FLAGS.output_file, "w") as f:
-                f.write(text)
+
+        if FLAGS.mode == "generator":
+            if FLAGS.formula is not None:
+                formula = FLAGS.formula
+            else:
+                formula, _ = GameNim.get_default_formula_and_coalition()
+            text = make_nim_specification(piles, history=FLAGS.initial_moves, player_to_move=FLAGS.player_to_move, formulae=formula)
+            if FLAGS.output_file is None:
+                print(text)
+            else:
+                with open(FLAGS.output_file, "w") as f:
+                    f.write(text)
+
+        elif FLAGS.mode == "move_tester":
+            for i, pile in enumerate(piles):
+                if piles[i] == 0:
+                    continue
+                for x in range(1, piles[i] + 1):
+                    new_state = piles[:]
+                    new_state[i] -= x
+                    nim_sum = get_nim_sum(new_state)
+                    mark = "" if nim_sum > 0 else " (*)"
+                    print(f"pile {i+1}, take {x}\t\t(new state: {';'.join([str(y) for y in new_state])})\t\t{nim_sum}{mark}")
+
 
     app.run(main)
