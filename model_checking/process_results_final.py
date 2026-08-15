@@ -302,7 +302,7 @@ def get_latex_table_pivot1(df, values, columns):
         .background_gradient(axis=None) \
         .applymap(lambda x: 'color: black; background-color: white' if pd.isnull(x) else '') \
         .to_latex(convert_css=True, hrules=True)
-    text = text.replace("_", r"\_") + r"\\"  # .replace("0000", "")
+    text = text.replace(r"action_selector1", "").replace("_", r"\_") + r"\\"
     return text
 
 
@@ -327,7 +327,7 @@ def get_latex_table_pivot1_other(df, values, columns):
         .background_gradient(subset=[('avg.time_total', '1-best'), ('avg.time_total', 'all')], axis=None) \
         .applymap(lambda x: 'color: black; background-color: white' if pd.isnull(x) else '') \
         .to_latex(convert_css=True, hrules=True)
-    text = text.replace("_", r"\_") + r"\\"  # .replace("0000", "")
+    text = text.replace(r"action_selector1", "").replace("_", r"\_") + r"\\"
     return text
 
 
