@@ -65,3 +65,8 @@ open_spiel/.vs
 
 open_spiel.egg-info
 venv_mc
+
+
+# IB: New additions
+open_spiel/json/
+open_spiel/pybind11_json/

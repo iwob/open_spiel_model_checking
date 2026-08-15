@@ -1,8 +1,9 @@
 results*/
+EXPERIMENTS
+EXPERIMENTS_OLD
+
 
 tmp_submodels/
 tmp/
 run_*.sh
-
-EXPERIMENTS
-EXPERIMENTS_OLD
+*.pkl
