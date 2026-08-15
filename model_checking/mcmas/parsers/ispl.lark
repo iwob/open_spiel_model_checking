@@ -1,0 +1,332 @@
+?start: interpreted_system
+
+interpreted_system: semantics? environment? agent+ evaluation? init_states? groups? fairness? formulae
+
+// ============================================================
+// SEMANTICS
+// ============================================================
+
+semantics: "Semantics" "=" semantics_type ";"
+
+?semantics_type: "SingleAssignment" -> single_assignment
+               | "MultiAssignment" -> multi_assignment
+
+
+// ============================================================
+// ENVIRONMENT
+// ============================================================
+
+environment: "Agent" "Environment" observable_vars? env_vars? red_states? env_actions env_protocol env_evolution "end" "Agent"
+
+observable_vars: "Obsvars" ":" onevardef* "end" "Obsvars"
+
+env_vars: "Vars" ":" onevardef* "end" "Vars"
+
+onevardef: ID ":" "boolean" ";" -> boolean_var
+         | ID ":" integer ".." integer ";" -> integer_var
+         | ID ":" "{" enum_list "}" ";" -> enum_var
+
+enum_list: ID ("," ID)*
+
+?integer: NUMBER -> positive_integer
+        | "-" NUMBER -> negative_integer
+
+
+// ============================================================
+// RED STATES
+// ============================================================
+
+red_states: "RedStates" ":" red_state_condition? "end" "RedStates"
+
+red_state_condition: bool_condition ";"
+
+
+// ============================================================
+// ENVIRONMENT ACTIONS
+// ============================================================
+
+env_actions: "Actions" "=" "{" action_list? "}" ";"
+
+action_list: ID ("," ID)*
+
+action_list_nonempty: ID ("," ID)*
+
+
+// ============================================================
+// ENVIRONMENT PROTOCOL
+// ============================================================
+
+env_protocol: "Protocol" ":" env_protocol_line* otherbranch? "end" "Protocol"
+
+env_protocol_line: bool_condition ":" "{" action_list_nonempty "}" ";"
+
+otherbranch: "Other" ":" "{" action_list_nonempty "}" ";"
+
+
+// ============================================================
+// BOOLEAN CONDITIONS
+// ============================================================
+
+?bool_condition: "(" bool_condition ")" -> bool_paren
+               | bool_condition AND bool_condition -> bool_and
+               | bool_condition OR bool_condition -> bool_or
+               | NOT bool_condition -> bool_not
+               | expr logicop expr -> bool_comparison
+               | action_test -> bool_action_test
+
+action_test: "Action" "=" ID -> local_action_test
+           | ID "." "Action" "=" ID -> agent_action_test
+           | "Environment" "." "Action" "=" ID -> environment_action_test
+
+
+// ============================================================
+// ENVIRONMENT EVOLUTION
+// ============================================================
+
+env_evolution: "Evolution" ":" evolution_line* "end" "Evolution"
+
+evolution_line: bool_result "if" bool_condition ";"
+
+?bool_result: "(" bool_result ")" -> result_paren
+            | bool_result AND bool_result -> result_and
+            | ID "=" expr -> result_assignment
+
+
+// ============================================================
+// AGENTS
+// ============================================================
+
+agent: "Agent" ID local_obsvars? agent_vars red_states? agent_actions agent_protocol agent_evolution "end" "Agent"
+
+local_obsvars: "Lobsvars" "=" "{" action_list? "}" ";"
+
+agent_vars: "Vars" ":" onevardef+ "end" "Vars"
+
+agent_actions: "Actions" "=" "{" action_list_nonempty "}" ";"
+
+agent_protocol: "Protocol" ":" agent_protocol_line* otherbranch? "end" "Protocol"
+
+agent_protocol_line: bool_condition ":" "{" action_list_nonempty "}" ";"
+
+agent_evolution: "Evolution" ":" evolution_line+ "end" "Evolution"
+
+
+// ============================================================
+// EXPRESSIONS
+// ============================================================
+
+?expr: bit_or
+
+?bit_or: bit_or BOR bit_xor -> binary_bit_or
+       | bit_xor
+
+?bit_xor: bit_xor BXOR bit_and -> binary_bit_xor
+        | bit_and
+
+?bit_and: bit_and BAND arithmetic -> binary_bit_and
+        | arithmetic
+
+?arithmetic: arithmetic PLUS term -> binary_add
+           | arithmetic MINUS term -> binary_sub
+           | term
+
+?term: term MUL factor -> binary_mul
+     | term DIV factor -> binary_div
+     | factor
+
+?factor: BITNOT factor -> unary_bit_not
+       | atom
+
+?atom: "(" expr ")" -> expression_paren
+     | value
+
+?value: "true" -> true_value
+      | "false" -> false_value
+      | "Environment" "." ID -> environment_reference
+      | ID "." ID -> agent_reference
+      | ID -> name_value
+      | integer -> integer_value
+
+
+// ============================================================
+// LOGICAL OPERATORS
+// ============================================================
+
+logicop: LT -> op_lt
+       | LE -> op_le
+       | GT -> op_gt
+       | GE -> op_ge
+       | EQ -> op_eq
+       | NE -> op_ne
+
+
+// ============================================================
+// EVALUATION
+// ============================================================
+
+evaluation: "Evaluation" evaluation_line+ "end" "Evaluation"
+
+evaluation_line: ID "if" bool_condition ";" -> evaluation_rule
+
+
+// ============================================================
+// INITIAL STATES
+// ============================================================
+
+init_states: "InitStates" bool_condition ";" "end" "InitStates"
+
+
+// ============================================================
+// GROUPS
+// ============================================================
+
+groups: "Groups" group_line? "end" "Groups"
+
+group_line: group_declaration+
+
+group_declaration: ID "=" "{" group_members "}" ";"
+
+group_members: agent_name ("," agent_name)*
+
+?agent_name: "Environment" -> environment_name
+           | ID -> named_agent
+
+
+// ============================================================
+// FAIRNESS
+// ============================================================
+
+fairness: "Fairness" formula* "end" "Fairness"
+
+
+// ============================================================
+// FORMULAE
+// ============================================================
+
+formulae: "Formulae" formula_line+ "end" "Formulae"
+
+formula_line: formula ";"
+
+
+// ============================================================
+// ISPL FORMULAE
+// ============================================================
+
+?formula: "(" formula ")" -> formula_paren
+        | formula AND formula -> formula_and
+        | formula OR formula -> formula_or
+        | NOT formula -> formula_not
+        | formula IMPLIES formula -> formula_implies
+        | "AG" formula -> formula_ag
+        | "EG" formula -> formula_eg
+        | "AX" formula -> formula_ax
+        | "EX" formula -> formula_ex
+        | "AF" formula -> formula_af
+        | "EF" formula -> formula_ef
+        | "A" "(" formula UNTIL formula ")" -> formula_au
+        | "E" "(" formula UNTIL formula ")" -> formula_eu
+        | "K" "(" ID "," formula ")" -> formula_k
+        | "K" "(" "Environment" "," formula ")" -> formula_k_environment
+        | "GK" "(" ID "," formula ")" -> formula_gk
+        | "GCK" "(" ID "," formula ")" -> formula_gck
+        | "O" "(" ID "," formula ")" -> formula_o
+        | "O" "(" "Environment" "," formula ")" -> formula_o_environment
+        | "DK" "(" ID "," formula ")" -> formula_dk
+        | "<" ID ">" "X" formula -> formula_strategic_x
+        | "<" ID ">" "F" formula -> formula_strategic_f
+        | "<" ID ">" "G" formula -> formula_strategic_g
+        | "<" ID ">" "(" formula UNTIL formula ")" -> formula_strategic_until
+        | ID -> formula_atom
+        | ID "." "GreenStates" -> formula_green_agent
+        | ID "." "RedStates" -> formula_red_agent
+        | "Environment" "." "GreenStates" -> formula_green_environment
+        | "Environment" "." "RedStates" -> formula_red_environment
+        | "LTL" ltl_formula -> formula_ltl
+        | "CTL*" ctls_state_formula -> formula_ctlstar
+
+
+// ============================================================
+// LTL
+// ============================================================
+
+?ltl_formula: "(" ltl_formula ")" -> ltl_paren
+            | ltl_formula AND ltl_formula -> ltl_and
+            | ltl_formula OR ltl_formula -> ltl_or
+            | NOT ltl_formula -> ltl_not
+            | ltl_formula IMPLIES ltl_formula -> ltl_implies
+            | "G" ltl_formula -> ltl_g
+            | "F" ltl_formula -> ltl_f
+            | "X" ltl_formula -> ltl_x
+            | ltl_formula UNTIL ltl_formula -> ltl_until
+            | "K" "(" ID "," ltl_formula ")" -> ltl_k
+            | "GK" "(" ID "," ltl_formula ")" -> ltl_gk
+            | "GCK" "(" ID "," ltl_formula ")" -> ltl_gck
+            | "DK" "(" ID "," ltl_formula ")" -> ltl_dk
+            | ID -> ltl_atom
+
+
+// ============================================================
+// CTL*
+// ============================================================
+
+?ctls_state_formula: "(" ctls_state_formula ")" -> ctl_paren
+                   | ctls_state_formula AND ctls_state_formula -> ctl_and
+                   | ctls_state_formula OR ctls_state_formula -> ctl_or
+                   | NOT ctls_state_formula -> ctl_not
+                   | ctls_state_formula IMPLIES ctls_state_formula -> ctl_implies
+                   | "A" ctls_path_formula -> ctl_a
+                   | "E" ctls_path_formula -> ctl_e
+                   | "K" "(" ID "," ctls_state_formula ")" -> ctl_k
+                   | "GK" "(" ID "," ctls_state_formula ")" -> ctl_gk
+                   | "GCK" "(" ID "," ctls_state_formula ")" -> ctl_gck
+                   | "DK" "(" ID "," ctls_state_formula ")" -> ctl_dk
+                   | ID -> ctl_atom
+
+?ctls_path_formula: ctls_state_formula -> ctl_path_state
+                  | "G" ctls_path_formula -> ctl_path_g
+                  | "F" ctls_path_formula -> ctl_path_f
+                  | "X" ctls_path_formula -> ctl_path_x
+                  | ctls_path_formula UNTIL ctls_path_formula -> ctl_path_until
+
+
+// ============================================================
+// TOKENS
+// ============================================================
+
+AND.2: "and"
+OR.2: "or"
+NOT.2: "!"
+IMPLIES.2: "->"
+UNTIL.2: "U"
+
+PLUS.2: "+"
+MINUS.2: "-"
+MUL.2: "*"
+DIV.2: "/"
+
+BOR.2: "|"
+BXOR.2: "^"
+BAND.2: "&"
+BITNOT.2: "~"
+
+LE.2: "<="
+LT.2: "<"
+GE.2: ">="
+GT.2: ">"
+NE.2: "!="
+EQ.2: "="
+
+NUMBER: /[0-9]+/
+ID.1: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+
+// ============================================================
+// IGNORED INPUT
+// ============================================================
+
+%import common.WS
+%ignore WS
+
+%ignore /--[^\n]*/
+%ignore /\/\/[^\n]*/
+%ignore /\/\*[\s\S]*?\*\*/

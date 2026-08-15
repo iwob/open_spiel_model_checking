@@ -1,0 +1,556 @@
+// ============================================================
+// ISPL grammar for Lark
+// Based on MCMAS v1.3.0 grammar + tested against example ISPL
+// ============================================================
+
+
+// ============================================================
+// START
+// ============================================================
+
+?start: interpreted_system
+
+interpreted_system: semantics? environment? agents+ evaluation? istates? groups? fairformulae? formulae
+
+
+// ============================================================
+// SEMANTICS
+// ============================================================
+
+semantics: "Semantics" "=" semantics_type ";"
+
+semantics_type: "SingleAssignment"
+              | "MultiAssignment"
+
+
+// ============================================================
+// ENVIRONMENT
+// ============================================================
+
+environment: "Agent" "Environment" obsvardef? envvardef? envreddef? envactiondef envprotdef envevdef "end" "Agent"
+
+
+// ------------------------------------------------------------
+// Observable variables
+// ------------------------------------------------------------
+
+obsvardef: "Obsvars" ":" onevardef* "end" "Obsvars"
+
+onevardef: ID ":" "boolean" ";"
+         | ID ":" integer ".." integer ";"
+         | ID ":" "{" enumlist "}" ";"
+
+enumlist: ID ("," ID)*
+
+integer: NUMBER
+       | "-" NUMBER
+
+
+// ------------------------------------------------------------
+// Non-observable variables in Environment
+// ------------------------------------------------------------
+
+envvardef: "Vars" ":" onevardef* "end" "Vars"
+
+
+// ------------------------------------------------------------
+// Red states
+// ------------------------------------------------------------
+
+envreddef: "RedStates" ":" enlboolcond? ";"? "end" "RedStates"
+
+reddef: "RedStates" ":" lboolcond? ";"? "end" "RedStates"
+
+
+// ============================================================
+// ENVIRONMENT ACTIONS
+// ============================================================
+
+// Environment may have an empty action set.
+envactiondef: "Actions" "=" "{" id_list? "}" ";"
+
+id_list: ID ("," ID)*
+
+
+// ============================================================
+// ENVIRONMENT PROTOCOL
+// ============================================================
+
+envprotdef: "Protocol" ":" enprotdeflist? otherbranch? "end" "Protocol"
+
+enprotdeflist: enprotline+
+
+enprotline: enlboolcond ":" "{" id_list_nonempty "}" ";"
+
+otherbranch: "Other" ":" "{" id_list_nonempty "}" ";"
+
+id_list_nonempty: ID ("," ID)*
+
+
+// ------------------------------------------------------------
+// Boolean conditions for Environment protocols
+// ------------------------------------------------------------
+
+?enlboolcond: "(" enlboolcond ")"
+            | enlboolcond "and" enlboolcond
+            | enlboolcond "or" enlboolcond
+            | "!" enlboolcond
+            | expr4 logicop expr4
+
+
+// ============================================================
+// ENVIRONMENT EXPRESSIONS
+// ============================================================
+
+// ------------------------------------------------------------
+// Bit expressions
+// ------------------------------------------------------------
+
+?expr4: expr4 "|" term4
+      | expr4 "^" term4
+      | term4
+
+?term4: term4 "&" factor4
+      | factor4
+
+?factor4: "~" element4
+        | element4
+
+?element4: "(" expr4 ")"
+         | expr1
+
+
+// ------------------------------------------------------------
+// Arithmetic expressions
+// ------------------------------------------------------------
+
+?expr1: expr1 "+" term1
+      | expr1 "-" term1
+      | term1
+
+?term1: term1 "*" element1
+      | term1 "/" element1
+      | element1
+
+?element1: "(" expr1 ")"
+         | varvalue1
+
+
+logicop: "<"
+       | "<="
+       | ">"
+       | ">="
+       | "="
+       | "!="
+
+
+// ------------------------------------------------------------
+// Environment variable values
+// ------------------------------------------------------------
+
+?varvalue1: boolvalue
+          | ID
+          | integer
+
+boolvalue: "true"
+         | "false"
+
+
+// ============================================================
+// ENVIRONMENT EVOLUTION
+// ============================================================
+
+envevdef: "Evolution" ":" envevline* "end" "Evolution"
+
+envevline: boolresult "if" eboolcond ";"
+
+?boolresult: "(" boolresult ")"
+           | boolresult "and" boolresult
+           | ID "=" expr4
+
+
+// ------------------------------------------------------------
+// Boolean conditions for Environment evolution
+// ------------------------------------------------------------
+
+?eboolcond: "(" eboolcond ")"
+          | eboolcond "and" eboolcond
+          | eboolcond "or" eboolcond
+          | "!" eboolcond
+          | expr4 logicop expr4
+          | "Action" "=" ID
+          | ID "." "Action" "=" ID
+
+
+// ============================================================
+// AGENTS
+// ============================================================
+
+agents: agent+
+
+agent: "Agent" ID lobsvardef? vardef reddef? actiondef protdef evdef "end" "Agent"
+
+
+// ------------------------------------------------------------
+// Local observable variables
+// ------------------------------------------------------------
+
+lobsvardef: "Lobsvars" "=" "{" id_list? "}" ";"
+
+
+
+// ------------------------------------------------------------
+// Non-observable variables
+// ------------------------------------------------------------
+
+vardef: "Vars" ":" onevardef+ "end" "Vars"
+
+
+// ------------------------------------------------------------
+// Actions
+// ------------------------------------------------------------
+
+actiondef: "Actions" "=" "{" id_list_nonempty "}" ";"
+
+
+
+// ============================================================
+// AGENT PROTOCOL
+// ============================================================
+
+protdef: "Protocol" ":" protdeflist "end" "Protocol"
+       | "Protocol" ":" protdeflist otherbranch "end" "Protocol"
+       | "Protocol" ":" otherbranch "end" "Protocol"
+
+protdeflist: protline+
+
+protline: lboolcond ":" "{" id_list_nonempty "}" ";"
+
+
+// ------------------------------------------------------------
+// Boolean conditions for Agent protocols
+// ------------------------------------------------------------
+
+?lboolcond: "(" lboolcond ")"
+          | lboolcond "and" lboolcond
+          | lboolcond "or" lboolcond
+          | "!" lboolcond
+          | expr5 logicop expr5
+
+
+// ============================================================
+// AGENT EVOLUTION
+// ============================================================
+
+evdef: "Evolution" ":" evline+ "end" "Evolution"
+
+evline: boolresult1 "if" gboolcond ";"
+
+?gboolcond: "(" gboolcond ")"
+          | gboolcond "and" gboolcond
+          | gboolcond "or" gboolcond
+          | "!" gboolcond
+          | expr5 logicop expr5
+          | "Action" "=" ID
+          | ID "." "Action" "=" ID
+          | "Environment" "." "Action" "=" ID
+
+
+?boolresult1: "(" boolresult1 ")"
+            | boolresult1 "and" boolresult1
+            | ID "=" expr5
+
+
+// ============================================================
+// AGENT EXPRESSIONS
+// ============================================================
+
+// ------------------------------------------------------------
+// Bit expressions
+// ------------------------------------------------------------
+
+?expr5: expr5 "|" term5
+      | expr5 "^" term5
+      | term5
+
+?term5: term5 "&" factor5
+      | factor5
+
+?factor5: "~" element5
+        | element5
+
+?element5: "(" expr5 ")"
+         | expr2
+
+
+// ------------------------------------------------------------
+// Arithmetic expressions
+// ------------------------------------------------------------
+
+?expr2: expr2 "+" term2
+      | expr2 "-" term2
+      | term2
+
+?term2: term2 "*" element2
+      | term2 "/" element2
+      | element2
+
+?element2: "(" expr2 ")"
+         | varvalue2
+
+
+// ------------------------------------------------------------
+// Agent variable values
+// ------------------------------------------------------------
+
+?varvalue2: boolvalue
+          | ID
+          | environment_variable
+          | integer
+
+environment_variable: "Environment" "." ID
+
+
+// ============================================================
+// EVALUATION
+// ============================================================
+
+evaluation: "Evaluation" evaline+ "end" "Evaluation"
+
+evaline: ID "if" evaboolcond ";"
+
+?evaboolcond: "(" evaboolcond ")"
+            | evaboolcond "and" evaboolcond
+            | evaboolcond "or" evaboolcond
+            | "!" evaboolcond
+            | expr6 logicop expr6
+
+
+// ------------------------------------------------------------
+// Bit expressions
+// ------------------------------------------------------------
+
+?expr6: expr6 "|" term6
+      | expr6 "^" term6
+      | term6
+
+?term6: term6 "&" factor6
+      | factor6
+
+?factor6: "~" element6
+        | element6
+
+?element6: "(" expr6 ")"
+         | expr3
+
+
+// ------------------------------------------------------------
+// Arithmetic expressions
+// ------------------------------------------------------------
+
+?expr3: expr3 "+" term3
+      | expr3 "-" term3
+      | term3
+
+?term3: term3 "*" element3
+      | term3 "/" element3
+      | element3
+
+?element3: "(" expr3 ")"
+         | varvalue3
+
+
+// ------------------------------------------------------------
+// Evaluation variable values
+// ------------------------------------------------------------
+
+?varvalue3: boolvalue
+          | ID
+          | dotted_id
+          | environment_variable
+          | integer
+
+dotted_id: ID "." ID
+
+
+// ============================================================
+// INITIAL STATES
+// ============================================================
+
+istates: "InitStates" isboolcond ";" "end" "InitStates"
+
+
+?isboolcond: "(" isboolcond ")"
+           | isboolcond "and" isboolcond
+           | isboolcond "or" isboolcond
+           | "!" isboolcond
+           | ID "." ID "=" varvalue4
+           | "Environment" "." ID "=" varvalue4
+           | ID "." ID "=" ID "." ID
+           | "Environment" "." ID "=" ID "." ID
+           | ID "." ID "=" "Environment" "." ID
+           | "Environment" "." ID "=" "Environment" "." ID
+
+
+?varvalue4: boolvalue
+          | ID
+          | integer
+
+
+// ============================================================
+// GROUPS
+// ============================================================
+
+groups: "Groups" groupline* "end" "Groups"
+
+groupline: ID "=" "{" agentname_list "}" ";"
+
+agentname_list: agentname ("," agentname)*
+
+agentname: "Environment"
+         | ID
+
+
+// ============================================================
+// FAIRNESS FORMULAE
+// ============================================================
+
+fairformulae: "Fairness" fformula* "end" "Fairness"
+
+?fformula: "(" fformula ")"
+         | fformula "and" fformula
+         | fformula "or" fformula
+         | "!" fformula
+         | fformula "->" fformula
+         | "AG" fformula
+         | "EG" fformula
+         | "AX" fformula
+         | "EX" fformula
+         | "AF" fformula
+         | "EF" fformula
+         | "A" "(" fformula "U" fformula ")"
+         | "E" "(" fformula "U" fformula ")"
+         | "K" "(" ID "," fformula ")"
+         | "K" "(" "Environment" "," fformula ")"
+         | "GK" "(" ID "," fformula ")"
+         | "GCK" "(" ID "," fformula ")"
+         | "O" "(" ID "," fformula ")"
+         | "O" "(" "Environment" "," fformula ")"
+         | "DK" "(" ID "," fformula ")"
+         | ID
+         | ID "." "GreenStates"
+         | ID "." "RedStates"
+         | "Environment" "." "GreenStates"
+         | "Environment" "." "RedStates"
+
+
+// ============================================================
+// FORMULAE TO CHECK
+// ============================================================
+
+formulae: "Formulae" formlist "end" "Formulae"
+
+formlist: formula ";"
+        | formlist formula ";"
+
+?formula: "(" formula ")"
+        | formula "and" formula
+        | formula "or" formula
+        | "!" formula
+        | formula "->" formula
+        | "AG" formula
+        | "EG" formula
+        | "AX" formula
+        | "EX" formula
+        | "AF" formula
+        | "EF" formula
+        | "A" "(" formula "U" formula ")"
+        | "E" "(" formula "U" formula ")"
+        | "K" "(" ID "," formula ")"
+        | "K" "(" "Environment" "," formula ")"
+        | "GK" "(" ID "," formula ")"
+        | "GCK" "(" ID "," formula ")"
+        | "O" "(" ID "," formula ")"
+        | "O" "(" "Environment" "," formula ")"
+        | "DK" "(" ID "," formula ")"
+        | "<" ID ">" "X" formula
+        | "<" ID ">" "F" formula
+        | "<" ID ">" "G" formula
+        | "<" ID ">" "(" formula "U" formula ")"
+        | ID
+        | ID "." "GreenStates"
+        | ID "." "RedStates"
+        | "Environment" "." "GreenStates"
+        | "Environment" "." "RedStates"
+        | "LTL" ltlformula
+        | "CTL*" ctls_state_formula
+
+
+// ============================================================
+// LTL
+// ============================================================
+
+?ltlformula: "(" ltlformula ")"
+           | ltlformula "and" ltlformula
+           | ltlformula "or" ltlformula
+           | "!" ltlformula
+           | ltlformula "->" ltlformula
+           | "G" ltlformula
+           | "F" ltlformula
+           | "X" ltlformula
+           | ltlformula "U" ltlformula
+           | "K" "(" ID "," ltlformula ")"
+           | "GK" "(" ID "," ltlformula ")"
+           | "GCK" "(" ID "," ltlformula ")"
+           | "DK" "(" ID "," ltlformula ")"
+           | ID
+
+
+// ============================================================
+// CTL*
+// ============================================================
+
+?ctls_state_formula: "(" ctls_state_formula ")"
+                   | ctls_state_formula "and" ctls_state_formula
+                   | ctls_state_formula "or" ctls_state_formula
+                   | "!" ctls_state_formula
+                   | ctls_state_formula "->" ctls_state_formula
+                   | "A" ctls_path_formula
+                   | "E" ctls_path_formula
+                   | "K" "(" ID "," ctls_state_formula ")"
+                   | "GK" "(" ID "," ctls_state_formula ")"
+                   | "GCK" "(" ID "," ctls_state_formula ")"
+                   | "DK" "(" ID "," ctls_state_formula ")"
+                   | ID
+
+?ctls_path_formula: ctls_state_formula
+                  | "G" ctls_path_formula
+                  | "F" ctls_path_formula
+                  | "X" ctls_path_formula
+                  | ctls_path_formula "U" ctls_path_formula
+
+
+// ============================================================
+// LEXER
+// ============================================================
+
+// Integer/number used by the grammar.
+// NUMBER is deliberately unsigned; negative integers are parsed
+// by the `integer` rule as "-" NUMBER.
+NUMBER: /[0-9]+/
+
+ID: /[a-zA-Z_][a-zA-Z0-9_]*/
+
+
+// Whitespace, including newlines, is irrelevant to the grammar.
+%import common.WS
+%ignore WS
+
+
+// ISPL comments:
+//     -- comment
+//     // comment
+//     /* block comment */
+%ignore /--[^\n]*/
+%ignore /\/\/[^\n]*/
+%ignore /\/\*[\s\S]*?\*\//
