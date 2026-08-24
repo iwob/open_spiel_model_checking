@@ -3,6 +3,8 @@ Semantics=SingleAssignment;
 Agent Environment
     Obsvars:
         turn : {nought, cross};
+        x : boolean;
+        y : 1 .. 4;
         b11 : {x, o, b}; b12 : {x, o, b}; b13 : {x, o, b};
         b21 : {x, o, b}; b22 : {x, o, b}; b23 : {x, o, b};
         b31 : {x, o, b}; b32 : {x, o, b}; b33 : {x, o, b};
@@ -108,7 +110,7 @@ InitStates
      and Environment.b21 = b and Environment.b22 = b and Environment.b23 = b
      and Environment.b31 = b and Environment.b32 = b and Environment.b33 = b
     and Environment.turn = cross
-    and Nought.null = true and Cross.null = true;
+    and Nought.null = true and Cross.null = true and Environment.x = true and Environment.y = 2;
 end InitStates
 
 Groups

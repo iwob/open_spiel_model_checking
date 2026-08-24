@@ -46,7 +46,7 @@ def killtree(pid, including_parent=True, silent=False):
     parent = psutil.Process(pid)
     for child in parent.children(recursive=True):
         if not silent:
-            print("Teminating child:", child)
+            print("Terminating child:", child)
         child.kill()
 
     if including_parent:

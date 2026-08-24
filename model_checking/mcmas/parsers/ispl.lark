@@ -140,8 +140,8 @@ agent_evolution: "Evolution" ":" evolution_line+ "end" "Evolution"
 ?atom: "(" expr ")" -> expression_paren
      | value
 
-?value: "true" -> true_value
-      | "false" -> false_value
+?value: TRUE -> true_value
+      | FALSE -> false_value
       | "Environment" "." ID -> environment_reference
       | ID "." ID -> agent_reference
       | ID -> name_value
@@ -292,6 +292,9 @@ formula_line: formula ";"
 // ============================================================
 // TOKENS
 // ============================================================
+
+TRUE.3: "true"
+FALSE.3: "false"
 
 AND.2: "and"
 OR.2: "or"

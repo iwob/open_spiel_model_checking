@@ -1,0 +1,94 @@
+Semantics=SingleAssignment;
+
+Agent Environment
+    Obsvars:
+        turn : {player0, player1};
+        pile1 : 0 .. 2;
+        pile2 : 0 .. 3;
+        pile3 : 0 .. 4;
+    end Obsvars
+    Actions = { }; 
+    Protocol: end Protocol
+    Evolution:
+        turn = player0 if turn = player1 and (! Player1.Action = none);
+        turn = player1 if turn = player0 and (! Player0.Action = none);
+        pile1 = pile1 - 1 if pile1 >= 1 and (Player0.Action = pile1_take1 or Player1.Action = pile1_take1);
+        pile1 = pile1 - 2 if pile1 >= 2 and (Player0.Action = pile1_take2 or Player1.Action = pile1_take2);
+        pile2 = pile2 - 1 if pile2 >= 1 and (Player0.Action = pile2_take1 or Player1.Action = pile2_take1);
+        pile2 = pile2 - 2 if pile2 >= 2 and (Player0.Action = pile2_take2 or Player1.Action = pile2_take2);
+        pile2 = pile2 - 3 if pile2 >= 3 and (Player0.Action = pile2_take3 or Player1.Action = pile2_take3);
+        pile3 = pile3 - 1 if pile3 >= 1 and (Player0.Action = pile3_take1 or Player1.Action = pile3_take1);
+        pile3 = pile3 - 2 if pile3 >= 2 and (Player0.Action = pile3_take2 or Player1.Action = pile3_take2);
+        pile3 = pile3 - 3 if pile3 >= 3 and (Player0.Action = pile3_take3 or Player1.Action = pile3_take3);
+        pile3 = pile3 - 4 if pile3 >= 4 and (Player0.Action = pile3_take4 or Player1.Action = pile3_take4);
+    end Evolution
+end Agent
+
+Agent Player0
+    Vars:
+        null : boolean; -- for syntax reasons only
+    end Vars
+    Actions = {pile1_take1, pile1_take2, pile2_take1, pile2_take2, pile2_take3, pile3_take1, pile3_take2, pile3_take3, pile3_take4, none};
+    Protocol:
+        Environment.turn = player0 and Environment.pile1 >= 1: { pile1_take1 };
+        Environment.turn = player0 and Environment.pile1 >= 2: { pile1_take2 };
+        Environment.turn = player0 and Environment.pile2 >= 1: { pile2_take1 };
+        Environment.turn = player0 and Environment.pile2 >= 2: { pile2_take2 };
+        Environment.turn = player0 and Environment.pile2 >= 3: { pile2_take3 };
+        Environment.turn = player0 and Environment.pile3 >= 1: { pile3_take1 };
+        Environment.turn = player0 and Environment.pile3 >= 2: { pile3_take2 };
+        Environment.turn = player0 and Environment.pile3 >= 3: { pile3_take3 };
+        Environment.turn = player0 and Environment.pile3 >= 4: { pile3_take4 };
+        Other : { none }; -- technicality
+    end Protocol
+    Evolution:
+        null=true if null=true;
+    end Evolution
+end Agent
+
+Agent Player1
+    Vars:
+        null : boolean; -- for syntax reasons only
+    end Vars
+    Actions = {pile1_take1, pile1_take2, pile2_take1, pile2_take2, pile2_take3, pile3_take1, pile3_take2, pile3_take3, pile3_take4, none};
+    Protocol:
+        Environment.turn = player1 and Environment.pile1 >= 1: { pile1_take1 };
+        Environment.turn = player1 and Environment.pile1 >= 2: { pile1_take2 };
+        Environment.turn = player1 and Environment.pile2 >= 1: { pile2_take1 };
+        Environment.turn = player1 and Environment.pile2 >= 2: { pile2_take2 };
+        Environment.turn = player1 and Environment.pile2 >= 3: { pile2_take3 };
+        Environment.turn = player1 and Environment.pile3 >= 1: { pile3_take1 };
+        Environment.turn = player1 and Environment.pile3 >= 2: { pile3_take2 };
+        Environment.turn = player1 and Environment.pile3 >= 3: { pile3_take3 };
+        Environment.turn = player1 and Environment.pile3 >= 4: { pile3_take4 };
+        Other : { none }; -- technicality
+    end Protocol
+    Evolution:
+        null=true if null=true;
+    end Evolution
+end Agent
+
+Evaluation
+    player0wins if
+    Environment.turn = player1 and Environment.pile1 = 0 and Environment.pile2 = 0 and Environment.pile3 = 0;
+    player1wins if
+    Environment.turn = player0 and Environment.pile1 = 0 and Environment.pile2 = 0 and Environment.pile3 = 0;
+end Evaluation
+
+InitStates
+    --  History: 
+    --  Game state:
+    --  (0): 2 3 4
+    --  Is a winning position: True
+    Environment.pile1 = 2 and Environment.pile2 = 3 and Environment.pile3 = 4
+    and Environment.turn = player0
+    and Player0.null = true and Player1.null = true;
+end InitStates
+
+Groups
+    player0 = {Player0}; player1 = {Player1};
+end Groups
+
+Formulae
+    <player0> F player0wins;
+end Formulae

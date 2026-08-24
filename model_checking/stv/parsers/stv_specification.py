@@ -92,8 +92,8 @@ class SharedTransition(Transition):
 
 
 class AgentLocalModelSpec:
-    def __init__(self, name: str, num_instances: int, init_state: str, local_variables: dict,
-                 persistent_variables: dict, local_variables_init_values: dict, transitions: list[Transition]):
+    def __init__(self, name: str, num_instances: int, init_state: str, local_variables: list[str],
+                 persistent_variables: list[str], local_variables_init_values: dict, transitions: list[Transition]):
         """
 
         :param local_variables: A dictionary containing local variables of agent's model and their initial values.

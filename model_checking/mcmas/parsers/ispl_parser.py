@@ -12,7 +12,7 @@ from lark import Lark, Transformer
 # ============================================================
 
 @dataclass
-class Model:
+class ISPLModel:
     semantics: Optional[str] = None
     environment: Optional["Environment"] = None
     agents: list["Agent"] = field(default_factory=list)
@@ -84,6 +84,7 @@ class BinaryExpr:
 
 @dataclass
 class BooleanNot:
+    operator: str
     operand: object
 
 
@@ -642,55 +643,55 @@ class ISPLTransformer(Transformer):
         return BinaryExpr(
             operator="+",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def binary_sub(self, items):
         return BinaryExpr(
             operator="-",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def binary_mul(self, items):
         return BinaryExpr(
             operator="*",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def binary_div(self, items):
         return BinaryExpr(
             operator="/",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def binary_bit_and(self, items):
         return BinaryExpr(
             operator="&",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def binary_bit_xor(self, items):
         return BinaryExpr(
             operator="^",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def binary_bit_or(self, items):
         return BinaryExpr(
             operator="|",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def unary_bit_not(self, items):
         return UnaryExpr(
             operator="~",
-            operand=items[0],
+            operand=items[1],
         )
 
     # --------------------------------------------------------
@@ -726,19 +727,20 @@ class ISPLTransformer(Transformer):
         return BooleanBinary(
             operator="and",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def bool_or(self, items):
         return BooleanBinary(
             operator="or",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def bool_not(self, items):
         return BooleanNot(
-            operand=items[0],
+            operator="not",
+            operand=items[1],
         )
 
     def bool_comparison(self, items):
@@ -1202,7 +1204,7 @@ class ISPLTransformer(Transformer):
     # --------------------------------------------------------
 
     def interpreted_system(self, items):
-        model = Model()
+        model = ISPLModel()
 
         if isinstance(items[0], str):
             model.semantics = items[0]
@@ -1270,7 +1272,7 @@ class ISPLParser:
             start="start",
         )
 
-    def parse(self, text: str) -> Model:
+    def parse(self, text: str) -> ISPLModel:
         tree = self._parser.parse(text)
         return ISPLTransformer().transform(tree)
 
@@ -1278,7 +1280,7 @@ class ISPLParser:
         self,
         path: str | Path,
         encoding: str = "utf-8",
-    ) -> Model:
+    ) -> ISPLModel:
         path = Path(path)
 
         with path.open(
@@ -1304,14 +1306,14 @@ def get_parser() -> ISPLParser:
     return _default_parser
 
 
-def parse(text: str) -> Model:
+def parse(text: str) -> ISPLModel:
     return get_parser().parse(text)
 
 
 def parse_file(
     path: str | Path,
     encoding: str = "utf-8",
-) -> Model:
+) -> ISPLModel:
     return get_parser().parse_file(
         path,
         encoding=encoding,
