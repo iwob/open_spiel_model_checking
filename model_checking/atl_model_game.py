@@ -379,7 +379,7 @@ class AtlModelState(pyspiel.State):
         was_action_executed = False  # Can be used to detect deadlock
 
         # Execute all selected private actions - these agents, under imperfect information, won't get any new
-        # information to decide, so we may as well execute them.
+        # information to decide, so we may just as well execute them.
         #
         # It is also important to note that agents can choose a shared action even if another agent required
         # for synchronization is not in a state in which it can execute it. At no point agents are aware of the

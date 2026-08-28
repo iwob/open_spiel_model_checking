@@ -70,7 +70,8 @@ def get_agent_initial_values(condition, agent_name):
     else:
         raise Exception("Initial state must be represented as assignments (=) to variables")
 
-
+def get_agent_transitions(condition, agent_name):
+    pass
 
 def convert_to_stv_spec(model: ISPLModel) -> (StvSpecification, ModalExprNode):
     agents = []
