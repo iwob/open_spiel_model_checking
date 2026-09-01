@@ -98,23 +98,17 @@ class McmasModelGame(pyspiel.Game):
         return McmasModelGame(params, silent=silent)
 
     @staticmethod
-    def get_agent_actions_dict(spec):
+    def get_agent_actions_dict(spec: ISPLModel):
         ACTION_ID = 0
         agent_actions = {}
         action_name_to_id_dict = {}
         for i, a in enumerate(spec.agents):
-            agent_actions[a.name] = []
+            agent_actions[a.name] = a.actions
             action_name_to_id_dict[a.name] = {}
-            for t in a.transitions:
-                if t.is_shared and t.local_name not in agent_actions[a.name]:
-                    agent_actions[a.name].append(t.local_name)
-                    action_name_to_id_dict[a.name][t.local_name] = ACTION_ID
-                    ACTION_ID += 1
-                elif not t.is_shared and t.name not in agent_actions[a.name]:
-                    # Action with the same name can be used in multiple states
-                    agent_actions[a.name].append(t.name)
-                    action_name_to_id_dict[a.name][t.name] = ACTION_ID
-                    ACTION_ID += 1
+            for t in a.actions:
+                agent_actions[a.name].append(t)
+                action_name_to_id_dict[a.name][t] = ACTION_ID
+                ACTION_ID += 1
         return agent_actions, action_name_to_id_dict
 
     @staticmethod
@@ -417,24 +411,22 @@ class McmasModelState(pyspiel.State):
          possible actions for each player are generated using function."""
         assert player >= 0
         player_name = self.get_player_name(player)
-        actions = []
+        actions = set()
         for r in self.model.agents[player].protocol.rules:
             # Check if a given rule can be triggered
             if self.evaluate_condition(r.condition):
-                actions = r.actions
-        # If no rules triggered, use other
+                actions.update(r.actions)
 
+        # If no rules triggered, use the default actions
         if len(actions) == 0:
             actions = self.model.agents[player].protocol.other.actions
-            # self.model.agents[player].protocol.other
 
-
-        for t in self.agent_local_states[player].get_available_transitions():
-            t_name = t.local_name if t.is_shared else t.name
-            action_idx = self.action_name_to_id_dict[player_name][t_name]
-            actions.append(action_idx)
+        actions_ids = []
+        for a in actions:
+            action_idx = self.action_name_to_id_dict[player_name][a]
+            actions_ids.append(action_idx)
         assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
-        return actions
+        return sorted(actions_ids)
 
     def resample_from_infostate(self, player_id, rng=None):
         """Given a player's observation vector (in this case: agent's local state)
@@ -471,67 +463,11 @@ class McmasModelState(pyspiel.State):
 
         # Execute all selected private actions - these agents, under imperfect information, won't get any new
         # information to decide, so we may just as well execute them.
-        #
-        # It is also important to note that agents can choose a shared action even if another agent required
-        # for synchronization is not in a state in which it can execute it. At no point agents are aware of the
-        # state of other agents.
         for player, action in enumerate(actions):
             action_name = self.possible_actions[action]
-            transition = self.agent_local_states[player].get_transition_for_action(action_name)
-            if transition.is_shared:
-                assert transition.is_abstract
-                # At this point we have an abstract shared transition which can correspond to any of the
-                # concrete transitions contained in it (e.g., A in "action1[A] ... action2[A]").
-                # Agent can only decide on A and isn't aware of the underlying actions.
-                shared_transitions.append((player, transition))
-            else:
-                self.execute_transition(player, transition)
-                was_action_executed = True
+            print(f"player: {player}: {action_name}")
 
-        # Aggregate instances of shared actions
-        shared_trans_support_dict = {}
-        for p, at in shared_transitions:
-            # p = 1  (player id of the action executioner)
-            # at - represents play_0 in the example below
-            # at.transition_set = {play_0_rock, play_0_paper, play_0_scissors}
-            #   Player0:
-            #       shared[3] play_0_rock[play_0_rock]: idle -> finish
-            #       shared[3] play_0_paper[play_0_paper]: idle -> finish
-            #       shared[3] play_0_scissors[play_0_scissors]: idle -> finish
-            #   Player1:
-            #       shared[3] play_0_rock[play_0]: idle -> idle2
-            #       shared[3] play_0_paper[play_0]: idle -> idle2
-            #       shared[3] play_0_scissors[play_0]: idle -> idle2
-
-            # Aggregate over name and collect all support
-            assert at.is_abstract
-            for t in at.transition_set:
-                assert not t.is_abstract
-                shared_trans_support_dict.setdefault(t.name, [])
-                shared_trans_support_dict[t.name].append((p, t))
-
-        # Check if they can be executed, and if yes then execute them.
-        # ASSUMPTION #1: there is always a "leader" initiating synchronization and in that way ensuring that
-        # there is always only a single possible choice of action.
-        # ASSUMPTION #2: in the specification, x in "shared[x]" always denotes a correct number of synchronizing
-        # agents - this is not enforced by the parser.
-        enabled_shared = []
-        for _, support in shared_trans_support_dict.items():
-            # Check if all the required players choose to synchronize.
-            if support[0][1].shared_num == len(support):
-                for p, t in support:
-                    enabled_shared.append((p, t))
-
-        # Execute all enabled shared transitions. We can do that because of our "leader" assumption. In general
-        # this won't work, because agents can support multiple concrete transitions, and then we happen to need
-        # to decide, which transition gets executed, potentially blocking other from being executed.
-        # I think detecting such a situation would necessitate a chance player.
-        for p, t in enabled_shared:
-            assert not t.is_abstract
-            self.execute_transition(p, t)
-            was_action_executed = True
-
-        return was_action_executed
+        return False
 
 
     def _is_formula_satisfied_interpreter(self, formula, global_variables):
