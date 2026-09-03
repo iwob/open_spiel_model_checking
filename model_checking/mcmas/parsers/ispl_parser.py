@@ -22,6 +22,30 @@ class ISPLModel:
     fairness: Optional["Fairness"] = None
     formulae: Optional["Formulae"] = None
 
+    def get_all_registered_vars(self):
+        res = []
+        for v in self.environment.observable_vars:
+            res.append(v)
+        for a in self.agents:
+            for v in a.vars + a.local_observable_vars:
+                res.append(v)
+        return res
+
+    def get_all_registered_enum_values(self):
+        """Returns a set of possible enum values."""
+        res = set()
+        for v in self.environment.observable_vars:
+            if v.type == 'enum':
+                # res[v.name] = set(v.values)
+                res.update(v.values)
+        for a in self.agents:
+            for v in a.vars + a.local_observable_vars:
+                if v.type == 'enum':
+                    # res[v.name] = set(v.values)
+                    res.update(v.values)
+        return res
+
+
 
 # ============================================================
 # AST - Variables
@@ -35,6 +59,9 @@ class VariableDef:
     upper: Optional[int] = None
     values: list[str] = field(default_factory=list)
 
+@dataclass
+class LocalObsvars:
+    vars: list[str]
 
 # ============================================================
 # AST - Values
@@ -420,7 +447,7 @@ class ISPLTransformer(Transformer):
         return items[0]
 
     def local_obsvars(self, items):
-        return items[0] if items else []
+        return LocalObsvars(items[0]) if items else LocalObsvars([])
 
     # --------------------------------------------------------
     # Protocol
@@ -545,6 +572,9 @@ class ISPLTransformer(Transformer):
             if isinstance(item, Protocol):
                 protocol = item
 
+            elif isinstance(item, LocalObsvars):
+                local_observable_vars = LocalObsvars.vars
+
             elif isinstance(item, list):
                 if not item:
                     continue
@@ -553,10 +583,7 @@ class ISPLTransformer(Transformer):
                     vars_ = item
 
                 elif all(isinstance(x, str) for x in item):
-                    if not local_observable_vars:
-                        local_observable_vars = item
-                    else:
-                        actions = item
+                    actions = item
 
                 elif all(isinstance(x, EvolutionRule) for x in item):
                     evolution = item

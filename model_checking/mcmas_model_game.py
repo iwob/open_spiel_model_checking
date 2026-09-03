@@ -42,11 +42,11 @@ class McmasModelGame(pyspiel.Game):
         self.spec = params["spec"]
         self.formula = params["formula"]
 
-        # self.spec = spec
-        # self.formula = formula
         self.silent = silent
         self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(self.spec)
         self.possible_actions = self.get_possible_actions(self.spec, self.agent_actions)
+        print("agent_actions:", self.agent_actions)
+        print("action_name_to_id_dict:", self.action_name_to_id_dict)
         self._GAME_INFO = pyspiel.GameInfo(
             num_distinct_actions=len(self.possible_actions),
             max_chance_outcomes=0,
@@ -55,11 +55,15 @@ class McmasModelGame(pyspiel.Game):
             max_utility=1.0,
             utility_sum=0.0,
             max_game_length=100)
+
+        self.registered_vars = self.spec.get_all_registered_vars()
+        self.registered_enum_values = self.spec.get_all_registered_enum_values()
+
         # Persistent variables and states in the observation vector will be in the alphabetical order
-        self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.persistent_variables) for a in self.spec.agents}
-        self.persistent_variables_index_per_player = {k: {n: i for i, n in enumerate(sorted_vars)} for k, sorted_vars in self.persistent_variables_ordered.items()}
-        self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in self.spec.agents}
-        self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
+        # self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.persistent_variables) for a in self.spec.agents}
+        # self.persistent_variables_index_per_player = {k: {n: i for i, n in enumerate(sorted_vars)} for k, sorted_vars in self.persistent_variables_ordered.items()}
+        # self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in self.spec.agents}
+        # self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
         super().__init__(_GAME_TYPE, self._GAME_INFO, {})
 
     def __deepcopy__(self, memo):
@@ -90,11 +94,11 @@ class McmasModelGame(pyspiel.Game):
         return max_total_size
 
     @staticmethod
-    def from_spec(spec: StvSpecification, formula: ModalExprNode, params=None, silent=True):
+    def from_spec(spec: ISPLModel, params=None, silent=True):
         if params is None:
             params = {}
         params["spec"] = spec
-        params["formula"] = formula
+        params["formula"] = spec.formulae.formulas[0]
         return McmasModelGame(params, silent=silent)
 
     @staticmethod
@@ -103,10 +107,9 @@ class McmasModelGame(pyspiel.Game):
         agent_actions = {}
         action_name_to_id_dict = {}
         for i, a in enumerate(spec.agents):
-            agent_actions[a.name] = a.actions
+            agent_actions[a.name] = a.actions[:]
             action_name_to_id_dict[a.name] = {}
             for t in a.actions:
-                agent_actions[a.name].append(t)
                 action_name_to_id_dict[a.name][t] = ACTION_ID
                 ACTION_ID += 1
         return agent_actions, action_name_to_id_dict
@@ -123,13 +126,10 @@ class McmasModelGame(pyspiel.Game):
 
     def new_initial_state(self):
         """Returns a state corresponding to the start of a game."""
-        return AtlModelState(game=self,
-                             spec=self.spec,
-                             formula=self.formula,
-                             agent_actions=self.agent_actions,
-                             action_name_to_id_dict=self.action_name_to_id_dict,
-                             possible_actions=self.possible_actions,
-                             silent=self.silent)
+        return McmasModelState(game=self,
+                               model=self.spec,
+                               formula=self.formula,
+                               silent=self.silent)
 
     def make_py_observer(self, iig_obs_type=None, params=None):
         """Returns an object used for observing game state."""
@@ -143,118 +143,6 @@ class McmasModelGame(pyspiel.Game):
             return IIGObserverForPublicInfoGame(iig_obs_type, params)
 
 
-
-
-class AgentLocalState:
-    def __init__(self,
-                 agent_id: int,
-                 agent_spec: AgentLocalModelSpec,
-                 game: AtlModelGame,
-                 max_tensor_size: int|None = None):
-        self.agent_spec = agent_spec
-        self.id = agent_id
-        self.name = agent_spec.name
-        self.current_node: str = agent_spec.init_state
-        self.persistent_variables = self._get_initialized_persistent_variables(agent_spec)
-        self.persistent_variables_ordered = game.persistent_variables_ordered[self.id].copy()
-        self.persistent_variables_index = game.persistent_variables_index_per_player[self.id].copy()
-        self.nodes_ordered = game.nodes_ordered[self.id].copy()
-        self.nodes_index = game.nodes_index_per_player[self.id].copy()
-        self.max_tensor_size = max_tensor_size
-        # TODO: local non-persistent variables are currently not handled (appropriate exception raised if such variables are used)
-
-    def _get_initialized_persistent_variables(self, agent_spec):
-        res = {}
-        for x in agent_spec.persistent_variables:
-            res[x] = agent_spec.local_variables_init_values.get(x, 0)
-        return res
-
-    def get_num_nodes(self):
-        return len(self.nodes_ordered)
-
-    def get_num_variables(self):
-        return len(self.persistent_variables_ordered)
-
-    def execute_action(self, name):
-        """Executes an action and changes agent's local state. Name can be either a name (private actions) or
-         local name (synchronized actions)."""
-        # TODO: this probably should be updated by an external function for the shared actions
-        for t in self.agent_spec.transitions:
-            if t.name == name and not t.is_shared:
-                self.current_node = t.q1.name
-                for k, v in t.q1.parameters.items():
-                    self.persistent_variables[k] = v
-                break
-            elif t.local_name == name and t.is_shared:
-                # TODO: local name can correspond to a set of actions taken by other players
-                self.current_node = t.q1.name
-                for k, v in t.q1.parameters.items():
-                    self.persistent_variables[k] = v
-                break
-
-    def execute_transition(self, transition: Transition):
-        self.current_node = transition.q1.name
-        # Change persistent variables (if applicable)
-        for k, v in transition.q1.parameters.items():
-            self.persistent_variables[k] = v
-
-    def is_precondition_satisified(self, trans: Transition):
-        """Checks, if a precondition of a transition is satisfied."""
-        for k, v in trans.q0.parameters.items():
-            if self.persistent_variables[k] != v:
-                return False
-        return True
-
-    def get_available_transitions(self) -> list[Transition]:
-        private_trans = []
-        shared_trans = []
-        shared_trans_dict = {}
-        for t in self.agent_spec.transitions:
-            # t_name = t.local_name if t.is_shared else t.name
-            if self.current_node == t.q0.name and self.is_precondition_satisified(t):
-                if t.is_shared:
-                    shared_trans_dict.setdefault(t.local_name, [])
-                    shared_trans_dict[t.local_name].append(t)
-                else:
-                    private_trans.append(t)
-
-        for _, transitions in shared_trans_dict.items():
-            shared_trans.append(SharedTransition.from_transition_set(transitions))
-        return private_trans + shared_trans
-
-    def get_transition_for_action(self, action_name) -> Transition | SharedTransition | None:
-        """Returns action's transition object based on a current node. Since actions can be executed in multiple
-         nodes, a corresponding transition object cannot be determined without the context of the current node."""
-        for t in self.get_available_transitions():
-            if t.is_shared and t.local_name == action_name:
-                assert t.is_abstract
-                return t  # this is an abstract transition
-            elif not t.is_shared and t.name == action_name:
-                return t
-        return None
-
-    def __str__(self):
-        return f"{self.name} (#{self.id}): {self.current_node} [{','.join([f'{k}={v}' for k, v in self.persistent_variables.items()])}]"
-
-    def information_state_tensor(self):
-        """Returns information state tensor of this agent."""
-        Q = self.get_num_nodes()
-        P = self.get_num_variables()
-        if self.max_tensor_size is not None:
-            tensor = np.zeros(self.max_tensor_size, np.float32)
-        else:
-            tensor = np.zeros(Q+P, np.float32)
-        t_nodes = tensor[0:Q]
-        t_variables = tensor[Q:Q + P]
-
-        node_index = self.nodes_index[self.current_node]
-        t_nodes[node_index] = 1.0
-        for var_name, i in self.persistent_variables_index.items():
-            t_variables[i] = self.persistent_variables[var_name]
-        return tensor
-
-    def information_state_string(self):
-        return str(self)
 
 
 class McmasModelState(pyspiel.State):
@@ -273,13 +161,14 @@ class McmasModelState(pyspiel.State):
         self._cur_num_steps = 0
         self._is_terminal = False
         self.formula_eval = None
-
-        self.env_variables = {}
-        self.initialize_variables(model)
-
         self.game = game
         self.model = model
         self.formula = formula if formula is not None else model.formulae.formulas[0]
+
+        self.env_variables = {}
+        self.initialize_variables(model)
+        print("> Variables initialized")
+        print("\n".join([str(x) for x in self.env_variables.items()]))
         self.previous_global_state = self.get_global_state()
         self._check_if_terminal_position()
 
@@ -290,18 +179,18 @@ class McmasModelState(pyspiel.State):
         def collect_comparisons(expr):
             if isinstance(expr, BooleanBinary):
                 if expr.operator == "and":
-                    return self.collect_comparisons(expr.left) + self.collect_comparisons(expr.right)
+                    return collect_comparisons(expr.left) + collect_comparisons(expr.right)
                 else:
                     raise Exception(f"Unsupported boolean operator: '{expr.operator}'")
             elif isinstance(expr, Comparison):
-                return expr
+                return [expr]
             else:
                 raise Exception(f"Unsupported tree node: {str(expr)}")
 
         def get_name(c):
-            if isinstance(c.left, Reference) or isinstance(c.left, Name):
+            if isinstance(c.left, Reference) or (isinstance(c.left, Name) and c.left.name in self.game.registered_vars):
                 return c.left.name
-            elif isinstance(c.right, Reference) or isinstance(c.right, Name):
+            elif isinstance(c.right, Reference) or (isinstance(c.right, Name) and c.right.name in self.game.registered_vars):
                 return c.right.name
             else:
                 raise Exception("Unsupported statement of initial values")
@@ -309,8 +198,12 @@ class McmasModelState(pyspiel.State):
         def get_value(c):
             if isinstance(c.left, IntLiteral) or isinstance(c.left, BoolLiteral):
                 return c.left.value
+            elif isinstance(c.left, Name) and c.left.name in self.game.registered_enum_values:
+                return c.left.name
             elif isinstance(c.right, IntLiteral) or isinstance(c.right, BoolLiteral):
                 return c.right.value
+            elif isinstance(c.right, Name) and c.right.name in self.game.registered_enum_values:
+                return c.right.name
             else:
                 raise Exception("Unsupported statement of initial values")
 
@@ -654,4 +547,4 @@ class AtlModelStateObserver:
 
 
 # Register the game with the OpenSpiel library
-pyspiel.register_game(_GAME_TYPE, AtlModelGame) # is registering needed?
+pyspiel.register_game(_GAME_TYPE, McmasModelGame) # is registering needed?
