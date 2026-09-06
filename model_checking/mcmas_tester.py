@@ -19,7 +19,7 @@ def simple_run_test():
 
     state = game.new_initial_state()
     print(str(state) + '\n')
-    for a_id, _ in enumerate(state.agent_local_states):
+    for a_id, _ in enumerate(state.model.agents):
         print("Legal actions for player {}:".format(a_id))
         for action in state.legal_actions(a_id):
             print(f"{action} {state.action_to_string(a_id, action)}")
@@ -31,14 +31,14 @@ def simple_run_test():
     print("State:")
     print(str(state))
     print()
-    self.assertEqual(True, True)
+
     while not state.is_terminal() and num_iter < MAX_ITER:
         print(f"ITERATION #{num_iter}")
         if num_iter == -1:
             actions = [0, 5, 7]
         else:
             actions = []
-            for a_id, a in enumerate(state.agent_local_states):
+            for a_id, _ in enumerate(state.model.agents):
                 j = np.random.choice(state.legal_actions(a_id))
                 actions.append(j)
         print(f"Trying to execute actions: {actions} ({[state.get_action_name(a) for a in actions]})")

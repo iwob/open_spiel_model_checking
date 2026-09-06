@@ -148,7 +148,7 @@ class McmasModelGame(pyspiel.Game):
 class McmasModelState(pyspiel.State):
     """A state of the planning game. It is modified in place after each action."""
 
-    def __init__(self, game: McmasModelGame, model: ISPLModel, formula: ModalExprNode=None, seed=None, silent=True):
+    def __init__(self, game: McmasModelGame, model: ISPLModel, formula:StrategicFormula=None, seed=None, silent=True):
         """Constructor; should only be called by Game.new_initial_state."""
         super().__init__(game)
         if seed is not None:
@@ -164,6 +164,8 @@ class McmasModelState(pyspiel.State):
         self.game = game
         self.model = model
         self.formula = formula if formula is not None else model.formulae.formulas[0]
+        self.evaluation_rules = {rule.name: rule.condition for rule in self.model.evaluation.rules}
+
 
         self.env_variables = {}
         self.initialize_variables(model)
@@ -211,11 +213,8 @@ class McmasModelState(pyspiel.State):
         self.env_variables = {get_name(c): get_value(c) for c in comps}
 
 
-
     def get_global_state(self):
-        agent_states = [a.current_node for a in self.agent_local_states]
-        global_variables = self.combine_agents_variables()
-        return agent_states, global_variables
+        return tuple(sorted(self.env_variables.items()))
 
     def get_player_name(self, player_index):
         """Converts a player's number ID in Open Spiel to an identifier used for actions."""
@@ -232,7 +231,7 @@ class McmasModelState(pyspiel.State):
         pass
 
     def get_action_name(self, action_id):
-        return self.possible_actions[action_id]
+        return self.game.possible_actions[action_id]
 
     def _print(self, text):
         if not self._silent:
@@ -245,16 +244,32 @@ class McmasModelState(pyspiel.State):
         """Returns id of the next player to move, or TERMINAL if game is over."""
         return pyspiel.PlayerId.TERMINAL if self._is_terminal else pyspiel.PlayerId.SIMULTANEOUS
 
-    def get_current_var_value(self, name, owner=None):
-        return self.env_variables[name]
+    def get_current_var_value(self, name, owner=None, global_variables=None):
+        if global_variables is None:
+            global_variables = self.env_variables
+        return global_variables[name]
 
-    def evaluate_expression(self, expr):
+    def evaluate_expression(self, expr, global_variables=None):
         """Interprets expression given values of the variables in the current state. Simplifying assumption: all variables
          are defined as observables in Environment."""
+        if isinstance(expr, (BooleanBinary, BinaryFormula)):
+            if expr.operator == "and":
+                return self.evaluate_expression(expr.left) and self.evaluate_expression(expr.right)
+            elif expr.operator == "or":
+                return self.evaluate_expression(expr.left) or self.evaluate_expression(expr.right)
+            elif expr.operator == "->":
+                return not self.evaluate_expression(expr.left) or self.evaluate_expression(expr.right)
+            else:
+                raise Exception(f"Unknown boolean operator: '{expr.operator}'")
+        elif isinstance(expr, BooleanNot):
+            return not self.evaluate_expression(expr.operand)
         if isinstance(expr, Reference):
-            return self.get_current_var_value(expr.name, expr.owner)
+            return self.get_current_var_value(expr.name, expr.owner, global_variables)
         elif isinstance(expr, Name):
-            return self.get_current_var_value(expr.name, None)
+            if expr.name in self.game.registered_vars:
+                return self.get_current_var_value(expr.name, None, global_variables)
+            else:
+                return expr.name  # enum value
         elif isinstance(expr, IntLiteral) or isinstance(expr, BoolLiteral):
             return expr.value
         elif isinstance(expr, BinaryExpr):
@@ -262,6 +277,14 @@ class McmasModelState(pyspiel.State):
                 return self.evaluate_expression(expr.left) + self.evaluate_expression(expr.right)
             if expr.operator == "-":
                 return self.evaluate_expression(expr.left) - self.evaluate_expression(expr.right)
+            if expr.operator == "*":
+                return self.evaluate_expression(expr.left) * self.evaluate_expression(expr.right)
+            if expr.operator == "&":
+                return self.evaluate_expression(expr.left) & self.evaluate_expression(expr.right)
+            if expr.operator == "|":
+                return self.evaluate_expression(expr.left) | self.evaluate_expression(expr.right)
+            if expr.operator == "^":
+                return self.evaluate_expression(expr.left) ^ self.evaluate_expression(expr.right)
             else:
                 raise Exception(f"Unknown binary operator: '{expr.operator}'")
         elif isinstance(expr, Comparison):
@@ -283,22 +306,6 @@ class McmasModelState(pyspiel.State):
             raise Exception(f"Incorrect expression node: {str(expr)}")
 
 
-    def evaluate_condition(self, condition):
-        if isinstance(condition, BooleanBinary):
-            if condition.operator == "and":
-                return self.evaluate_condition(condition.left) and self.evaluate_condition(condition.right)
-            elif condition.operator == "or":
-                return self.evaluate_condition(condition.left) or self.evaluate_condition(condition.right)
-            else:
-                raise Exception(f"Unknown boolean operator: '{condition.operator}'")
-        elif isinstance(condition, BooleanNot):
-            return not self.evaluate_condition(condition.operand)
-        elif isinstance(condition, Comparison):
-            return self.evaluate_expression(condition)
-        else:
-            raise Exception(f"Incorrect condition node: {str(condition)}")
-
-
     def _legal_actions(self, player):
         """Returns a list of legal actions, sorted in ascending order. In simultaneous games
          possible actions for each player are generated using function."""
@@ -307,7 +314,7 @@ class McmasModelState(pyspiel.State):
         actions = set()
         for r in self.model.agents[player].protocol.rules:
             # Check if a given rule can be triggered
-            if self.evaluate_condition(r.condition):
+            if self.evaluate_expression(r.condition):
                 actions.update(r.actions)
 
         # If no rules triggered, use the default actions
@@ -316,7 +323,7 @@ class McmasModelState(pyspiel.State):
 
         actions_ids = []
         for a in actions:
-            action_idx = self.action_name_to_id_dict[player_name][a]
+            action_idx = self.game.action_name_to_id_dict[player_name][a]
             actions_ids.append(action_idx)
         assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
         return sorted(actions_ids)
@@ -357,68 +364,52 @@ class McmasModelState(pyspiel.State):
         # Execute all selected private actions - these agents, under imperfect information, won't get any new
         # information to decide, so we may just as well execute them.
         for player, action in enumerate(actions):
-            action_name = self.possible_actions[action]
+            action_name = self.game.possible_actions[action]
             print(f"player: {player}: {action_name}")
 
         return False
 
 
     def _is_formula_satisfied_interpreter(self, formula, global_variables):
-        """Checks, if the formula is satisfied in the current state."""
-        if isinstance(formula, ModalExprNode):
-            return self._is_formula_satisfied_interpreter(formula.formula, global_variables)
-        elif len(formula.args) == 0:
-            if formula.is_variable:
-                return global_variables[formula.name]
-            else:
-                return formula.name  # constant
-        elif len(formula.args) == 1:
-            X = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
-            if formula.name == "!":
+        """Checks, if the fundamental formula (independent from modal operators) is satisfied in the current state."""
+        if isinstance(formula, Atom):
+            return self.evaluate_expression(self.evaluation_rules[formula.name], global_variables)
+        elif isinstance(formula, UnaryFormula):
+            X = self._is_formula_satisfied_interpreter(formula.operand, global_variables)
+            if formula.operator == "!":
                 return not X
             else:
                 raise Exception("Incorrect expression node!")
-        elif len(formula.args) == 2:
-            L = self._is_formula_satisfied_interpreter(formula.args[0], global_variables)
-            R = self._is_formula_satisfied_interpreter(formula.args[1], global_variables)
-            if formula.name == "==":
-                return int(L) == int(R)
-            elif formula.name == ">=":
-                return int(L) >= int(R)
-            elif formula.name == "<=":
-                return int(L) <= int(R)
-            elif formula.name == "&&":
+        elif isinstance(formula, BinaryFormula):
+            L = self._is_formula_satisfied_interpreter(formula.left, global_variables)
+            R = self._is_formula_satisfied_interpreter(formula.right, global_variables)
+            if formula.operator == "and":
                 return R and L
-            elif formula.name == "||":
+            elif formula.operator == "or":
                 return R or L
+            elif formula.operator == "->":
+                return not R or L
             else:
                 raise Exception("Incorrect expression node!")
+        elif isinstance(formula, StrategicFormula):
+            return self._is_formula_satisfied_interpreter(formula.operand, global_variables)
         else:
             raise Exception("Incorrect expression node!")
-
-
-    def combine_agents_variables(self):
-        global_variables = {}
-        for a in self.agent_local_states:
-            for k, v in a.persistent_variables.items():
-                global_variables[k] = v
-        return global_variables
 
 
     def is_formula_satisfied(self, formula: ModalExprNode|None = None):
         """Checks, if the formula is satisfied in the current state."""
         if formula is None:
             formula = self.formula
-        global_variables = self.combine_agents_variables()
-        return self._is_formula_satisfied_interpreter(formula, global_variables)
+        return self._is_formula_satisfied_interpreter(formula, self.env_variables)
 
 
     def _check_if_terminal_position(self):
         self.formula_eval = self.is_formula_satisfied(self.formula)
-        if self.formula.modal_op == "[]" and not self.formula_eval or \
-           self.formula.modal_op == "<>" and self.formula_eval:
-            # case []: coalition failed to ensure property
-            # case <>: coalition managed to achieve property
+        if self.formula.operator == "G" and not self.formula_eval or \
+           self.formula.operator == "F" and self.formula_eval:
+            # case [] (G): coalition failed to ensure property
+            # case <> (F): coalition managed to achieve property
             self._is_terminal = True
         else:
             self._is_terminal = False
@@ -447,7 +438,7 @@ class McmasModelState(pyspiel.State):
 
     def _action_to_string(self, player, action):
         """Action -> string."""
-        action_name = self.possible_actions[action]
+        action_name = self.game.possible_actions[action]
         return "{}".format(action_name)
 
     def is_terminal(self):
@@ -473,7 +464,7 @@ class McmasModelState(pyspiel.State):
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""
-        text = "\n".join([f"{a.name}: {a.current_node} (vars: {a.persistent_variables})" for a in self.agent_local_states])
+        text = "\n".join([f"{a}: {self.env_variables[a]}" for a in self.env_variables])
         return text
 
     def information_state_string(self, player):

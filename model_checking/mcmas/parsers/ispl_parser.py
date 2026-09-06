@@ -876,27 +876,27 @@ class ISPLTransformer(Transformer):
         return BinaryFormula(
             operator="and",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def formula_or(self, items):
         return BinaryFormula(
             operator="or",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     def formula_not(self, items):
         return UnaryFormula(
             operator="!",
-            operand=items[0],
+            operand=items[1],
         )
 
     def formula_implies(self, items):
         return BinaryFormula(
             operator="->",
             left=items[0],
-            right=items[1],
+            right=items[2],
         )
 
     # --------------------------------------------------------
