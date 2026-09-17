@@ -95,9 +95,33 @@ Agent {agent_name}
     end Evolution
 end Agent"""
 
+def get_env_evolution(num_players: int):
+    turn_switcher = " ".join([f"turn=turn_p{i} if turn={(i-1) % num_players};"] for i in range(num_players))
+    player_position_update = ""
+    for i in range(num_players):
+        player_moves += f"y_p{i} = y_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = up\n"
+        player_moves += f"y_p{i} = y_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = down\n"
+        player_moves += f"x_p{i} = x_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = left\n"
+        player_moves += f"x_p{i} = x_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = right\n"
+    return f"""
+-- turn switching
+{turn_switcher}
+-- positions are updated according to the move
+{player_position_update}
+-- board and points are updated according to the moves of the players:
+for 1=1..5: reward[i] = taken if reward[i] = avail &
+(turn = blu & xred = xreward[i] & yred = yreward[i] |
+turn = red & xblu = xreward[i] & yblu = yreward[i]);
+for 1=1..5: points_red=points_red+1 if reward[i] = avail &
+turn = blu & xred = xreward[i] & yred = yreward[i];
+for 1=1..5: points_blu=points_blu+1 if reward[i] = avail &
+turn = red & xblu = xreward[i] & yblu = yreward[i];
+"""
+
+
 def make_tourality_specification(num_players: int, board: list, history, player_to_move: int, formulae: str) -> str:
-    env_obsvars_turn_vals = "{" + ", ".join([f"turn_{i}" for i in range(num_players)]) + "}"
-    env_obsvars_points_vars = ", ".join([f"points_{i}" for i in range(num_players)]) + "}"
+    env_obsvars_turn_vals = "{" + ", ".join([f"turn_p{i}" for i in range(num_players)]) + "}"
+    env_obsvars_points_vars = ", ".join([f"points_p{i}" for i in range(num_players)]) + "}"
     num_rewards = sum([row.count(2) for row in board])
     player_actions = ", ".join(generate_actions(piles))
     player_protocol_0 = "\n".join(generate_player_protocol(piles, 0))  # conditions on actions, the same for both players
@@ -114,8 +138,8 @@ Obsvars:
     turn : {env_obsvars_turn_vals}; xred, yred, xblu, yblu : 1..8;
     reward[1..{num_rewards}] : {{avail, taken}};
     {env_obsvars_points_vars}: 0..{num_rewards};
-    constant b[1..8][1..8] : {empty, block}; -- the board
-    constant xreward[1..5], yreward[5]: [1..5]; -- positions of the rewards
+    b[1..8][1..8] : {empty, block}; -- the board
+    xreward[1..5], yreward[5]: [1..5]; -- positions of the rewards
 end Obsvars
 Evolution:
     -- turn switches between every two moves
