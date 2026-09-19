@@ -43,13 +43,13 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
             for j in range(size_x):
                 if board[i][j] == 1:
                     continue  # because agent cannot ever be in a field with a wall
-                if i < size_y - 1:
-                    board_update += create_entry(j, i, j, i - 1, action="down")
                 if i > 0:
+                    board_update += create_entry(j, i, j, i - 1, action="down")
+                if i < size_y - 1:
                     board_update += create_entry(j, i, j, i + 1, action="up")
-                if j < size_x - 1:
-                    board_update += create_entry(j, i, j - 1, i, action="right")
                 if j > 0:
+                    board_update += create_entry(j, i, j - 1, i, action="right")
+                if j < size_x - 1:
                     board_update += create_entry(j, i, j + 1, i, action="left")
 
     rewards_deactivation = ""
@@ -99,15 +99,21 @@ def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
             if j < size_x - 1:
                 agent_moves += create_entry(j, i, j+1, i, action="left")
     return f"""Agent Player{num}
+Vars:
+{indent("null : boolean; -- for syntax reasons only", " " * INDENT_SIZE)}
+end Vars
 Actions = {{ up, down, left, right }};
 Protocol:
 {indent(agent_moves, " " * INDENT_SIZE)}
 end Protocol
+Evolution:
+{indent("null=true if null=true;", " " * INDENT_SIZE)}
+end Evolution
 end Agent\n"""
 
 
 def get_init_state(board: list, num_players: int, player_to_move: int):
-    comment = ""
+    comment = "-- Game state:\n"
     for row in board:
         comment += "--"
         for cell in row:
