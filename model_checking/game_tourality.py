@@ -5,6 +5,13 @@ from game_mnk import GameInterface
 
 INDENT_SIZE = 6
 
+
+def clean_nl(text):
+    if text[-1] == "\n":
+        return text[:-1]
+    else:
+        return text
+
 def generate_player_protocol(piles, player_no):
     conditions = []
     for i in range(0, len(piles)):
@@ -23,7 +30,7 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
     size_x = len(board[0])
     size_y = len(board)
 
-    turn_switcher = " ".join([f"turn=turn_p{i} if turn={(i-1) % num_players};" for i in range(num_players)])
+    turn_switcher = " ".join([f"turn=turn_p{i} if turn=turn_p{(i-1) % num_players};" for i in range(num_players)])
     player_position_update = ""
     for i in range(num_players):
         player_position_update += f"y_p{i} = y_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = up;\n"
@@ -82,9 +89,9 @@ def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
 
     def create_entry(bx, by, x, y, action):
         if can_players_overlap:
-            return f"y_p{num}={y} and x_p{num}={x}: {{ {action} }};\n"
+            return f"Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
         else:
-            return f"y_p{num}={y} and x_p{num}={x} and b_{by}_{bx} = empty: {{ {action} }};\n"
+            return f"Environment.y_p{num}={y} and Environment.x_p{num}={x} and Environment.b_{by}_{bx} = empty: {{ {action} }};\n"
     agent_moves = ""
     for i in range(size_y):
         for j in range(size_x):
@@ -104,7 +111,7 @@ Vars:
 end Vars
 Actions = {{ up, down, left, right }};
 Protocol:
-{indent(agent_moves, " " * INDENT_SIZE)}
+{indent(clean_nl(agent_moves), " " * INDENT_SIZE)}
 end Protocol
 Evolution:
 {indent("null=true if null=true;", " " * INDENT_SIZE)}
@@ -113,11 +120,25 @@ end Agent\n"""
 
 
 def get_init_state(board: list, num_players: int, player_to_move: int):
+    def encode_raw(x):
+        return x
+    def encode_visual(x):
+        if x == 0:
+            return "."
+        elif x == 1:
+            return "W"
+        elif x == 2:
+            return "*"
+        elif x >= 10:
+            return x-10
+        else:
+            raise Exception(f"Unknown board element (value={x})")
+
     comment = "-- Game state:\n"
     for row in board:
-        comment += "--"
+        comment += "-- "
         for cell in row:
-            comment += str(cell) + " "
+            comment += str(encode_visual(cell)) + " "
         comment += "\n"
 
     init_text = ""
@@ -127,20 +148,29 @@ def get_init_state(board: list, num_players: int, player_to_move: int):
             if j > 0:
                 init_text += " and "
             if cell < 10:
-                init_text += f"b_{i}_{j} = empty"
+                init_text += f"Environment.b_{i}_{j} = empty"
                 if cell == 2:  # reward fields
-                    init_text += f" and xreward_{reward_id} = {j} and yreward_{reward_id} = {i} and reward_{reward_id} = avail"
+                    init_text += f" and Environment.xreward_{reward_id} = {j} and Environment.yreward_{reward_id} = {i} and Environment.reward_{reward_id} = avail"
                     reward_id += 1
             else:
-                init_text += f"b_{i}_{j} = block and x_p{cell - 10} = {j} and y_p{cell - 10} = {i}"
+                init_text += f"Environment.b_{i}_{j} = block and Environment.x_p{cell - 10} = {j} and Environment.y_p{cell - 10} = {i}"
+        if i < len(board) - 1:
+            init_text += " and "
         init_text += "\n"
-    init_text += " and " + " and ".join([f"reward_p{i} = 0" for i in range(num_players)]) + "\n"
+    init_text += " and " + " and ".join([f"Environment.points_p{i} = 0" for i in range(num_players)]) + "\n"
     init_text += f" and Environment.turn = turn_p{player_to_move};"
     return comment + init_text
 
 
+def get_evaluation(num_players: int, num_rewards: int, additional_evaluations: str):
+    thr = num_rewards / 2 + 1
+    text = ""
+    for i in range(num_players):
+        text += f"player{i}wins if Environment.points_p{i} >= {int(thr)};\n"
+    return text + additional_evaluations
+
 def make_tourality_specification(board: list, history, player_to_move: int, formulae: str,
-                                 can_players_overlap: bool=False) -> str:
+                                 can_players_overlap: bool=False, additional_evaluations: str = "") -> str:
     size_x = len(board[0])
     size_y = len(board)
     num_rewards = sum([row.count(2) for row in board])
@@ -161,8 +191,11 @@ def make_tourality_specification(board: list, history, player_to_move: int, form
         if i < num_rewards - 1:
             env_vars += "\n"
 
+    evaluation = clean_nl(get_evaluation(num_players, num_rewards, additional_evaluations))
+
+
     groups = " ".join([f"Player{i} = {{Player{i}}};" for i in range(num_players)])
-    groups += "All = {" + ", ".join([f"Player{i}" for i in range(num_players)]) + "};"
+    groups += "\nAll = {" + ", ".join([f"Player{i}" for i in range(num_players)]) + "};"
 
     agents = ""
     for i in range(num_players):
@@ -180,14 +213,14 @@ end Obsvars
 Actions = {{ }};
 Protocol: end Protocol
 Evolution:
-{indent(env_evolution, " " * INDENT_SIZE)}
+{indent(clean_nl(env_evolution), " " * INDENT_SIZE)}
 end Evolution
 end Agent
 
 {agents}
 
 Evaluation
-
+{indent(evaluation, " " * INDENT_SIZE)}
 end Evaluation
 
 InitStates
@@ -273,6 +306,5 @@ if __name__ == "__main__":
         [ 0, 0, 1, 0, 0, 2, 0, 0],
         [ 0, 0, 0, 0, 0, 0, 0, 11],
     ]
-    thr = sum([row.count(2) for row in board]) / 2 + 1
-    res = make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (points_0 >= {int(thr)});")
+    res = make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);")
     print(res)
