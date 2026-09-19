@@ -3,19 +3,7 @@ from textwrap import dedent, indent
 import pyspiel
 from game_mnk import GameInterface
 
-
-def get_nim_sum(piles: list[int]) -> int:
-    res = 0
-    for pile in piles:
-        res = res ^ pile
-    return res
-
-
-def is_position_winning(piles: list[int]) -> bool:
-    # To win the game of Nim, your goal is to always leave your opponent with a "balanced" state (a Nim-sum of zero).
-    # You can guarantee a win by removing objects so that the exclusive OR (XOR) sum of all the pile sizes equals zero.
-    return get_nim_sum(piles) != 0
-
+INDENT_SIZE = 6
 
 def generate_player_protocol(piles, player_no):
     conditions = []
@@ -30,165 +18,183 @@ def generate_evaluation_conditions_win(piles, player):
     text += ";"
     return text
 
-def generate_piles_init_conditions(piles, player_to_move, history, add_comment=True):
-    text = " and ".join([f"Environment.pile{i+1} = {piles[i]}" for i in range(len(piles))])
-    # for i in range(len(piles)):
-    #     text += f"Environment.pile{i+1} = {piles[i]}"
-    # text = " and ".join(conditions)[:-1]
 
-    if add_comment:
-        comment  = f"--  History: {history}\n"
-        comment += f"--  Game state:\n"
-        comment += f"--  ({player_to_move}): {' '.join([str(x) for x in piles])}\n"
-        comment += f"--  Is a winning position: {is_position_winning(piles)}\n"
-        return comment + text
-    else:
-        return text
+def get_env_evolution(board: list, num_players: int, num_rewards: int, can_players_overlap: bool):
+    size_x = len(board[0])
+    size_y = len(board)
 
-def generate_actions(piles: list):
-    actions = []
-    for i in range(len(piles)):  # pile index
-        for j in range(1, piles[i]+1):  # number of objects possible to take off the pile
-            actions.append(f"pile{i+1}_take{j}")
-    actions.append("none")
-    return actions
-
-def generate_piles_evolution(piles: list):
-    conditions = []
-    for i in range(len(piles)):  # pile index
-        for j in range(1, piles[i]+1):  # number of objects possible to take off the pile
-            condition = f"pile{i+1} = pile{i+1} - {j} if pile{i+1} >= {j} and (Player0.Action = pile{i+1}_take{j} or Player1.Action = pile{i+1}_take{j});"
-            conditions.append(condition)
-    return conditions
-
-def get_env_str(piles: list):
-    obsvars = "\n".join([f"pile{i+1} : 0 .. {pile};" for i, pile in enumerate(piles)])
-    piles_evolution = "\n".join(generate_piles_evolution(piles))
-    return f"""\
-Agent Environment
-    Obsvars:
-        turn : {{player0, player1}};
-{indent(obsvars, " "*8)}
-    end Obsvars
-    Actions = {{ }}; 
-    Protocol: end Protocol
-    Evolution:
-        turn = player0 if turn = player1 and (! Player1.Action = none);
-        turn = player1 if turn = player0 and (! Player0.Action = none);
-{indent(piles_evolution, " "*8)}
-    end Evolution
-end Agent"""
-
-def get_agent_str(agent_name, actions_xo, protocol_xo):
-    return f"""\
-Agent {agent_name}
-    Vars:
-        null : boolean; -- for syntax reasons only
-    end Vars
-    Actions = {{{actions_xo}}};
-    Protocol:
-{indent(protocol_xo, " "*8)}
-        Other : {{ none }}; -- technicality
-    end Protocol
-    Evolution:
-        null=true if null=true;
-    end Evolution
-end Agent"""
-
-def get_env_evolution(num_players: int):
-    turn_switcher = " ".join([f"turn=turn_p{i} if turn={(i-1) % num_players};"] for i in range(num_players))
+    turn_switcher = " ".join([f"turn=turn_p{i} if turn={(i-1) % num_players};" for i in range(num_players)])
     player_position_update = ""
     for i in range(num_players):
-        player_moves += f"y_p{i} = y_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = up\n"
-        player_moves += f"y_p{i} = y_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = down\n"
-        player_moves += f"x_p{i} = x_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = left\n"
-        player_moves += f"x_p{i} = x_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = right\n"
-    return f"""
--- turn switching
+        player_position_update += f"y_p{i} = y_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = up;\n"
+        player_position_update += f"y_p{i} = y_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = down;\n"
+        player_position_update += f"x_p{i} = x_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = left;\n"
+        player_position_update += f"x_p{i} = x_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = right;\n"
+
+    def create_entry(by, bx, y, x, action):
+        text = ""
+        for p in range(num_players):
+            text = f"b_{by}_{bx} = block if y_p{p} = {y} and x_p{p} = {x} and turn = turn_p{p} and Player{p}.Action = {action};\n"
+            text += f"b_{y}_{x} = empty if y_p{p} = {y} and x_p{p} = {x} and turn = turn_p{p} and Player{p}.Action = {action};\n"
+        return text
+    board_update = ""
+    if not can_players_overlap:
+        for i in range(size_y):
+            for j in range(size_x):
+                if board[i][j] == 1:
+                    continue  # because agent cannot ever be in a field with a wall
+                if i < size_y - 1:
+                    board_update += create_entry(j, i, j, i - 1, action="down")
+                if i > 0:
+                    board_update += create_entry(j, i, j, i + 1, action="up")
+                if j < size_x - 1:
+                    board_update += create_entry(j, i, j - 1, i, action="right")
+                if j > 0:
+                    board_update += create_entry(j, i, j + 1, i, action="left")
+
+    rewards_deactivation = ""
+    for i in range(num_rewards):
+        rewards_deactivation += f"reward_{i} = taken if reward_{i} = avail and ("
+        rewards_deactivation += " or ".join([f"(turn = turn_p{(j+1) %  num_players} and x_p{j} = xreward_{i} and y_p{j} = yreward_{i})" for j in range(num_players)])
+        rewards_deactivation += ");"
+
+    points_update = ""
+    for i in range(num_rewards):
+        for j in range(1, num_players):
+            points_update += f"points_p{j} = points_p{j} + 1 if reward_{i} = avail and \
+             turn = turn_p{(j+1) %  num_players} and x_p{j} = xreward_{i} and y_p{j} = yreward_{i};"
+
+    return f"""-- turn switching
 {turn_switcher}
+-- board update (if agents cannot overlap)
+{board_update}
 -- positions are updated according to the move
 {player_position_update}
 -- board and points are updated according to the moves of the players:
-for 1=1..5: reward[i] = taken if reward[i] = avail &
-(turn = blu & xred = xreward[i] & yred = yreward[i] |
-turn = red & xblu = xreward[i] & yblu = yreward[i]);
-for 1=1..5: points_red=points_red+1 if reward[i] = avail &
-turn = blu & xred = xreward[i] & yred = yreward[i];
-for 1=1..5: points_blu=points_blu+1 if reward[i] = avail &
-turn = red & xblu = xreward[i] & yblu = yreward[i];
+{rewards_deactivation}
+{points_update}
 """
 
 
-def make_tourality_specification(num_players: int, board: list, history, player_to_move: int, formulae: str) -> str:
-    env_obsvars_turn_vals = "{" + ", ".join([f"turn_p{i}" for i in range(num_players)]) + "}"
-    env_obsvars_points_vars = ", ".join([f"points_p{i}" for i in range(num_players)]) + "}"
+def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
+    size_x = len(board[0])
+    size_y = len(board)
+
+    def create_entry(bx, by, x, y, action):
+        if can_players_overlap:
+            return f"y_p{num}={y} and x_p{num}={x}: {{ {action} }};\n"
+        else:
+            return f"y_p{num}={y} and x_p{num}={x} and b_{by}_{bx} = empty: {{ {action} }};\n"
+    agent_moves = ""
+    for i in range(size_y):
+        for j in range(size_x):
+            if board[i][j] == 1:
+                continue  # because agent cannot ever be in a field with a wall
+            if i > 0:
+                agent_moves += create_entry(j, i, j, i-1, action="down")
+            if i < size_y - 1:
+                agent_moves += create_entry(j, i, j, i+1, action="up")
+            if j > 0:
+                agent_moves += create_entry(j, i, j-1, i, action="right")
+            if j < size_x - 1:
+                agent_moves += create_entry(j, i, j+1, i, action="left")
+    return f"""Agent Player{num}
+Actions = {{ up, down, left, right }};
+Protocol:
+{indent(agent_moves, " " * INDENT_SIZE)}
+end Protocol
+end Agent\n"""
+
+
+def get_init_state(board: list, num_players: int, player_to_move: int):
+    comment = ""
+    for row in board:
+        comment += "--"
+        for cell in row:
+            comment += str(cell) + " "
+        comment += "\n"
+
+    init_text = ""
+    reward_id = 0
+    for i, row in enumerate(board):
+        for j, cell in enumerate(row):
+            if j > 0:
+                init_text += " and "
+            if cell < 10:
+                init_text += f"b_{i}_{j} = empty"
+                if cell == 2:  # reward fields
+                    init_text += f" and xreward_{reward_id} = {j} and yreward_{reward_id} = {i} and reward_{reward_id} = avail"
+                    reward_id += 1
+            else:
+                init_text += f"b_{i}_{j} = block and x_p{cell - 10} = {j} and y_p{cell - 10} = {i}"
+        init_text += "\n"
+    init_text += " and " + " and ".join([f"reward_p{i} = 0" for i in range(num_players)]) + "\n"
+    init_text += f" and Environment.turn = turn_p{player_to_move};"
+    return comment + init_text
+
+
+def make_tourality_specification(board: list, history, player_to_move: int, formulae: str,
+                                 can_players_overlap: bool=False) -> str:
+    size_x = len(board[0])
+    size_y = len(board)
     num_rewards = sum([row.count(2) for row in board])
-    player_actions = ", ".join(generate_actions(piles))
-    player_protocol_0 = "\n".join(generate_player_protocol(piles, 0))  # conditions on actions, the same for both players
-    player_protocol_1 = "\n".join(generate_player_protocol(piles, 1))  # conditions on actions, the same for both players
-    evaluation_conditions_0 = generate_evaluation_conditions_win(piles, 0)
-    evaluation_conditions_1 = generate_evaluation_conditions_win(piles, 1)
-    piles_init_conditions = generate_piles_init_conditions(piles, player_to_move, history)
-    env_turn = "player0" if player_to_move == 0 else "player1"
+    num_players = sum([cell >= 10 for row in board for cell in row])
+    env_evolution = get_env_evolution(board, num_players, num_rewards, can_players_overlap=can_players_overlap)
+    init_state = get_init_state(board, num_players, player_to_move)
+
+    env_vars = "turn: {" + ", ".join([f"turn_p{i}" for i in range(num_players)]) + "};\n"
+    env_vars += " ".join([f"x_p{i} : 0..{size_x-1};" for i in range(num_players)]) + "\n"
+    env_vars += " ".join([f"y_p{i} : 0..{size_y-1};" for i in range(num_players)]) + "\n"
+    env_vars += " ".join([f"points_p{i} : 0..{num_rewards};" for i in range(num_players)]) + "\n"
+    for i in range(size_y):
+        env_vars += " ".join([f"b_{i}_{j} : {{empty, block}};" for j in range(size_x)]) + "\n"
+    for i in range(num_rewards):
+        env_vars += f"reward_{i} : {{ avail, taken }}; "
+        env_vars += f"xreward_{i} : 0..{size_x-1}; "
+        env_vars += f"yreward_{i} : 0..{size_y-1};"
+        if i < num_rewards - 1:
+            env_vars += "\n"
+
+    groups = " ".join([f"Player{i} = {{Player{i}}};" for i in range(num_players)])
+    groups += "All = {" + ", ".join([f"Player{i}" for i in range(num_players)]) + "};"
+
+    agents = ""
+    for i in range(num_players):
+        agents += get_agent_spec(i, board, can_players_overlap=can_players_overlap)
+        if i < num_players - 1:
+            agents += "\n"
+
     return f"""\
 Semantics=SingleAssignment;
 
 Agent Environment
 Obsvars:
-    turn : {env_obsvars_turn_vals}; xred, yred, xblu, yblu : 1..8;
-    reward[1..{num_rewards}] : {{avail, taken}};
-    {env_obsvars_points_vars}: 0..{num_rewards};
-    b[1..8][1..8] : {empty, block}; -- the board
-    xreward[1..5], yreward[5]: [1..5]; -- positions of the rewards
+{indent(env_vars, " " * INDENT_SIZE)}
 end Obsvars
+Actions = {{ }};
+Protocol: end Protocol
 Evolution:
-    -- turn switches between every two moves
-    turn=red if turn=blu; turn=blu if turn=red;
-    -- positions are updated according to the move
-    yred=yred-1 if turn = red & Red.Action=up;
-    yred=yred+1 if turn = red & Red.Action=dn;
-    -- and similar for other actions and player Blu;
-    -- board and points are updated according to the moves of the players:
-    for 1=1..5: reward[i] = taken if reward[i] = avail &
-    (turn = blu & xred = xreward[i] & yred = yreward[i] |
-    turn = red & xblu = xreward[i] & yblu = yreward[i]);
-    for 1=1..5: points_red=points_red+1 if reward[i] = avail &
-    turn = blu & xred = xreward[i] & yred = yreward[i];
-    for 1=1..5: points_blu=points_blu+1 if reward[i] = avail &
-    turn = red & xblu = xreward[i] & yblu = yreward[i];
+{indent(env_evolution, " " * INDENT_SIZE)}
 end Evolution
 end Agent
 
-Agent Red
-Actions = { up, dn, lt, rt };
-Protocol:
-    -- if it is red’s turn and at position i,j and target field is not blocked
-    -- and target field is not occupied, then the movement action is available
-    for some x=1..8: for some y=1..7:
-    xred=x & yred=y & b[x,y+1]=empty & !(xblu=x & yblu=y) : { dn };
-    for some x=1..8: for some y=2..8:
-    xred=x & yred=y & b[x,y-1]=empty & !(xblu=x & yblu=y) : { up };
-    for some x=1..7: for some y=1..8:
-    xred=x & yred=y & b[x+1,y]=empty & !(xblu=x & yblu=y) : { rt };
-    for some x=2..8: for some y=1..8:
-    xred=x & yred=y & b[x-1,y]=empty & !(xblu=x & yblu=y) : { rt };
-end Protocol
-end Agent
+{agents}
 
-Agent Blu
--- similar
-end Agent
+Evaluation
+
+end Evaluation
 
 InitStates
-    b = [[empty, empty, block, empty, block, empty, empty, empty], ...] &
-    xreward=[3,2,5,4,3], yreward=[2,5,7,1,4] &
-    xred = 1 & yred = 1 & xblu = 8 & yblu = 8 & turn = red &
-    for i=1..5: reward[i] = avail & points_red = 0 & points_blu = 0;
+{indent(init_state, " " * INDENT_SIZE)}
 end InitStates
-Formulae
-    <Red> F (points_red >= 3); -- has Red a winning strategy?
-end Formulae
 
+Groups
+{indent(groups, " " * INDENT_SIZE)}
+end Groups
+
+Formulae
+{indent(formulae, " " * INDENT_SIZE)}
+end Formulae
 """
 
 
@@ -262,4 +268,5 @@ if __name__ == "__main__":
         [ 0, 0, 0, 0, 0, 0, 0, 11],
     ]
     thr = sum([row.count(2) for row in board]) / 2 + 1
-    make_tourality_specification(board, None, player_to_move=0, formulae=f"<Player0> F (points_0 >= {thr});")
+    res = make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (points_0 >= {int(thr)});")
+    print(res)
