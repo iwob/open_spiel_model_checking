@@ -1,0 +1,118 @@
+Semantics=SingleAssignment;
+
+Agent Environment
+Obsvars:
+      turn: {turn_p0, turn_p1};
+      x_p0 : 0..4; x_p1 : 0..4;
+      y_p0 : 0..0; y_p1 : 0..0;
+      points_p0 : 0..1; points_p1 : 0..1;
+      b_0_0 : {empty, block}; b_0_1 : {empty, block}; b_0_2 : {empty, block}; b_0_3 : {empty, block}; b_0_4 : {empty, block};
+      reward_0 : { avail, taken }; xreward_0 : 0..4; yreward_0 : 0..0;
+end Obsvars
+Actions = { };
+Protocol: end Protocol
+Evolution:
+      -- turn switching
+      turn=turn_p0 if turn=turn_p1; turn=turn_p1 if turn=turn_p0;
+      -- board update (if agents cannot overlap)
+      b_0_0 = block if y_p0 = 0 and x_p0 = 1 and turn = turn_p0 and Player0.Action = left;
+      b_0_1 = empty if y_p0 = 0 and x_p0 = 1 and turn = turn_p0 and Player0.Action = left;
+      b_0_0 = block if y_p1 = 0 and x_p1 = 1 and turn = turn_p1 and Player1.Action = left;
+      b_0_1 = empty if y_p1 = 0 and x_p1 = 1 and turn = turn_p1 and Player1.Action = left;
+      b_0_1 = block if y_p0 = 0 and x_p0 = 0 and turn = turn_p0 and Player0.Action = right;
+      b_0_0 = empty if y_p0 = 0 and x_p0 = 0 and turn = turn_p0 and Player0.Action = right;
+      b_0_1 = block if y_p1 = 0 and x_p1 = 0 and turn = turn_p1 and Player1.Action = right;
+      b_0_0 = empty if y_p1 = 0 and x_p1 = 0 and turn = turn_p1 and Player1.Action = right;
+      b_0_1 = block if y_p0 = 0 and x_p0 = 2 and turn = turn_p0 and Player0.Action = left;
+      b_0_2 = empty if y_p0 = 0 and x_p0 = 2 and turn = turn_p0 and Player0.Action = left;
+      b_0_1 = block if y_p1 = 0 and x_p1 = 2 and turn = turn_p1 and Player1.Action = left;
+      b_0_2 = empty if y_p1 = 0 and x_p1 = 2 and turn = turn_p1 and Player1.Action = left;
+      b_0_3 = block if y_p0 = 0 and x_p0 = 2 and turn = turn_p0 and Player0.Action = right;
+      b_0_2 = empty if y_p0 = 0 and x_p0 = 2 and turn = turn_p0 and Player0.Action = right;
+      b_0_3 = block if y_p1 = 0 and x_p1 = 2 and turn = turn_p1 and Player1.Action = right;
+      b_0_2 = empty if y_p1 = 0 and x_p1 = 2 and turn = turn_p1 and Player1.Action = right;
+      b_0_3 = block if y_p0 = 0 and x_p0 = 4 and turn = turn_p0 and Player0.Action = left;
+      b_0_4 = empty if y_p0 = 0 and x_p0 = 4 and turn = turn_p0 and Player0.Action = left;
+      b_0_3 = block if y_p1 = 0 and x_p1 = 4 and turn = turn_p1 and Player1.Action = left;
+      b_0_4 = empty if y_p1 = 0 and x_p1 = 4 and turn = turn_p1 and Player1.Action = left;
+      b_0_4 = block if y_p0 = 0 and x_p0 = 3 and turn = turn_p0 and Player0.Action = right;
+      b_0_3 = empty if y_p0 = 0 and x_p0 = 3 and turn = turn_p0 and Player0.Action = right;
+      b_0_4 = block if y_p1 = 0 and x_p1 = 3 and turn = turn_p1 and Player1.Action = right;
+      b_0_3 = empty if y_p1 = 0 and x_p1 = 3 and turn = turn_p1 and Player1.Action = right;
+
+      -- positions are updated according to the move
+      y_p0 = y_p0 - 1 if turn = turn_p0 and Player0.Action = up;
+      y_p0 = y_p0 + 1 if turn = turn_p0 and Player0.Action = down;
+      x_p0 = x_p0 - 1 if turn = turn_p0 and Player0.Action = left;
+      x_p0 = x_p0 + 1 if turn = turn_p0 and Player0.Action = right;
+      y_p1 = y_p1 - 1 if turn = turn_p1 and Player1.Action = up;
+      y_p1 = y_p1 + 1 if turn = turn_p1 and Player1.Action = down;
+      x_p1 = x_p1 - 1 if turn = turn_p1 and Player1.Action = left;
+      x_p1 = x_p1 + 1 if turn = turn_p1 and Player1.Action = right;
+
+      -- board and points are updated according to the moves of the players:
+      reward_0 = taken if reward_0 = avail and ((turn = turn_p1 and x_p0 = xreward_0 and y_p0 = yreward_0) or (turn = turn_p0 and x_p1 = xreward_0 and y_p1 = yreward_0));
+
+      points_p0 = points_p0 + 1 if reward_0 = avail and turn = turn_p1 and x_p0 = xreward_0 and y_p0 = yreward_0;
+      points_p1 = points_p1 + 1 if reward_0 = avail and turn = turn_p0 and x_p1 = xreward_0 and y_p1 = yreward_0;
+end Evolution
+end Agent
+
+Agent Player0
+Vars:
+      null : boolean; -- for syntax reasons only
+end Vars
+Actions = { up, down, left, right, pass };
+Protocol:
+      Environment.b_0_0 = empty and Environment.y_p0=0 and Environment.x_p0=1: { left };
+      Environment.b_0_1 = empty and Environment.y_p0=0 and Environment.x_p0=0: { right };
+      Environment.b_0_3 = empty and Environment.y_p0=0 and Environment.x_p0=4: { left };
+      Environment.b_0_4 = empty and Environment.y_p0=0 and Environment.x_p0=3: { right };
+      Other : { pass };
+end Protocol
+Evolution:
+      null=true if null=true;
+end Evolution
+end Agent
+
+Agent Player1
+Vars:
+      null : boolean; -- for syntax reasons only
+end Vars
+Actions = { up, down, left, right, pass };
+Protocol:
+      Environment.b_0_0 = empty and Environment.y_p1=0 and Environment.x_p1=1: { left };
+      Environment.b_0_1 = empty and Environment.y_p1=0 and Environment.x_p1=0: { right };
+      Environment.b_0_3 = empty and Environment.y_p1=0 and Environment.x_p1=4: { left };
+      Environment.b_0_4 = empty and Environment.y_p1=0 and Environment.x_p1=3: { right };
+      Other : { pass };
+end Protocol
+Evolution:
+      null=true if null=true;
+end Evolution
+end Agent
+
+
+Evaluation
+      player0wins if Environment.points_p0 >= 1;
+      player1wins if Environment.points_p1 >= 1;
+end Evaluation
+
+InitStates
+      -- Game state:
+      -- * 0 W 1 . 
+      Environment.b_0_0 = empty and Environment.xreward_0 = 0 and Environment.yreward_0 = 0 and Environment.reward_0 = avail and Environment.b_0_1 = block and Environment.x_p0 = 1 and Environment.y_p0 = 0 and Environment.b_0_2 = empty and Environment.b_0_3 = block and Environment.x_p1 = 3 and Environment.y_p1 = 0 and Environment.b_0_4 = empty
+       and Environment.points_p0 = 0 and Environment.points_p1 = 0
+       and Environment.turn = turn_p0;
+end InitStates
+
+Groups
+      Player0 = {Player0}; Player1 = {Player1};
+      All = {Player0, Player1};
+end Groups
+
+Formulae
+      <Player0> F (player0wins);
+      <Player1> F (player1wins);
+      <All> F (player0wins);
+end Formulae

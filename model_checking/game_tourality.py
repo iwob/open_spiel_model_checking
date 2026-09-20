@@ -194,7 +194,7 @@ def make_tourality_specification(board: list, history, player_to_move: int, form
         if i < num_rewards - 1:
             env_vars += "\n"
 
-    evaluation = clean_nl(get_evaluation(num_players, num_rewards, additional_evaluations))
+    evaluation = clean_nl(get_evaluation(num_players, num_rewards, additional_evaluations=additional_evaluations))
 
 
     groups = " ".join([f"Player{i} = {{Player{i}}};" for i in range(num_players)])
@@ -311,6 +311,40 @@ if __name__ == "__main__":
     ]
     with open("example_specifications/tourality/schlingloff_1.ispl", "w") as f:
         f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);"))
+    with open("example_specifications/tourality/schlingloff_1_overlap.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, can_players_overlap=True, formulae=f"<Player0> F (player0wins);"))
+
+    board = [
+        # 1  2  3  4  5  6  7  8
+        [10, 0, 0, 0, 2, 0, 0, 0],
+        [ 0, 2, 0, 1, 1, 0, 0, 0],
+        [ 1, 0, 0, 0, 1, 0, 0, 2],
+        [ 2, 0, 0, 0, 0, 0, 0, 0],
+        [ 0, 0, 2, 0, 0, 0, 1, 1],
+        [ 1, 2, 1, 0, 2, 0, 0, 0],
+        [ 0, 0, 1, 2, 0, 0, 2, 1],
+        [ 0, 0, 0, 0, 0, 1, 0, 11],
+    ]
+    with open("example_specifications/tourality/schlingloff_2.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);"))
+    with open("example_specifications/tourality/schlingloff_2_overlap.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, can_players_overlap=True, formulae=f"<Player0> F (player0wins);"))
+
+    board = [
+        # 1  2  3  4  5  6  7  8
+        [10, 1, 0, 0, 2, 1, 1, 2],
+        [ 0, 1, 0, 1, 0, 0, 0, 0],
+        [ 0, 0, 0, 0, 1, 1, 1, 0],
+        [ 1, 1, 1, 0, 0, 0, 0, 2],
+        [ 1, 1, 0, 2, 0, 1, 1, 1],
+        [ 1, 0, 0, 1, 0, 0, 1, 1],
+        [ 1, 0, 1, 1, 1, 0, 0, 1],
+        [ 2, 0, 1, 1, 1, 1, 0, 11],
+    ]
+    with open("example_specifications/tourality/schlingloff_3.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);"))
+    with open("example_specifications/tourality/schlingloff_3_overlap.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, can_players_overlap=True, formulae=f"<Player0> F (player0wins);"))
 
     board = [
         [2, 0, 0, 10, 11, 0, 2, 2],
@@ -355,3 +389,13 @@ if __name__ == "__main__":
     ]
     with open("example_specifications/tourality/degenerate_04.ispl", "w") as f:
         f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+
+    board = [
+        [11],
+        [2],
+        [10],
+        [0],
+    ]
+    with open("example_specifications/tourality/degenerate_05.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player1wins);"))
