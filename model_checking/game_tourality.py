@@ -38,10 +38,10 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
         player_position_update += f"x_p{i} = x_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = left;\n"
         player_position_update += f"x_p{i} = x_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = right;\n"
 
-    def create_entry(by, bx, y, x, action):
+    def create_entry(bx, by, x, y, action):
         text = ""
         for p in range(num_players):
-            text = f"b_{by}_{bx} = block if y_p{p} = {y} and x_p{p} = {x} and turn = turn_p{p} and Player{p}.Action = {action};\n"
+            text += f"b_{by}_{bx} = block if y_p{p} = {y} and x_p{p} = {x} and turn = turn_p{p} and Player{p}.Action = {action};\n"
             text += f"b_{y}_{x} = empty if y_p{p} = {y} and x_p{p} = {x} and turn = turn_p{p} and Player{p}.Action = {action};\n"
         return text
     board_update = ""
@@ -63,13 +63,13 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
     for i in range(num_rewards):
         rewards_deactivation += f"reward_{i} = taken if reward_{i} = avail and ("
         rewards_deactivation += " or ".join([f"(turn = turn_p{(j+1) %  num_players} and x_p{j} = xreward_{i} and y_p{j} = yreward_{i})" for j in range(num_players)])
-        rewards_deactivation += ");"
+        rewards_deactivation += ");\n"
 
     points_update = ""
     for i in range(num_rewards):
-        for j in range(1, num_players):
-            points_update += f"points_p{j} = points_p{j} + 1 if reward_{i} = avail and \
-             turn = turn_p{(j+1) %  num_players} and x_p{j} = xreward_{i} and y_p{j} = yreward_{i};"
+        for j in range(num_players):
+            points_update += f"points_p{j} = points_p{j} + 1 if reward_{i} = avail and " +\
+             f"turn = turn_p{(j+1) % num_players} and x_p{j} = xreward_{i} and y_p{j} = yreward_{i};\n"
 
     return f"""-- turn switching
 {turn_switcher}
@@ -79,7 +79,7 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
 {player_position_update}
 -- board and points are updated according to the moves of the players:
 {rewards_deactivation}
-{points_update}
+{clean_nl(points_update)}
 """
 
 
@@ -88,10 +88,12 @@ def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
     size_y = len(board)
 
     def create_entry(bx, by, x, y, action):
-        if can_players_overlap:
+        if board[y][x] == 1:
+            return ""
+        elif can_players_overlap:
             return f"Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
         else:
-            return f"Environment.y_p{num}={y} and Environment.x_p{num}={x} and Environment.b_{by}_{bx} = empty: {{ {action} }};\n"
+            return f"Environment.b_{by}_{bx} = empty and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
     agent_moves = ""
     for i in range(size_y):
         for j in range(size_x):
@@ -105,11 +107,12 @@ def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
                 agent_moves += create_entry(j, i, j-1, i, action="right")
             if j < size_x - 1:
                 agent_moves += create_entry(j, i, j+1, i, action="left")
+    agent_moves += "Other : { pass };"
     return f"""Agent Player{num}
 Vars:
 {indent("null : boolean; -- for syntax reasons only", " " * INDENT_SIZE)}
 end Vars
-Actions = {{ up, down, left, right }};
+Actions = {{ up, down, left, right, pass }};
 Protocol:
 {indent(clean_nl(agent_moves), " " * INDENT_SIZE)}
 end Protocol
@@ -306,5 +309,49 @@ if __name__ == "__main__":
         [ 0, 0, 1, 0, 0, 2, 0, 0],
         [ 0, 0, 0, 0, 0, 0, 0, 11],
     ]
-    res = make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);")
-    print(res)
+    with open("example_specifications/tourality/schlingloff_1.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);"))
+
+    board = [
+        [2, 0, 0, 10, 11, 0, 2, 2],
+    ]
+    with open("example_specifications/tourality/simple_01.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+    board = [
+        [2, 0, 0, 11, 10, 0, 2, 2],
+    ]
+    with open("example_specifications/tourality/simple_02.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+
+    board = [
+        [2, 0, 0, 10, 11, 0, 2, 2],
+        [1, 1, 1, 1, 0, 0, 0, 0 ]
+    ]
+    with open("example_specifications/tourality/simple_03.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+    board = [
+        [2, 11, 10]
+    ]
+    with open("example_specifications/tourality/degenerate_01.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+    board = [
+        [2, 10, 1, 11]
+    ]
+    with open("example_specifications/tourality/degenerate_02.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+    board = [
+        [2, 10, 1, 11, 0]
+    ]
+    with open("example_specifications/tourality/degenerate_03.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+    board = [
+        [11, 10, 2, 12, 0]
+    ]
+    with open("example_specifications/tourality/degenerate_04.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
