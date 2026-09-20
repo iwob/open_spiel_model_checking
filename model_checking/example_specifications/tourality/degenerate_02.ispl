@@ -56,8 +56,8 @@ Vars:
 end Vars
 Actions = { up, down, left, right, pass };
 Protocol:
-      Environment.b_0_0 = empty and Environment.y_p0=0 and Environment.x_p0=1: { left };
-      Environment.b_0_1 = empty and Environment.y_p0=0 and Environment.x_p0=0: { right };
+      Environment.turn=turn_p0 and Environment.b_0_0 = empty and Environment.y_p0=0 and Environment.x_p0=1: { left };
+      Environment.turn=turn_p0 and Environment.b_0_1 = empty and Environment.y_p0=0 and Environment.x_p0=0: { right };
       Other : { pass };
 end Protocol
 Evolution:
@@ -71,8 +71,8 @@ Vars:
 end Vars
 Actions = { up, down, left, right, pass };
 Protocol:
-      Environment.b_0_0 = empty and Environment.y_p1=0 and Environment.x_p1=1: { left };
-      Environment.b_0_1 = empty and Environment.y_p1=0 and Environment.x_p1=0: { right };
+      Environment.turn=turn_p1 and Environment.b_0_0 = empty and Environment.y_p1=0 and Environment.x_p1=1: { left };
+      Environment.turn=turn_p1 and Environment.b_0_1 = empty and Environment.y_p1=0 and Environment.x_p1=0: { right };
       Other : { pass };
 end Protocol
 Evolution:

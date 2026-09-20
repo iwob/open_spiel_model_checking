@@ -1,7 +1,10 @@
 import re
+from pathlib import Path
 from textwrap import dedent, indent
 import pyspiel
 from game_mnk import GameInterface
+from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula
+from model_checking.mcmas_model_game import McmasModelGame, McmasModelState
 
 INDENT_SIZE = 6
 
@@ -91,9 +94,9 @@ def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
         if board[y][x] == 1:
             return ""
         elif can_players_overlap:
-            return f"Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
+            return f"Environment.turn=turn_p{num} and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
         else:
-            return f"Environment.b_{by}_{bx} = empty and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
+            return f"Environment.turn=turn_p{num} and Environment.b_{by}_{bx} = empty and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
     agent_moves = ""
     for i in range(size_y):
         for j in range(size_x):
@@ -242,7 +245,7 @@ end Formulae
 
 
 class GameTourality(GameInterface):
-    def __init__(self, board: list):
+    def __init__(self, initial_board: list):
         """
         :param board: A 2D array describing an initial state of the board. Convention:
         - 0: empty field
@@ -252,18 +255,16 @@ class GameTourality(GameInterface):
         """
         # Board convention:
         #
-        self.pile_sizes_str = pile_sizes_str
-        # self.pile_sizes = [int(x) for x in pile_sizes_str.split(';')]
-        GameInterface.__init__(self, players={"player0": 0, "player1": 1})
+        self.initial_board = initial_board
+        num_players = sum([cell >= 10 for row in board for cell in row])
+        GameInterface.__init__(self, players={f"Player{i}": i for i in range(num_players)})
 
     def get_name(self):
         return "tourality"
 
     def load_game(self):
-        # In combinatorial game theory, a misère game is one played according to the "misère play condition"; that is,
-        # a player unable to move wins. This is in contrast to the "normal play condition" in which a player
-        # unable to move loses.
-        return pyspiel.load_game("tourality", {"pile_sizes": self.pile_sizes_str, "is_misere": False})
+        params = {"spec": self.stv_spec, "formula": self.formula}
+        return McmasModelGame(params)
 
     def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
         if formulae_to_check is None:
@@ -292,8 +293,7 @@ class GameTourality(GameInterface):
 
     @classmethod
     def get_default_formula_and_coalition(cls):
-        return "<player0> F player0wins;", {0}
-
+        return "<Player0> F player0wins;", {0}
 
 
 

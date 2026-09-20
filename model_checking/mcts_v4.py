@@ -24,6 +24,7 @@ from game_mnk import GameMnk, GameInterface
 from game_nim import GameNim
 from game_kuhn_poker import GameKuhnPoker
 from game_atl_model import GameInterfaceAtlModel
+from game_mcmas_model import GameInterfaceMcmasModel
 import os
 from dataclasses import *
 from typing import Optional
@@ -96,7 +97,7 @@ class QueueNode:
 
 
 
-_KNOWN_GAMES = ["mnk", "nim", "kuhn_poker", "atl_model"]
+_KNOWN_GAMES = ["mnk", "nim", "kuhn_poker", "atl_model", "mcmas_model"]
 _KNOWN_PLAYERS = [
     # A generic Monte Carlo Tree Search agent.
     "mcts",
@@ -608,6 +609,8 @@ def main(argv):
         game_utils = GameKuhnPoker()
     elif FLAGS.game == "atl_model":
         game_utils = GameInterfaceAtlModel(FLAGS.atl_spec_path)
+    elif FLAGS.game == "mcmas_model":
+        game_utils = GameInterfaceMcmasModel(FLAGS.atl_spec_path)
     else:
         raise Exception("Unknown game!")
 
@@ -617,12 +620,17 @@ def main(argv):
         results_root = Path(FLAGS.submodels_dir)
 
     if FLAGS.formula is None and FLAGS.coalition is None:
-        if FLAGS.game == "atl_model":
+        if FLAGS.game in {"atl_model", "mcmas_model"}:
             formula, coalition = game_utils.formula, game_utils.coalition
         else:
             formula, coalition = game_utils.get_default_formula_and_coalition()
     elif FLAGS.formula is not None and FLAGS.coalition is not None:
-        formula, coalition = FLAGS.formula, {int(a) for a in FLAGS.coalition.split(",")}
+        def get_coalition(s):
+            try:
+                return int(s)
+            except ValueError:
+                return game_utils.get_player_id(s)
+        formula, coalition = FLAGS.formula, {get_coalition(a) for a in FLAGS.coalition.split(",")}
     else:
         raise Exception("Coalition and formula needs to be both specified (or left empty for the default values).")
 

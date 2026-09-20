@@ -3,9 +3,7 @@ import numpy as np
 
 from open_spiel.python.observation import IIGObserverForPublicInfoGame
 import pyspiel
-from stv.parsers.parser_stv_v2 import ExprNode, ModalExprNode
-from stv.parsers.stv_specification import *
-from mcmas.parsers.ispl_parser import *
+from model_checking.mcmas.parsers.ispl_parser import *
 
 _DEFAULT_PARAMS = {
     "spec": None,
@@ -148,7 +146,7 @@ class McmasModelGame(pyspiel.Game):
 class McmasModelState(pyspiel.State):
     """A state of the planning game. It is modified in place after each action."""
 
-    def __init__(self, game: McmasModelGame, model: ISPLModel, formula:StrategicFormula=None, seed=None, silent=True):
+    def __init__(self, game: McmasModelGame, model: ISPLModel, formula:StrategicFormula, seed=None, silent=True):
         """Constructor; should only be called by Game.new_initial_state."""
         super().__init__(game)
         if seed is not None:
@@ -163,7 +161,10 @@ class McmasModelState(pyspiel.State):
         self.formula_eval = None
         self.game = game
         self.model = model
-        self.formula = formula if formula is not None else model.formulae.formulas[0]
+        self.formula = formula
+        self.coalition = set(self.model.groups.find_group_members(self.formula.agent))
+
+
         self.evaluation_rules = {rule.name: rule.condition for rule in self.model.evaluation.rules}
 
 
@@ -358,11 +359,6 @@ class McmasModelState(pyspiel.State):
 
 
     def _execute_agent_actions(self, actions):
-        shared_transitions = []
-        was_action_executed = False  # Can be used to detect deadlock
-
-        # Execute all selected private actions - these agents, under imperfect information, won't get any new
-        # information to decide, so we may just as well execute them.
         for player, action in enumerate(actions):
             action_name = self.game.possible_actions[action]
             print(f"player: {player}: {action_name}")
@@ -397,7 +393,7 @@ class McmasModelState(pyspiel.State):
             raise Exception("Incorrect expression node!")
 
 
-    def is_formula_satisfied(self, formula: ModalExprNode|None = None):
+    def is_formula_satisfied(self, formula: StrategicFormula|None = None):
         """Checks, if the formula is satisfied in the current state."""
         if formula is None:
             formula = self.formula
@@ -452,15 +448,15 @@ class McmasModelState(pyspiel.State):
     def rewards(self):
         """Returns reward from the most recent state transition (s, a, s') for all players."""
         if not self._is_terminal:
-            return [0.0 for _ in self.agent_local_states]
+            return [0.0 for _ in self.model.agents]
         else:
             # For [] we can get here if the game terminates naturally with formula_eval=1 or terminates prematurely with formula_eval=0
             # For <> we can get here if the game terminates naturally with formula_eval=0 or terminates prematurely with formula_eval=1
             if self.formula_eval:
                 # Coalition won
-                return [1.0 if a.name in self.formula.coalition else -1.0 for a in self.agent_local_states]
+                return [1.0 if a.name in self.coalition else -1.0 for a in self.model.agents]
             else:
-                return [-1.0 if a.name in self.formula.coalition else 1.0 for a in self.agent_local_states]
+                return [-1.0 if a.name in self.coalition else 1.0 for a in self.model.agents]
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""

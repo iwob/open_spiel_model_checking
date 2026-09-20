@@ -5,21 +5,22 @@ from mcmas_model_game import McmasModelGame, McmasModelState
 from game_mnk import GameInterface
 import pyspiel
 
-from model_checking.mcmas.parsers.ispl_parser import ISPLParser
-
-
+from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula
 
 
 class GameInterfaceMcmasModel(GameInterface):
     def __init__(self, model_path):
         parser = ISPLParser()
         self.model = parser.parse_file(Path(model_path))
-        self.formula = self.model.formulae.formulas[0]
-        self.coalition = set()
-        for i, a in enumerate(self.model.agents):
-            if a.name in self.formula.coalition:
-                self.coalition.add(i)
-        GameInterface.__init__(self, players={"cross": 0, "nought": 1})
+        self.formula: StrategicFormula = self.model.formulae.formulas[0]
+
+        def get_coalition(groups, name):
+            for g in groups.groups:
+                if g.name == name:
+                    return g.members
+            return None
+        self.coalition = self.model.groups.find_group_members(self.formula.agent)
+        GameInterface.__init__(self, players={a.name: i for i, a in enumerate(self.model.agents)})
 
     def get_name(self):
         return "mcmas_model"

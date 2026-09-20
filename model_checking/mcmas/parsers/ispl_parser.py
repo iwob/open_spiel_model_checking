@@ -246,6 +246,12 @@ class Group:
 class Groups:
     groups: list[Group] = field(default_factory=list)
 
+    def find_group_members(self, group_name: str) -> list[str] | None:
+        for g in self.groups:
+            if g.name == group_name:
+                return g.members
+        return None
+
 
 # ============================================================
 # AST - Temporal / epistemic formulae
@@ -1280,14 +1286,9 @@ class ISPLParser:
         model = parser.parse_file("model.ispl")
     """
 
-    def __init__(
-        self,
-        grammar_path: str | Path | None = None,
-    ):
+    def __init__(self, grammar_path: str | Path | None = None):
         if grammar_path is None:
-            grammar_path = (
-                Path(__file__).resolve().with_name("ispl.lark")
-            )
+            grammar_path = (Path(__file__).resolve().with_name("ispl.lark"))
 
         grammar_path = Path(grammar_path)
 
@@ -1303,17 +1304,9 @@ class ISPLParser:
         tree = self._parser.parse(text)
         return ISPLTransformer().transform(tree)
 
-    def parse_file(
-        self,
-        path: str | Path,
-        encoding: str = "utf-8",
-    ) -> ISPLModel:
+    def parse_file(self, path: str | Path, encoding: str = "utf-8") -> ISPLModel:
         path = Path(path)
-
-        with path.open(
-            "r",
-            encoding=encoding,
-        ) as file:
+        with path.open("r", encoding=encoding) as file:
             return self.parse(file.read())
 
 

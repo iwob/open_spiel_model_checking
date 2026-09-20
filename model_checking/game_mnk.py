@@ -435,7 +435,10 @@ class GameInterface:
             return history + "," + move
 
     def get_player_id(self, player_name: str):
-        return self.players[player_name]
+        if player_name in self.players:
+            return self.players[player_name]
+        else:
+            raise Exception(f"No such player: {player_name}")
 
     def get_player_name(self, player_id: int):
         for k, v in self.players.items():
