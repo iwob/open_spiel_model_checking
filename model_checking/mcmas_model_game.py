@@ -363,6 +363,12 @@ class McmasModelState(pyspiel.State):
             action_name = self.game.possible_actions[action]
             print(f"player: {player}: {action_name}")
 
+        for r in self.model.environment.evolution:
+            if r.condition
+            # Check if a given rule can be triggered
+            if self.evaluate_expression(r.condition):
+                actions.update(r.actions)
+
         return False
 
 
