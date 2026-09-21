@@ -3,6 +3,7 @@ from pathlib import Path
 from textwrap import dedent, indent
 import pyspiel
 from game_mnk import GameInterface
+from model_checking.game_mcmas_model import GameInterfaceMcmasModel
 from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula
 from model_checking.mcmas_model_game import McmasModelGame, McmasModelState
 
@@ -14,20 +15,6 @@ def clean_nl(text):
         return text[:-1]
     else:
         return text
-
-def generate_player_protocol(piles, player_no):
-    conditions = []
-    for i in range(0, len(piles)):
-        for j in range(1, piles[i]+1):
-            conditions.append(f"Environment.turn = player{player_no} and Environment.pile{i+1} >= {j}: {{ pile{i+1}_take{j} }};")
-    return conditions
-
-def generate_evaluation_conditions_win(piles, player):
-    text = f"Environment.turn = player{1-player} and "
-    text += " and ".join([f"Environment.pile{i+1} = 0" for i in range(len(piles))])
-    text += ";"
-    return text
-
 
 def get_env_evolution(board: list, num_players: int, num_rewards: int, can_players_overlap: bool):
     size_x = len(board[0])
@@ -175,7 +162,7 @@ def get_evaluation(num_players: int, num_rewards: int, additional_evaluations: s
         text += f"player{i}wins if Environment.points_p{i} >= {int(thr)};\n"
     return text + additional_evaluations
 
-def make_tourality_specification(board: list, history, player_to_move: int, formulae: str,
+def make_tourality_specification(board: list, history, player_to_move: int, formula: str,
                                  can_players_overlap: bool=False, additional_evaluations: str = "") -> str:
     size_x = len(board[0])
     size_y = len(board)
@@ -238,14 +225,14 @@ Groups
 end Groups
 
 Formulae
-{indent(formulae, " " * INDENT_SIZE)}
+{indent(formula, " " * INDENT_SIZE)}
 end Formulae
 """
 
 
 
-class GameTourality(GameInterface):
-    def __init__(self, initial_board: list):
+class GameTourality(GameInterfaceMcmasModel):
+    def __init__(self, model_path: str):
         """
         :param board: A 2D array describing an initial state of the board. Convention:
         - 0: empty field
@@ -253,43 +240,16 @@ class GameTourality(GameInterface):
         - 2: token to be collected
         - 1x: initial position of the player x
         """
-        # Board convention:
-        #
-        self.initial_board = initial_board
-        num_players = sum([cell >= 10 for row in board for cell in row])
-        GameInterface.__init__(self, players={f"Player{i}": i for i in range(num_players)})
 
-    def get_name(self):
-        return "tourality"
-
-    def load_game(self):
-        params = {"spec": self.stv_spec, "formula": self.formula}
-        return McmasModelGame(params)
+        GameInterfaceMcmasModel.__init__(self, model_path)
 
     def formal_subproblem_description(self, game_state, history, formulae_to_check: str = None) -> str:
-        if formulae_to_check is None:
-            formulae_to_check, _ = self.get_default_formula_and_coalition()
-        if isinstance(history, list):
-            history = ",".join(history)
-        game_state_desc = str(game_state)  # e.g.: '(0): 2 4 1'
-        piles = [int(x) for x in game_state_desc.split(': ')[1].split(' ')]
-        player_to_move = int(re.findall(r"\(\d+\)", str(game_state))[0][1])
-        return make_nim_specification(piles, history, player_to_move, formulae_to_check)
-
-    def termination_condition(self, history: str):
-        """Determines when the branching of the game search space will conclude."""
-        pass
-
-    def get_moves_from_history_str(self, history: str) -> list[str]:
-        """Converts a single history string to a list of successive actions."""
-        if history == "":
-            return []
-        else:
-            moves = history.split(';,')  # E.g. input to process: "pile:2, take:1;,pile:3, take:1;"
-            for i, _ in enumerate(moves):
-                if moves[i][-1] != ';':
-                    moves[i] += ';'
-            return moves
+        # game_state is assumed here to be a simultanous AtlModelState in a turn wrapper; if not wrapped, it will lead to errors.
+        game_state = game_state.simultaneous_game_state() if is_in_turn_wrapper else game_state
+        replacements = {}
+        for a in game_state.agent_local_states:
+            replacements[a.name] = (a.current_node, a.persistent_variables)
+        return generate_stv2_encoding(self.stv_spec, self.formula, replacements=replacements)
 
     @classmethod
     def get_default_formula_and_coalition(cls):

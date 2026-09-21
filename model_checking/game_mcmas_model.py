@@ -9,16 +9,12 @@ from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormul
 
 
 class GameInterfaceMcmasModel(GameInterface):
-    def __init__(self, model_path):
+    def __init__(self, model_path: str):
         parser = ISPLParser()
-        self.model = parser.parse_file(Path(model_path))
+        with Path(model_path).open("r", encoding="utf-8") as file:
+            self.model_text = file.read()
+        self.model = parser.parse(self.model_text)
         self.formula: StrategicFormula = self.model.formulae.formulas[0]
-
-        def get_coalition(groups, name):
-            for g in groups.groups:
-                if g.name == name:
-                    return g.members
-            return None
         self.coalition = self.model.groups.find_group_members(self.formula.agent)
         GameInterface.__init__(self, players={a.name: i for i, a in enumerate(self.model.agents)})
 
@@ -34,12 +30,12 @@ class GameInterfaceMcmasModel(GameInterface):
         return pyspiel.convert_to_turn_based(game)
 
     def formal_subproblem_description(self, game_state: McmasModelState, history, formulae_to_check: str = None, is_in_turn_wrapper=True) -> str:
-        # game_state is assumed here to be a simultanous AtlModelState in a turn wrapper; if not wrapped, it will lead to errors.
-        game_state = game_state.simultaneous_game_state() if is_in_turn_wrapper else game_state
-        replacements = {}
-        for a in game_state.agent_local_states:
-            replacements[a.name] = (a.current_node, a.persistent_variables)
-        return generate_stv2_encoding(self.stv_spec, self.formula, replacements=replacements)
+        # The idea: rules of the game remain the same, only values of variables are changed.
+        formula = formulae_to_check if formulae_to_check is not None else self.formula
+        init_text = " and ".join([f"Environment.{k} = {v}" for k, v in game_state.env_variables.items()])
+        spec = re.sub(r"InitStates.*?end InitStates", f"InitStates{init_text}end InitStates", self.model_text, flags=re.DOTALL)
+        spec = re.sub(r"Formulae.*?end Formulae", f"Formulae{formula}end Formulae", spec, flags=re.DOTALL)
+        return spec
 
     def formal_subproblem_description_game_tree(self, game_tree, history, formulae_to_check: str = None) -> str:
         """Generates a formal description of a subproblem resulting from removing actions not included in the

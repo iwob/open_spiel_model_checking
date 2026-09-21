@@ -36,11 +36,12 @@ class GameInterfaceAtlModel(GameInterface):
 
     def formal_subproblem_description(self, game_state: AtlModelState, history, formulae_to_check: str = None, is_in_turn_wrapper=True) -> str:
         # game_state is assumed here to be a simultanous AtlModelState in a turn wrapper; if not wrapped, it will lead to errors.
+        formula = formulae_to_check if formulae_to_check is not None else self.formula
         game_state = game_state.simultaneous_game_state() if is_in_turn_wrapper else game_state
         replacements = {}
         for a in game_state.agent_local_states:
             replacements[a.name] = (a.current_node, a.persistent_variables)
-        return generate_stv2_encoding(self.stv_spec, self.formula, replacements=replacements)
+        return generate_stv2_encoding(self.stv_spec, formula, replacements=replacements)
 
     def formal_subproblem_description_game_tree(self, game_tree, history, formulae_to_check: str = None) -> str:
         """Generates a formal description of a subproblem resulting from removing actions not included in the
