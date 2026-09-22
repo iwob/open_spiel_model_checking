@@ -11,16 +11,48 @@ from lark import Lark, Transformer
 # AST - Model
 # ============================================================
 
-@dataclass
+@dataclass(init = False)
 class ISPLModel:
     semantics: Optional[str] = None
     environment: Optional["Environment"] = None
     agents: list["Agent"] = field(default_factory=list)
     evaluation: Optional["Evaluation"] = None
     initial_states: Optional["InitialStates"] = None
+    formulae: Optional["Formulae"] = None
     groups: Optional["Groups"] = None
     fairness: Optional["Fairness"] = None
-    formulae: Optional["Formulae"] = None
+    def __init__(self, semantics, environment, agents, evaluation, initial_states, formulae, groups = None, fairness = None):
+        self.semantics = semantics
+        self.environment = environment
+        self.agents = agents
+        self.evaluation = evaluation
+        self.initial_states = initial_states
+        self.groups = groups
+        self.fairness = fairness
+        self.formulae = formulae
+        self.registered_vars = self.get_all_registered_vars()
+        self.registered_enum_values = self.get_all_registered_enum_values()
+
+    def get_cmp_name(self, c: Comparison):
+        if isinstance(c.left, Reference) or (isinstance(c.left, Name) and c.left.name in self.registered_vars):
+            return c.left.name
+        elif isinstance(c.right, Reference) or (
+                isinstance(c.right, Name) and c.right.name in self.registered_vars):
+            return c.right.name
+        else:
+            raise Exception("Unsupported statement of initial values")
+
+    def get_cmp_value(self, c: Comparison):
+        if isinstance(c.right, IntLiteral) or isinstance(c.right, BoolLiteral):
+            return c.right.value
+        elif isinstance(c.right, Name) and c.right.name in self.registered_enum_values:
+            return c.right.name
+        elif isinstance(c.left, IntLiteral) or isinstance(c.left, BoolLiteral):
+            return c.left.value
+        elif isinstance(c.left, Name) and c.left.name in self.registered_enum_values:
+            return c.left.name
+        else:
+            raise Exception("Unsupported statement of initial values")
 
     def get_all_registered_vars(self):
         res = []
@@ -44,6 +76,18 @@ class ISPLModel:
                     # res[v.name] = set(v.values)
                     res.update(v.values)
         return res
+
+    def get_player_name(self, player_index):
+        """Converts a player's number ID in Open Spiel to an identifier used for actions."""
+        return self.agents[player_index].name
+
+    def get_player_index(self, player_name):
+        """Converts a player's name to a number ID used in Open Spiel."""
+        for i, a in enumerate(self.agents):
+            if a.name == player_name:
+                return i
+        return None
+        # raise Exception(f"Player '{player_name}' was not found.")
 
 
 
@@ -1237,36 +1281,43 @@ class ISPLTransformer(Transformer):
     # --------------------------------------------------------
 
     def interpreted_system(self, items):
-        model = ISPLModel()
+        semantics = None
+        environment = None
+        agents = []
+        evaluation = None
+        initial_states = None
+        formulae = None
+        groups = None
+        fairness = None
 
         if isinstance(items[0], str):
-            model.semantics = items[0]
+            semantics = items[0]
         else:
-            model.semantics = "MultiAssignment"  # The default value
+            semantics = "MultiAssignment"  # The default value
 
         for item in items:
             if isinstance(item, Environment):
-                model.environment = item
+                environment = item
 
             elif isinstance(item, Agent):
-                model.agents.append(item)
+                agents.append(item)
 
             elif isinstance(item, Evaluation):
-                model.evaluation = item
+                evaluation = item
 
             elif isinstance(item, InitialStates):
-                model.initial_states = item
-
-            elif isinstance(item, Groups):
-                model.groups = item
-
-            elif isinstance(item, Fairness):
-                model.fairness = item
+                initial_states = item
 
             elif isinstance(item, Formulae):
-                model.formulae = item
+                formulae = item
 
-        return model
+            elif isinstance(item, Groups):
+                groups = item
+
+            elif isinstance(item, Fairness):
+                fairness = item
+
+        return ISPLModel(semantics, environment, agents, evaluation, initial_states, formulae, groups, fairness)
 
 
 # ============================================================

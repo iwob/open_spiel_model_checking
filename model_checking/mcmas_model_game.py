@@ -54,7 +54,7 @@ class McmasModelGame(pyspiel.Game):
             utility_sum=0.0,
             max_game_length=100)
 
-        self.registered_vars = self.spec.get_all_registered_vars()
+        self.registered_vars: set[str] = set(v.name for v in self.spec.get_all_registered_vars())
         self.registered_enum_values = self.spec.get_all_registered_enum_values()
 
         # Persistent variables and states in the observation vector will be in the alphabetical order
@@ -211,7 +211,7 @@ class McmasModelState(pyspiel.State):
                 raise Exception("Unsupported statement of initial values")
 
         comps = collect_comparisons(model.initial_states.condition)
-        self.env_variables = {get_name(c): get_value(c) for c in comps}
+        self.env_variables = {self.game.spec.get_cmp_name(c): self.game.spec.get_cmp_value(c) for c in comps}
 
 
     def get_global_state(self):
@@ -219,14 +219,11 @@ class McmasModelState(pyspiel.State):
 
     def get_player_name(self, player_index):
         """Converts a player's number ID in Open Spiel to an identifier used for actions."""
-        return self.model.agents[player_index].name
+        return self.model.get_player_name(player_index)
 
     def get_player_index(self, player_name):
         """Converts a player's name to a number ID used in Open Spiel."""
-        for i, a in enumerate(self.spec.agents):
-            if a.name == player_name:
-                return i
-        raise Exception(f"Player '{player_name}' was not found.")
+        return self.model.get_player_index(player_name)
 
     def get_action_id(self, player, action_name):
         pass
@@ -250,22 +247,33 @@ class McmasModelState(pyspiel.State):
             global_variables = self.env_variables
         return global_variables[name]
 
-    def evaluate_expression(self, expr, global_variables=None):
+    def evaluate_expression(self, expr, global_variables: dict=None, agent_actions: list[str]=None):
         """Interprets expression given values of the variables in the current state. Simplifying assumption: all variables
-         are defined as observables in Environment."""
+          are defined as observables in Environment.
+        :param global_variables: Dictionary of values of environment variables. If None, then the current
+         environment values will be used.
+        :param agent_actions: actions made by agents this turn, provided as action names.
+        """
+        gv, aa = global_variables, agent_actions
         if isinstance(expr, (BooleanBinary, BinaryFormula)):
             if expr.operator == "and":
-                return self.evaluate_expression(expr.left) and self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        and self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             elif expr.operator == "or":
-                return self.evaluate_expression(expr.left) or self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        or self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             elif expr.operator == "->":
-                return not self.evaluate_expression(expr.left) or self.evaluate_expression(expr.right)
+                return (not self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        or self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             else:
                 raise Exception(f"Unknown boolean operator: '{expr.operator}'")
         elif isinstance(expr, BooleanNot):
-            return not self.evaluate_expression(expr.operand)
+            return not self.evaluate_expression(expr.operand, global_variables=gv, agent_actions=aa)
         if isinstance(expr, Reference):
-            return self.get_current_var_value(expr.name, expr.owner, global_variables)
+            if expr.name == "Action":
+                return agent_actions[self.get_player_index(expr.owner)]
+            else:
+                return self.get_current_var_value(expr.name, expr.owner, global_variables)
         elif isinstance(expr, Name):
             if expr.name in self.game.registered_vars:
                 return self.get_current_var_value(expr.name, None, global_variables)
@@ -275,32 +283,44 @@ class McmasModelState(pyspiel.State):
             return expr.value
         elif isinstance(expr, BinaryExpr):
             if expr.operator == "+":
-                return self.evaluate_expression(expr.left) + self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        + self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             if expr.operator == "-":
-                return self.evaluate_expression(expr.left) - self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        - self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             if expr.operator == "*":
-                return self.evaluate_expression(expr.left) * self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        * self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             if expr.operator == "&":
-                return self.evaluate_expression(expr.left) & self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        & self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             if expr.operator == "|":
-                return self.evaluate_expression(expr.left) | self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        | self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             if expr.operator == "^":
-                return self.evaluate_expression(expr.left) ^ self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        ^ self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             else:
                 raise Exception(f"Unknown binary operator: '{expr.operator}'")
         elif isinstance(expr, Comparison):
             if expr.operator == "=":
-                return self.evaluate_expression(expr.left) == self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        == self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             elif expr.operator == ">=":
-                return self.evaluate_expression(expr.left) >= self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        >= self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             elif expr.operator == ">":
-                return self.evaluate_expression(expr.left) > self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        > self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             elif expr.operator == "<=":
-                return self.evaluate_expression(expr.left) <= self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        <= self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             elif expr.operator == "<":
-                return self.evaluate_expression(expr.left) < self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        < self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             elif expr.operator == "!=":
-                return self.evaluate_expression(expr.left) != self.evaluate_expression(expr.right)
+                return (self.evaluate_expression(expr.left, global_variables=gv, agent_actions=aa)
+                        != self.evaluate_expression(expr.right, global_variables=gv, agent_actions=aa))
             else:
                 raise Exception(f"Unknown comparison operator: '{expr.operator}'")
         else:
@@ -363,11 +383,19 @@ class McmasModelState(pyspiel.State):
             action_name = self.game.possible_actions[action]
             print(f"player: {player}: {action_name}")
 
+        agent_actions = [self.get_action_name(a) for a in actions]
         for r in self.model.environment.evolution:
-            if r.condition
-            # Check if a given rule can be triggered
-            if self.evaluate_expression(r.condition):
-                actions.update(r.actions)
+            # For each rule we check, if it fires.
+            # To check if a rule fires, we need to evaluate its condition
+            if self.evaluate_expression(r.condition, agent_actions=agent_actions):
+                # When condition is true, we need to update environment. There are two cases:
+                # 1) easy - we assign a new constant to a variable
+                # 2) hard - we update variable by evaluating a complex expression
+                # r.result: EvolutionAssignment is this condition, and we are guaranteed that variable is first
+                name = r.result.target
+                value = self.evaluate_expression(r.result.value, agent_actions=agent_actions)
+                print(f"Updating {name} to: {value}")
+                self.env_variables[name] = value
 
         return False
 
