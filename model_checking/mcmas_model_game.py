@@ -56,12 +56,6 @@ class McmasModelGame(pyspiel.Game):
 
         self.registered_vars: set[str] = set(v.name for v in self.spec.get_all_registered_vars())
         self.registered_enum_values = self.spec.get_all_registered_enum_values()
-
-        # Persistent variables and states in the observation vector will be in the alphabetical order
-        # self.persistent_variables_ordered = {self.get_player_index(a.name): sorted(a.persistent_variables) for a in self.spec.agents}
-        # self.persistent_variables_index_per_player = {k: {n: i for i, n in enumerate(sorted_vars)} for k, sorted_vars in self.persistent_variables_ordered.items()}
-        # self.nodes_ordered = {self.get_player_index(a.name): sorted(a.state_names()) for a in self.spec.agents}
-        # self.nodes_index_per_player = {k: {n: i for i, n in enumerate(sorted_nodes)} for k, sorted_nodes in self.nodes_ordered.items()}
         super().__init__(_GAME_TYPE, self._GAME_INFO, {})
 
     def __deepcopy__(self, memo):
@@ -171,7 +165,7 @@ class McmasModelState(pyspiel.State):
         self.env_variables = {}
         self.initialize_variables(model)
         print("> Variables initialized")
-        print("\n".join([str(x) for x in self.env_variables.items()]))
+        # print("\n".join([str(x) for x in self.env_variables.items()]))
         self.previous_global_state = self.get_global_state()
         self._check_if_terminal_position()
 
@@ -189,30 +183,8 @@ class McmasModelState(pyspiel.State):
                 return [expr]
             else:
                 raise Exception(f"Unsupported tree node: {str(expr)}")
-
-        def get_name(c):
-            if isinstance(c.left, Reference) or (isinstance(c.left, Name) and c.left.name in self.game.registered_vars):
-                return c.left.name
-            elif isinstance(c.right, Reference) or (isinstance(c.right, Name) and c.right.name in self.game.registered_vars):
-                return c.right.name
-            else:
-                raise Exception("Unsupported statement of initial values")
-
-        def get_value(c):
-            if isinstance(c.left, IntLiteral) or isinstance(c.left, BoolLiteral):
-                return c.left.value
-            elif isinstance(c.left, Name) and c.left.name in self.game.registered_enum_values:
-                return c.left.name
-            elif isinstance(c.right, IntLiteral) or isinstance(c.right, BoolLiteral):
-                return c.right.value
-            elif isinstance(c.right, Name) and c.right.name in self.game.registered_enum_values:
-                return c.right.name
-            else:
-                raise Exception("Unsupported statement of initial values")
-
         comps = collect_comparisons(model.initial_states.condition)
         self.env_variables = {self.game.spec.get_cmp_name(c): self.game.spec.get_cmp_value(c) for c in comps}
-
 
     def get_global_state(self):
         return tuple(sorted(self.env_variables.items()))
@@ -379,6 +351,7 @@ class McmasModelState(pyspiel.State):
 
 
     def _execute_agent_actions(self, actions):
+        # TODO: We get a vector of actions for both agents, because moves are simultanous. How should we handle this?
         for player, action in enumerate(actions):
             action_name = self.game.possible_actions[action]
             print(f"player: {player}: {action_name}")
