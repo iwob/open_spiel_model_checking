@@ -357,6 +357,7 @@ class McmasModelState(pyspiel.State):
             print(f"player: {player}: {action_name}")
 
         agent_actions = [self.get_action_name(a) for a in actions]
+        env_variables_2 = self.env_variables.copy()
         for r in self.model.environment.evolution:
             # For each rule we check, if it fires.
             # To check if a rule fires, we need to evaluate its condition
@@ -368,8 +369,8 @@ class McmasModelState(pyspiel.State):
                 name = r.result.target
                 value = self.evaluate_expression(r.result.value, agent_actions=agent_actions)
                 print(f"Updating {name} to: {value}")
-                self.env_variables[name] = value
-
+                env_variables_2[name] = value
+        self.env_variables = env_variables_2
         return False
 
 
