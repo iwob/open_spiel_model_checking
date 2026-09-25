@@ -11,13 +11,17 @@ from mcmas_model_game import McmasModelGame
 
 def simple_run_test():
     parser = ISPLParser()
-    file = Path(__file__).parent / "example_specifications" / "mnk" / "mnk(3,3,3).ispl"
+    # file = Path(__file__).parent / "example_specifications" / "mnk" / "mnk(3,3,3).ispl"
+    file = Path(__file__).parent / "example_specifications" / "nim" / "nim_2;3;4.ispl"
     model = parser.parse_file(file)
     print("Model loaded")
     print(model.agents)
     game = McmasModelGame.from_spec(model)
 
     state = game.new_initial_state()
+    state.env_variables["pile1"] = 1
+    state.env_variables["pile2"] = 0
+    state.env_variables["pile3"] = 0
     print(str(state) + '\n')
     for a_id, _ in enumerate(state.model.agents):
         print("Legal actions for player {}:".format(a_id))
@@ -25,7 +29,7 @@ def simple_run_test():
             print(f"{action} {state.action_to_string(a_id, action)}")
         print()
 
-    MAX_ITER = 2
+    MAX_ITER = 4
     num_iter = 0
     print("Start game")
     print("State:")
@@ -49,6 +53,9 @@ def simple_run_test():
         print()
         num_iter += 1
 
-
+    if num_iter < MAX_ITER:
+        print("Terminal state reached!")
+        print(str(state))
+        print("Rewards: " + str(state.rewards()))
 
 simple_run_test()
