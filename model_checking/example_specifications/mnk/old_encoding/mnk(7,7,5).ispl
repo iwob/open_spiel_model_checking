@@ -123,55 +123,55 @@ Agent Cross
     end Vars
     Actions = {a11, a12, a13, a14, a15, a16, a17, a21, a22, a23, a24, a25, a26, a27, a31, a32, a33, a34, a35, a36, a37, a41, a42, a43, a44, a45, a46, a47, a51, a52, a53, a54, a55, a56, a57, a61, a62, a63, a64, a65, a66, a67, a71, a72, a73, a74, a75, a76, a77, none};
     Protocol:
-        Environment.turn = cross and Environment.b11=b: {a11};
-        Environment.turn = cross and Environment.b12=b: {a12};
-        Environment.turn = cross and Environment.b13=b: {a13};
-        Environment.turn = cross and Environment.b14=b: {a14};
-        Environment.turn = cross and Environment.b15=b: {a15};
-        Environment.turn = cross and Environment.b16=b: {a16};
-        Environment.turn = cross and Environment.b17=b: {a17};
-        Environment.turn = cross and Environment.b21=b: {a21};
-        Environment.turn = cross and Environment.b22=b: {a22};
-        Environment.turn = cross and Environment.b23=b: {a23};
-        Environment.turn = cross and Environment.b24=b: {a24};
-        Environment.turn = cross and Environment.b25=b: {a25};
-        Environment.turn = cross and Environment.b26=b: {a26};
-        Environment.turn = cross and Environment.b27=b: {a27};
-        Environment.turn = cross and Environment.b31=b: {a31};
-        Environment.turn = cross and Environment.b32=b: {a32};
-        Environment.turn = cross and Environment.b33=b: {a33};
-        Environment.turn = cross and Environment.b34=b: {a34};
-        Environment.turn = cross and Environment.b35=b: {a35};
-        Environment.turn = cross and Environment.b36=b: {a36};
-        Environment.turn = cross and Environment.b37=b: {a37};
-        Environment.turn = cross and Environment.b41=b: {a41};
-        Environment.turn = cross and Environment.b42=b: {a42};
-        Environment.turn = cross and Environment.b43=b: {a43};
-        Environment.turn = cross and Environment.b44=b: {a44};
-        Environment.turn = cross and Environment.b45=b: {a45};
-        Environment.turn = cross and Environment.b46=b: {a46};
-        Environment.turn = cross and Environment.b47=b: {a47};
-        Environment.turn = cross and Environment.b51=b: {a51};
-        Environment.turn = cross and Environment.b52=b: {a52};
-        Environment.turn = cross and Environment.b53=b: {a53};
-        Environment.turn = cross and Environment.b54=b: {a54};
-        Environment.turn = cross and Environment.b55=b: {a55};
-        Environment.turn = cross and Environment.b56=b: {a56};
-        Environment.turn = cross and Environment.b57=b: {a57};
-        Environment.turn = cross and Environment.b61=b: {a61};
-        Environment.turn = cross and Environment.b62=b: {a62};
-        Environment.turn = cross and Environment.b63=b: {a63};
-        Environment.turn = cross and Environment.b64=b: {a64};
-        Environment.turn = cross and Environment.b65=b: {a65};
-        Environment.turn = cross and Environment.b66=b: {a66};
-        Environment.turn = cross and Environment.b67=b: {a67};
-        Environment.turn = cross and Environment.b71=b: {a71};
-        Environment.turn = cross and Environment.b72=b: {a72};
-        Environment.turn = cross and Environment.b73=b: {a73};
-        Environment.turn = cross and Environment.b74=b: {a74};
-        Environment.turn = cross and Environment.b75=b: {a75};
-        Environment.turn = cross and Environment.b76=b: {a76};
-        Environment.turn = cross and Environment.b77=b: {a77};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b15=b: {a15};
+        Environment.b16=b: {a16};
+        Environment.b17=b: {a17};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b25=b: {a25};
+        Environment.b26=b: {a26};
+        Environment.b27=b: {a27};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b35=b: {a35};
+        Environment.b36=b: {a36};
+        Environment.b37=b: {a37};
+        Environment.b41=b: {a41};
+        Environment.b42=b: {a42};
+        Environment.b43=b: {a43};
+        Environment.b44=b: {a44};
+        Environment.b45=b: {a45};
+        Environment.b46=b: {a46};
+        Environment.b47=b: {a47};
+        Environment.b51=b: {a51};
+        Environment.b52=b: {a52};
+        Environment.b53=b: {a53};
+        Environment.b54=b: {a54};
+        Environment.b55=b: {a55};
+        Environment.b56=b: {a56};
+        Environment.b57=b: {a57};
+        Environment.b61=b: {a61};
+        Environment.b62=b: {a62};
+        Environment.b63=b: {a63};
+        Environment.b64=b: {a64};
+        Environment.b65=b: {a65};
+        Environment.b66=b: {a66};
+        Environment.b67=b: {a67};
+        Environment.b71=b: {a71};
+        Environment.b72=b: {a72};
+        Environment.b73=b: {a73};
+        Environment.b74=b: {a74};
+        Environment.b75=b: {a75};
+        Environment.b76=b: {a76};
+        Environment.b77=b: {a77};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -185,55 +185,55 @@ Agent Nought
     end Vars
     Actions = {a11, a12, a13, a14, a15, a16, a17, a21, a22, a23, a24, a25, a26, a27, a31, a32, a33, a34, a35, a36, a37, a41, a42, a43, a44, a45, a46, a47, a51, a52, a53, a54, a55, a56, a57, a61, a62, a63, a64, a65, a66, a67, a71, a72, a73, a74, a75, a76, a77, none};
     Protocol:
-        Environment.turn = nought and Environment.b11=b: {a11};
-        Environment.turn = nought and Environment.b12=b: {a12};
-        Environment.turn = nought and Environment.b13=b: {a13};
-        Environment.turn = nought and Environment.b14=b: {a14};
-        Environment.turn = nought and Environment.b15=b: {a15};
-        Environment.turn = nought and Environment.b16=b: {a16};
-        Environment.turn = nought and Environment.b17=b: {a17};
-        Environment.turn = nought and Environment.b21=b: {a21};
-        Environment.turn = nought and Environment.b22=b: {a22};
-        Environment.turn = nought and Environment.b23=b: {a23};
-        Environment.turn = nought and Environment.b24=b: {a24};
-        Environment.turn = nought and Environment.b25=b: {a25};
-        Environment.turn = nought and Environment.b26=b: {a26};
-        Environment.turn = nought and Environment.b27=b: {a27};
-        Environment.turn = nought and Environment.b31=b: {a31};
-        Environment.turn = nought and Environment.b32=b: {a32};
-        Environment.turn = nought and Environment.b33=b: {a33};
-        Environment.turn = nought and Environment.b34=b: {a34};
-        Environment.turn = nought and Environment.b35=b: {a35};
-        Environment.turn = nought and Environment.b36=b: {a36};
-        Environment.turn = nought and Environment.b37=b: {a37};
-        Environment.turn = nought and Environment.b41=b: {a41};
-        Environment.turn = nought and Environment.b42=b: {a42};
-        Environment.turn = nought and Environment.b43=b: {a43};
-        Environment.turn = nought and Environment.b44=b: {a44};
-        Environment.turn = nought and Environment.b45=b: {a45};
-        Environment.turn = nought and Environment.b46=b: {a46};
-        Environment.turn = nought and Environment.b47=b: {a47};
-        Environment.turn = nought and Environment.b51=b: {a51};
-        Environment.turn = nought and Environment.b52=b: {a52};
-        Environment.turn = nought and Environment.b53=b: {a53};
-        Environment.turn = nought and Environment.b54=b: {a54};
-        Environment.turn = nought and Environment.b55=b: {a55};
-        Environment.turn = nought and Environment.b56=b: {a56};
-        Environment.turn = nought and Environment.b57=b: {a57};
-        Environment.turn = nought and Environment.b61=b: {a61};
-        Environment.turn = nought and Environment.b62=b: {a62};
-        Environment.turn = nought and Environment.b63=b: {a63};
-        Environment.turn = nought and Environment.b64=b: {a64};
-        Environment.turn = nought and Environment.b65=b: {a65};
-        Environment.turn = nought and Environment.b66=b: {a66};
-        Environment.turn = nought and Environment.b67=b: {a67};
-        Environment.turn = nought and Environment.b71=b: {a71};
-        Environment.turn = nought and Environment.b72=b: {a72};
-        Environment.turn = nought and Environment.b73=b: {a73};
-        Environment.turn = nought and Environment.b74=b: {a74};
-        Environment.turn = nought and Environment.b75=b: {a75};
-        Environment.turn = nought and Environment.b76=b: {a76};
-        Environment.turn = nought and Environment.b77=b: {a77};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b15=b: {a15};
+        Environment.b16=b: {a16};
+        Environment.b17=b: {a17};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b25=b: {a25};
+        Environment.b26=b: {a26};
+        Environment.b27=b: {a27};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b35=b: {a35};
+        Environment.b36=b: {a36};
+        Environment.b37=b: {a37};
+        Environment.b41=b: {a41};
+        Environment.b42=b: {a42};
+        Environment.b43=b: {a43};
+        Environment.b44=b: {a44};
+        Environment.b45=b: {a45};
+        Environment.b46=b: {a46};
+        Environment.b47=b: {a47};
+        Environment.b51=b: {a51};
+        Environment.b52=b: {a52};
+        Environment.b53=b: {a53};
+        Environment.b54=b: {a54};
+        Environment.b55=b: {a55};
+        Environment.b56=b: {a56};
+        Environment.b57=b: {a57};
+        Environment.b61=b: {a61};
+        Environment.b62=b: {a62};
+        Environment.b63=b: {a63};
+        Environment.b64=b: {a64};
+        Environment.b65=b: {a65};
+        Environment.b66=b: {a66};
+        Environment.b67=b: {a67};
+        Environment.b71=b: {a71};
+        Environment.b72=b: {a72};
+        Environment.b73=b: {a73};
+        Environment.b74=b: {a74};
+        Environment.b75=b: {a75};
+        Environment.b76=b: {a76};
+        Environment.b77=b: {a77};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -367,6 +367,15 @@ Evaluation
 end Evaluation
 
 InitStates
+    --  History: 
+    --  Game state:
+    --  .......
+    --  .......
+    --  .......
+    --  .......
+    --  .......
+    --  .......
+    --  .......
     Environment.b11 = b and Environment.b12 = b and Environment.b13 = b and Environment.b14 = b and Environment.b15 = b and Environment.b16 = b and Environment.b17 = b
      and Environment.b21 = b and Environment.b22 = b and Environment.b23 = b and Environment.b24 = b and Environment.b25 = b and Environment.b26 = b and Environment.b27 = b
      and Environment.b31 = b and Environment.b32 = b and Environment.b33 = b and Environment.b34 = b and Environment.b35 = b and Environment.b36 = b and Environment.b37 = b

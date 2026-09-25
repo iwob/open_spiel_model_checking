@@ -37,11 +37,13 @@ def generate_actions(m, n):
     return actions
 
 
-def generate_player_protocol(m, n):
+def generate_player_protocol(m, n, player_turn_id:str =None):
     conditions = []
     for i in range(1, n + 1):
         for j in range(1, m + 1):
             condition = f"Environment.b{i}{j}=b: {{a{i}{j}}};"
+            if player_turn_id is not None:
+                condition = f"Environment.turn = {player_turn_id} and " + condition
             conditions.append(condition)
     return conditions
 
@@ -137,9 +139,13 @@ Agent {agent_name}
 end Agent"""
 
 def make_whole_board(m, n, k, history, formulae) -> str:
-    move = (history.count('o') + history.count('x')) % 2
+    if history is None:
+        move = 0
+    else:
+        move = (history.count('o') + history.count('x')) % 2
     actions_xo = ", ".join(generate_actions(m, n))
-    protocol_xo = "\n".join(generate_player_protocol(m, n))  # conditions on actions, the same for both players
+    protocol_x = "\n".join(generate_player_protocol(m, n, "cross"))
+    protocol_o = "\n".join(generate_player_protocol(m, n, "nought"))
     evaluation_conditions_o = generate_evaluation_conditions_win(m, n, k, "o")
     evaluation_conditions_x = generate_evaluation_conditions_win(m, n, k, "x")
     board_init_conditions = generate_board_condition(m, n, "b", history)
@@ -149,9 +155,9 @@ Semantics=SingleAssignment;
 
 {get_env_str(m, n)}
 
-{get_agent_str("Cross", actions_xo, protocol_xo)}
+{get_agent_str("Cross", actions_xo, protocol_x)}
 
-{get_agent_str("Nought", actions_xo, protocol_xo)}
+{get_agent_str("Nought", actions_xo, protocol_o)}
 
 Evaluation
     noughtwins if
@@ -499,6 +505,8 @@ class GameMnk(GameInterface):
 
 
 
+
+
 if __name__ == "__main__":
     # --  History: x(2,2),o(1,2),x(1,1),o(0,0),x(3,1)
     # --  Game state:
@@ -512,20 +520,52 @@ if __name__ == "__main__":
     from absl import app
     from absl import flags
 
-    flags.DEFINE_integer("m", None, required=True, help="(Game: mnk) Width of the board (i.e., number of columns).")
-    flags.DEFINE_integer("n", None, required=True, help="(Game: mnk) Height of the board (i.e., number of rows).")
-    flags.DEFINE_integer("k", None, required=True, help="(Game: mnk) Number of elements forming a line to win.")
-    flags.DEFINE_string("initial_moves", "", required=False, help="Initial actions to be specified in the game-specific format.")
-    flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
+    flags.DEFINE_integer("m", None, help="(Game: mnk) Width of the board (i.e., number of columns).")
+    flags.DEFINE_integer("n", None, help="(Game: mnk) Height of the board (i.e., number of rows).")
+    flags.DEFINE_integer("k", None, help="(Game: mnk) Number of elements forming a line to win.")
+    flags.DEFINE_string("initial_moves", "", help="Initial actions to be specified in the game-specific format.")
+    flags.DEFINE_string("output_file", None, help="Path to the directory in which the results of this run will be stored.")
+    flags.DEFINE_boolean("generate_all", False, help="If true, then the example specification folder will be regenerated.")
     FLAGS = flags.FLAGS
 
     def main(argv):
         formula, _ = GameMnk.get_default_formula_and_coalition()
-        text = make_whole_board(FLAGS.m, FLAGS.n, FLAGS.k, FLAGS.initial_moves, formula)
-        if FLAGS.output_file is None:
-            print(text)
+        formulaU = "<cross> ((! noughtwins) U crosswins);"
+        if FLAGS.generate_all:
+            with open("example_specifications/mnk/mnk(3,3,3).ispl", "w") as f:
+                f.write(make_whole_board(3, 3, 3, None, formula))
+            with open("example_specifications/mnk/mnk(3,3,3)_U.ispl", "w") as f:
+                f.write(make_whole_board(3, 3, 3, None, formulaU))
+            with open("example_specifications/mnk/mnk(4,3,3).ispl", "w") as f:
+                f.write(make_whole_board(4, 3, 3, None, formula))
+            with open("example_specifications/mnk/mnk(4,4,3).ispl", "w") as f:
+                f.write(make_whole_board(4, 4, 3, None, formula))
+            with open("example_specifications/mnk/mnk(4,4,4).ispl", "w") as f:
+                f.write(make_whole_board(4, 4, 4, None, formula))
+            with open("example_specifications/mnk/mnk(5,4,3).ispl", "w") as f:
+                f.write(make_whole_board(5, 4, 3, None, formula))
+            with open("example_specifications/mnk/mnk(5,5,3).ispl", "w") as f:
+                f.write(make_whole_board(5, 5, 3, None, formula))
+            with open("example_specifications/mnk/mnk(5,5,4).ispl", "w") as f:
+                f.write(make_whole_board(5, 5, 4, None, formula))
+            with open("example_specifications/mnk/mnk(5,5,5).ispl", "w") as f:
+                f.write(make_whole_board(5, 5, 5, None, formula))
+            with open("example_specifications/mnk/mnk(6,3,3).ispl", "w") as f:
+                f.write(make_whole_board(6, 3, 3, None, formula))
+            with open("example_specifications/mnk/mnk(6,6,5).ispl", "w") as f:
+                f.write(make_whole_board(6, 6, 5, None, formula))
+            with open("example_specifications/mnk/mnk(7,7,5).ispl", "w") as f:
+                f.write(make_whole_board(7, 7, 5, None, formula))
+
         else:
-            with open(FLAGS.output_file, "w") as f:
-                f.write(text)
+            text = make_whole_board(FLAGS.m, FLAGS.n, FLAGS.k, FLAGS.initial_moves, formula)
+            if FLAGS.output_file is None:
+                print(text)
+            else:
+                with open(FLAGS.output_file, "w") as f:
+                    f.write(text)
+
+
+
 
     app.run(main)

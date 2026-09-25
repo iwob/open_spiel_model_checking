@@ -54,22 +54,22 @@ Agent Cross
     end Vars
     Actions = {a11, a12, a13, a14, a21, a22, a23, a24, a31, a32, a33, a34, a41, a42, a43, a44, none};
     Protocol:
-        Environment.turn = cross and Environment.b11=b: {a11};
-        Environment.turn = cross and Environment.b12=b: {a12};
-        Environment.turn = cross and Environment.b13=b: {a13};
-        Environment.turn = cross and Environment.b14=b: {a14};
-        Environment.turn = cross and Environment.b21=b: {a21};
-        Environment.turn = cross and Environment.b22=b: {a22};
-        Environment.turn = cross and Environment.b23=b: {a23};
-        Environment.turn = cross and Environment.b24=b: {a24};
-        Environment.turn = cross and Environment.b31=b: {a31};
-        Environment.turn = cross and Environment.b32=b: {a32};
-        Environment.turn = cross and Environment.b33=b: {a33};
-        Environment.turn = cross and Environment.b34=b: {a34};
-        Environment.turn = cross and Environment.b41=b: {a41};
-        Environment.turn = cross and Environment.b42=b: {a42};
-        Environment.turn = cross and Environment.b43=b: {a43};
-        Environment.turn = cross and Environment.b44=b: {a44};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b41=b: {a41};
+        Environment.b42=b: {a42};
+        Environment.b43=b: {a43};
+        Environment.b44=b: {a44};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -83,22 +83,22 @@ Agent Nought
     end Vars
     Actions = {a11, a12, a13, a14, a21, a22, a23, a24, a31, a32, a33, a34, a41, a42, a43, a44, none};
     Protocol:
-        Environment.turn = nought and Environment.b11=b: {a11};
-        Environment.turn = nought and Environment.b12=b: {a12};
-        Environment.turn = nought and Environment.b13=b: {a13};
-        Environment.turn = nought and Environment.b14=b: {a14};
-        Environment.turn = nought and Environment.b21=b: {a21};
-        Environment.turn = nought and Environment.b22=b: {a22};
-        Environment.turn = nought and Environment.b23=b: {a23};
-        Environment.turn = nought and Environment.b24=b: {a24};
-        Environment.turn = nought and Environment.b31=b: {a31};
-        Environment.turn = nought and Environment.b32=b: {a32};
-        Environment.turn = nought and Environment.b33=b: {a33};
-        Environment.turn = nought and Environment.b34=b: {a34};
-        Environment.turn = nought and Environment.b41=b: {a41};
-        Environment.turn = nought and Environment.b42=b: {a42};
-        Environment.turn = nought and Environment.b43=b: {a43};
-        Environment.turn = nought and Environment.b44=b: {a44};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b41=b: {a41};
+        Environment.b42=b: {a42};
+        Environment.b43=b: {a43};
+        Environment.b44=b: {a44};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -132,6 +132,12 @@ Evaluation
 end Evaluation
 
 InitStates
+    --  History: 
+    --  Game state:
+    --  ....
+    --  ....
+    --  ....
+    --  ....
     Environment.b11 = b and Environment.b12 = b and Environment.b13 = b and Environment.b14 = b
      and Environment.b21 = b and Environment.b22 = b and Environment.b23 = b and Environment.b24 = b
      and Environment.b31 = b and Environment.b32 = b and Environment.b33 = b and Environment.b34 = b

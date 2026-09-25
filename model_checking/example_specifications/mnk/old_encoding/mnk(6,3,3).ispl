@@ -57,24 +57,24 @@ Agent Cross
     end Vars
     Actions = {a11, a12, a13, a14, a15, a16, a21, a22, a23, a24, a25, a26, a31, a32, a33, a34, a35, a36, none};
     Protocol:
-        Environment.turn = cross and Environment.b11=b: {a11};
-        Environment.turn = cross and Environment.b12=b: {a12};
-        Environment.turn = cross and Environment.b13=b: {a13};
-        Environment.turn = cross and Environment.b14=b: {a14};
-        Environment.turn = cross and Environment.b15=b: {a15};
-        Environment.turn = cross and Environment.b16=b: {a16};
-        Environment.turn = cross and Environment.b21=b: {a21};
-        Environment.turn = cross and Environment.b22=b: {a22};
-        Environment.turn = cross and Environment.b23=b: {a23};
-        Environment.turn = cross and Environment.b24=b: {a24};
-        Environment.turn = cross and Environment.b25=b: {a25};
-        Environment.turn = cross and Environment.b26=b: {a26};
-        Environment.turn = cross and Environment.b31=b: {a31};
-        Environment.turn = cross and Environment.b32=b: {a32};
-        Environment.turn = cross and Environment.b33=b: {a33};
-        Environment.turn = cross and Environment.b34=b: {a34};
-        Environment.turn = cross and Environment.b35=b: {a35};
-        Environment.turn = cross and Environment.b36=b: {a36};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b15=b: {a15};
+        Environment.b16=b: {a16};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b25=b: {a25};
+        Environment.b26=b: {a26};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b35=b: {a35};
+        Environment.b36=b: {a36};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -88,24 +88,24 @@ Agent Nought
     end Vars
     Actions = {a11, a12, a13, a14, a15, a16, a21, a22, a23, a24, a25, a26, a31, a32, a33, a34, a35, a36, none};
     Protocol:
-        Environment.turn = nought and Environment.b11=b: {a11};
-        Environment.turn = nought and Environment.b12=b: {a12};
-        Environment.turn = nought and Environment.b13=b: {a13};
-        Environment.turn = nought and Environment.b14=b: {a14};
-        Environment.turn = nought and Environment.b15=b: {a15};
-        Environment.turn = nought and Environment.b16=b: {a16};
-        Environment.turn = nought and Environment.b21=b: {a21};
-        Environment.turn = nought and Environment.b22=b: {a22};
-        Environment.turn = nought and Environment.b23=b: {a23};
-        Environment.turn = nought and Environment.b24=b: {a24};
-        Environment.turn = nought and Environment.b25=b: {a25};
-        Environment.turn = nought and Environment.b26=b: {a26};
-        Environment.turn = nought and Environment.b31=b: {a31};
-        Environment.turn = nought and Environment.b32=b: {a32};
-        Environment.turn = nought and Environment.b33=b: {a33};
-        Environment.turn = nought and Environment.b34=b: {a34};
-        Environment.turn = nought and Environment.b35=b: {a35};
-        Environment.turn = nought and Environment.b36=b: {a36};
+        Environment.b11=b: {a11};
+        Environment.b12=b: {a12};
+        Environment.b13=b: {a13};
+        Environment.b14=b: {a14};
+        Environment.b15=b: {a15};
+        Environment.b16=b: {a16};
+        Environment.b21=b: {a21};
+        Environment.b22=b: {a22};
+        Environment.b23=b: {a23};
+        Environment.b24=b: {a24};
+        Environment.b25=b: {a25};
+        Environment.b26=b: {a26};
+        Environment.b31=b: {a31};
+        Environment.b32=b: {a32};
+        Environment.b33=b: {a33};
+        Environment.b34=b: {a34};
+        Environment.b35=b: {a35};
+        Environment.b36=b: {a36};
         Other : { none }; -- technicality
     end Protocol
     Evolution:
@@ -171,6 +171,11 @@ Evaluation
 end Evaluation
 
 InitStates
+    --  History: 
+    --  Game state:
+    --  ......
+    --  ......
+    --  ......
     Environment.b11 = b and Environment.b12 = b and Environment.b13 = b and Environment.b14 = b and Environment.b15 = b and Environment.b16 = b
      and Environment.b21 = b and Environment.b22 = b and Environment.b23 = b and Environment.b24 = b and Environment.b25 = b and Environment.b26 = b
      and Environment.b31 = b and Environment.b32 = b and Environment.b33 = b and Environment.b34 = b and Environment.b35 = b and Environment.b36 = b
