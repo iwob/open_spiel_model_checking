@@ -157,15 +157,9 @@ class McmasModelState(pyspiel.State):
         self.model = model
         self.formula = formula
         self.coalition = set(self.model.groups.find_group_members(self.formula.agent))
-
-
         self.evaluation_rules = {rule.name: rule.condition for rule in self.model.evaluation.rules}
-
-
         self.env_variables = {}
         self.initialize_variables(model)
-        print("> Variables initialized")
-        # print("\n".join([str(x) for x in self.env_variables.items()]))
         self.previous_global_state = self.get_global_state()
         self._check_if_terminal_position()
 
@@ -352,9 +346,9 @@ class McmasModelState(pyspiel.State):
 
     def _execute_agent_actions(self, actions):
         # TODO: We get a vector of actions for both agents, because moves are simultanous. How should we handle this?
-        for player, action in enumerate(actions):
-            action_name = self.game.possible_actions[action]
-            print(f"player: {player}: {action_name}")
+        # for player, action in enumerate(actions):
+        #     action_name = self.game.possible_actions[action]
+        #     print(f"player: {player}: {action_name}")
 
         agent_actions = [self.get_action_name(a) for a in actions]
         env_variables_2 = self.env_variables.copy()
@@ -368,7 +362,7 @@ class McmasModelState(pyspiel.State):
                 # r.result: EvolutionAssignment is this condition, and we are guaranteed that variable is first
                 name = r.result.target
                 value = self.evaluate_expression(r.result.value, agent_actions=agent_actions)
-                print(f"Updating {name} to: {value}")
+                # print(f"Updating {name} to: {value}")
                 env_variables_2[name] = value
         self.env_variables = env_variables_2
         return False

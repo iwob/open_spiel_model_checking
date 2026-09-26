@@ -304,12 +304,16 @@ class Groups:
 @dataclass
 class Atom:
     name: str
+    def get_text(self) -> str:
+        return self.name
 
 
 @dataclass
 class UnaryFormula:
     operator: str
     operand: object
+    def get_text(self) -> str:
+        return f"({self.operator} {self.operand.get_text()})"
 
 
 @dataclass
@@ -317,6 +321,8 @@ class BinaryFormula:
     operator: str
     left: object
     right: object
+    def get_text(self) -> str:
+        return f"({self.left.get_text()} {self.operator} {self.right.get_text()})"
 
 
 @dataclass
@@ -344,7 +350,8 @@ class StrategicFormula:
     agent: str
     operator: str
     operand: object
-
+    def get_text(self) -> str:
+        return f"<{self.agent}> {self.operator} ({self.operand.get_text()})"
 
 @dataclass
 class StateLabel:

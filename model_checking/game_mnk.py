@@ -542,6 +542,8 @@ if __name__ == "__main__":
                 f.write(make_whole_board(4, 4, 3, None, formula))
             with open("example_specifications/mnk/mnk(4,4,4).ispl", "w") as f:
                 f.write(make_whole_board(4, 4, 4, None, formula))
+            with open("example_specifications/mnk/mnk(5,3,3).ispl", "w") as f:
+                f.write(make_whole_board(5, 3, 3, None, formula))
             with open("example_specifications/mnk/mnk(5,4,3).ispl", "w") as f:
                 f.write(make_whole_board(5, 4, 3, None, formula))
             with open("example_specifications/mnk/mnk(5,5,3).ispl", "w") as f:

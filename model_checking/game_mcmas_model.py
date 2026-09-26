@@ -31,10 +31,15 @@ class GameInterfaceMcmasModel(GameInterface):
 
     def formal_subproblem_description(self, game_state: McmasModelState, history, formulae_to_check: str = None, is_in_turn_wrapper=True) -> str:
         # The idea: rules of the game remain the same, only values of variables are changed.
+        game_state = game_state.simultaneous_game_state() if is_in_turn_wrapper else game_state
         formula = formulae_to_check if formulae_to_check is not None else self.formula
+        if isinstance(formula, StrategicFormula):
+            formula_text = formula.get_text() + ";"
+        else:
+            formula_text = str(formula)
         init_text = " and ".join([f"Environment.{k} = {v}" for k, v in game_state.env_variables.items()])
-        spec = re.sub(r"InitStates.*?end InitStates", f"InitStates{init_text}end InitStates", self.model_text, flags=re.DOTALL)
-        spec = re.sub(r"Formulae.*?end Formulae", f"Formulae{formula}end Formulae", spec, flags=re.DOTALL)
+        spec = re.sub(r"InitStates.*?end InitStates", f"InitStates\n{init_text};\nend InitStates", self.model_text, flags=re.DOTALL)
+        spec = re.sub(r"Formulae.*?end Formulae", f"Formulae\n{formula_text}\nend Formulae", spec, flags=re.DOTALL)
         return spec
 
     def formal_subproblem_description_game_tree(self, game_tree, history, formulae_to_check: str = None) -> str:
