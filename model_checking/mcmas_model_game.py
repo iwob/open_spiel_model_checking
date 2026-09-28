@@ -161,6 +161,7 @@ class McmasModelState(pyspiel.State):
         self.env_variables = {}
         self.initialize_variables(model)
         self.previous_global_state = self.get_global_state()
+        self._cache_evolution_rules = {rule_id: {} for rule_id, _ in enumerate(self.model.environment.evolution)}
         self._check_if_terminal_position()
 
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
@@ -352,10 +353,19 @@ class McmasModelState(pyspiel.State):
 
         agent_actions = [self.get_action_name(a) for a in actions]
         env_variables_2 = self.env_variables.copy()
-        for r in self.model.environment.evolution:
+        for rule_id, r in enumerate(self.model.environment.evolution):
             # For each rule we check, if it fires.
             # To check if a rule fires, we need to evaluate its condition
-            if self.evaluate_expression(r.condition, agent_actions=agent_actions):
+            # For efficiency reasons, there is a caching system
+            # h = str([self.env_variables[v] for v in r.condition.get_var_names(self.game.registered_vars)])
+            # cached = h in self._cache_evolution_rules[rule_id]
+            # if cached:
+            #     is_rule_satisfied = self._cache_evolution_rules[rule_id][h]
+            # else:
+            #     is_rule_satisfied = self.evaluate_expression(r.condition, agent_actions=agent_actions)
+            #     self._cache_evolution_rules[rule_id][h] = is_rule_satisfied
+            is_rule_satisfied = self.evaluate_expression(r.condition, agent_actions=agent_actions)
+            if is_rule_satisfied:
                 # When condition is true, we need to update environment. There are two cases:
                 # 1) easy - we assign a new constant to a variable
                 # 2) hard - we update variable by evaluating a complex expression

@@ -114,22 +114,37 @@ class LocalObsvars:
 @dataclass
 class IntLiteral:
     value: int
+    def get_var_names(self, registered_vars):
+        return []
+
 
 
 @dataclass
 class BoolLiteral:
     value: bool
+    def get_var_names(self, registered_vars):
+        return []
 
 
 @dataclass
 class Name:
     name: str
+    def get_var_names(self, registered_vars):
+        if self.name in registered_vars:
+            return [self.name]
+        else:
+            return []
 
 
 @dataclass
 class Reference:
     owner: str
     name: str
+    def get_var_names(self, registered_vars):
+        if self.name in registered_vars:
+            return [self.name]
+        else:
+            return []
 
 
 # ============================================================
@@ -140,13 +155,16 @@ class Reference:
 class UnaryExpr:
     operator: str
     operand: object
-
+    def get_var_names(self, registered_vars):
+        return self.operand.get_var_names(registered_vars)
 
 @dataclass
 class BinaryExpr:
     operator: str
     left: object
     right: object
+    def get_var_names(self, registered_vars):
+        return self.left.get_var_names(registered_vars) + self.right.get_var_names(registered_vars)
 
 
 # ============================================================
@@ -157,6 +175,9 @@ class BinaryExpr:
 class BooleanNot:
     operator: str
     operand: object
+    _var_names: list = None
+    def get_var_names(self, registered_vars):
+        return self.operator.get_var_names(registered_vars)
 
 
 @dataclass
@@ -164,6 +185,12 @@ class BooleanBinary:
     operator: str
     left: object
     right: object
+    _var_names: list = None
+
+    def get_var_names(self, registered_vars):
+        if self._var_names is None:
+            self._var_names = self.left.get_var_names(registered_vars) + self.right.get_var_names(registered_vars)
+        return self._var_names
 
 
 @dataclass
@@ -171,6 +198,14 @@ class Comparison:
     operator: str
     left: object
     right: object
+    _var_names: Optional[list] = None
+
+    def get_var_names(self, registered_vars):
+        if self._var_names is None:
+            self._var_names = self.left.get_var_names(registered_vars) + self.right.get_var_names(registered_vars)
+        return self._var_names
+
+
 
 
 @dataclass
