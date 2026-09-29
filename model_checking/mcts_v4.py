@@ -328,6 +328,23 @@ def _debug_player_name(node: QueueNode):
         return str(node.state.current_player())
 
 
+def update_bots(bots, node: QueueNode, action_id: int):
+    new_bots = bots  # potentially deep copy here?
+    _inform_bots(new_bots, node.state, action_id)
+    return new_bots
+
+
+def create_new_node(game_utils: GameInterface, node: QueueNode, action_id: int,
+                    game_tree: GameTreeNode, game_tree_val: Optional[int]=None):
+    new_state = node.state.clone()
+    new_state.apply_action(action_id)
+    action_str = node.state.action_to_string(node.state.current_player(), action_id)
+    game_tree[action_str] = GameTreeNode(game_tree_val, cur_player=new_state.current_player())
+    return QueueNode(node.priority + 1,
+                     moves_str=game_utils.add_move_to_history_str(node.moves_str, action_str),
+                     state=new_state)
+
+
 def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                       bots: list, action_selector: ActionSelector, formula: str, coalition: set,
                       node: QueueNode, game_tree: GameTreeNode, run_results_dir, results_dict,
@@ -357,18 +374,12 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             # All possible chance actions/outcomes are enumerated and traversed
             # Chance node acts as part of anti-coalition
             for action in node.state.legal_actions():
-                action_str = node.state.action_to_string(node.state.current_player(), action)
-                new_state = node.state.clone()
-                # TODO: clone() method not implemented
-                # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
-                _inform_bots(bots, node.state, action)
-                new_state.apply_action(action)
-                game_tree[action_str] = GameTreeNode(None, cur_player=new_state.current_player())
-                new_node = QueueNode(node.priority + 1,
-                                     moves_str=game_utils.add_move_to_history_str(node.moves_str, action_str),
-                                     state=new_state)
+                action_id = node.state.legal_actions(node.current_player())[0]
+                action_str = node.state.action_to_string(node.current_player(), action)
+                new_bots = update_bots(bots, node, action_id)
+                new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=None)
                 logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {action}")
-                dec = MCSA_combined_run(game_utils, solver, bots, action_selector, formula, coalition,
+                dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
                                         new_node, game_tree[action_str],
                                         run_results_dir=run_results_dir,
                                         results_dict=results_dict,
@@ -388,6 +399,37 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
         raise ValueError("Game cannot have simultaneous nodes.")
     else:
         current_player = node.state.current_player()
+        # If there is only a single legal action, then MCTS is not called
+        if len(node.state.legal_actions(current_player)) == 1:
+            action_id = node.state.legal_actions(current_player)[0]  # it is cached, so it is fast
+            action_name = node.state.action_to_string(action_id)
+            logger.debug(f"{debug_indent}Executing the only action '{action_name}' available to the agent")
+            new_bots = update_bots(bots, node, action_id)
+            new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=None)
+            dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
+                                    new_node, game_tree[action_name],
+                                    run_results_dir=run_results_dir,
+                                    results_dict=results_dict,
+                                    max_game_depth=max_game_depth,
+                                    use_reward_in_terminal_states=use_reward_in_terminal_states,
+                                    unroll_chance_nodes=unroll_chance_nodes,
+                                    use_mcts_outcome_information=use_mcts_outcome_information)
+            if current_player in coalition:
+                if dec:
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) [single-action] Proponent has a winning path, move to the previous layer")
+                    return 1
+                else:
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) [single-action] Proponent fails after exploring available actions")
+                    return 0
+            else:
+                if not dec:
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) [single-action] Opponent has a path to prevent coalition from winning, move to the previous layer")
+                    return 0
+                else:
+                    logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) [single-action] Opponent fails after exploring available actions")
+                    return 1  # didn't manage to find a not-winning path for proponents
+
+
         bot = bots[current_player]
         action = bot.step(node.state)  # for MCTS step() runs a given number of MCTS simulations (by default here: 60000)
 
@@ -449,16 +491,10 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                 continue
                 # This whole if block can be commented out to generate a valid game tree.
             action_id = _get_action_id(node.state, a) if a_id is None else a_id
-            new_state = node.state.clone()
             # TODO: clone() method not implemented in the line below
             # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
-            new_bots = bots
-            _inform_bots(new_bots, node.state, action_id)
-            new_state.apply_action(action_id)
-            game_tree[a] = GameTreeNode(val, cur_player=new_state.current_player())
-            new_node = QueueNode(node.priority + 1,
-                                 moves_str=game_utils.add_move_to_history_str(node.moves_str, a),
-                                 state=new_state)
+            new_bots = update_bots(bots, node, action_id)
+            new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=val)
             logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {(val, a)}")
             dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
                                     new_node, game_tree[a],

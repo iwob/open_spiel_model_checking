@@ -159,6 +159,7 @@ class McmasModelState(pyspiel.State):
         self.coalition = set(self.model.groups.find_group_members(self.formula.agent))
         self.evaluation_rules = {rule.name: rule.condition for rule in self.model.evaluation.rules}
         self.env_variables = {}
+        self._cache_legal_actions = {}
         self.initialize_variables(model)
         self.visited_states = {self.get_global_state()}
         # self._cache_evolution_rules = {rule_id: {} for rule_id, _ in enumerate(self.model.environment.evolution)}
@@ -192,8 +193,8 @@ class McmasModelState(pyspiel.State):
         """Converts a player's name to a number ID used in Open Spiel."""
         return self.model.get_player_index(player_name)
 
-    def get_action_id(self, player, action_name):
-        pass
+    def get_action_id(self, player_name: str, action_name: str):
+        return self.game.action_name_to_id_dict[player_name][action_name]
 
     def get_action_name(self, action_id):
         return self.game.possible_actions[action_id]
@@ -298,23 +299,28 @@ class McmasModelState(pyspiel.State):
         """Returns a list of legal actions, sorted in ascending order. In simultaneous games
          possible actions for each player are generated using function."""
         assert player >= 0
-        player_name = self.get_player_name(player)
-        actions = set()
-        for r in self.model.agents[player].protocol.rules:
-            # Check if a given rule can be triggered
-            if self.evaluate_expression(r.condition):
-                actions.update(r.actions)
+        if player in self._cache_legal_actions:
+            return self._cache_legal_actions[player]
+        else:
+            player_name = self.get_player_name(player)
+            actions = set()
+            for r in self.model.agents[player].protocol.rules:
+                # Check if a given rule can be triggered
+                if self.evaluate_expression(r.condition):
+                    actions.update(r.actions)
 
-        # If no rules triggered, use the default actions
-        if len(actions) == 0:
-            actions = self.model.agents[player].protocol.other.actions
+            # If no rules triggered, use the default actions
+            if len(actions) == 0:
+                actions = self.model.agents[player].protocol.other.actions
 
-        actions_ids = []
-        for a in actions:
-            action_idx = self.game.action_name_to_id_dict[player_name][a]
-            actions_ids.append(action_idx)
-        assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
-        return sorted(actions_ids)
+            actions_ids = []
+            for a in actions:
+                action_idx = self.game.action_name_to_id_dict[player_name][a]
+                actions_ids.append(action_idx)
+            assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
+            res = sorted(actions_ids)
+            self._cache_legal_actions[player] = res
+            return res
 
     def resample_from_infostate(self, player_id, rng=None):
         """Given a player's observation vector (in this case: agent's local state)
@@ -375,6 +381,7 @@ class McmasModelState(pyspiel.State):
                 # print(f"Updating {name} to: {value}")
                 env_variables_2[name] = value
         self.env_variables = env_variables_2
+        self._cache_legal_actions.clear()
         return False
 
 
