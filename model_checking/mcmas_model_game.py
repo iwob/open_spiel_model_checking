@@ -472,7 +472,7 @@ class McmasModelState(pyspiel.State):
 
     def __str__(self):
         """String for debug purposes. No particular semantics are required."""
-        text = "\n".join([f"{a}: {self.env_variables[a]}" for a in self.env_variables])
+        text = "\n".join([f"{a}: {v}" for a, v in sorted(self.env_variables.items())])
         return text
 
     def information_state_string(self, player):
