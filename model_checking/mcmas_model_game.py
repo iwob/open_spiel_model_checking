@@ -160,7 +160,7 @@ class McmasModelState(pyspiel.State):
         self.evaluation_rules = {rule.name: rule.condition for rule in self.model.evaluation.rules}
         self.env_variables = {}
         self.initialize_variables(model)
-        self.previous_global_state = self.get_global_state()
+        self.visited_states = {self.get_global_state()}
         self._cache_evolution_rules = {rule_id: {} for rule_id, _ in enumerate(self.model.environment.evolution)}
         self._check_if_terminal_position()
 
@@ -422,6 +422,11 @@ class McmasModelState(pyspiel.State):
         else:
             self._is_terminal = False
 
+    def is_cycle_detected(self, new_global_state):
+        if new_global_state in self.visited_states:
+            return True
+        else:
+            return False
 
     def _apply_actions(self, actions):
         """Execute simultaneous actions."""
@@ -432,12 +437,12 @@ class McmasModelState(pyspiel.State):
         self._check_if_terminal_position()
 
         new_global_state = self.get_global_state()
-        if new_global_state == self.previous_global_state:
+        if self.is_cycle_detected(new_global_state):
             if not self._silent:
-                print("GAME ENTERED CYCLE (global state didn't change)")
+                print("GAME ENTERED CYCLE (global state repeated in the trajectory)")
             self._is_terminal = True
         else:
-            self.previous_global_state = new_global_state
+            self.visited_states.add(new_global_state)
 
     def execute_transition(self, player, transition):
         if not self._silent:
