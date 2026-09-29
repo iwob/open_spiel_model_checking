@@ -236,6 +236,9 @@ class EvolutionRule:
     result: object
     condition: object
 
+@dataclass
+class Evolution:
+    rules: list[EvolutionRule] = field(default_factory=list)
 
 # ============================================================
 # AST - Protocol
@@ -418,6 +421,13 @@ class Fairness:
 class Formulae:
     formulas: list[object] = field(default_factory=list)
 
+@dataclass
+class RedStates:
+    vars: list[str]
+
+@dataclass
+class EnvObservableVars:
+    vars: list[VariableDef]
 
 # ============================================================
 # Transformer
@@ -510,7 +520,7 @@ class ISPLTransformer(Transformer):
         )
 
     def observable_vars(self, items):
-        return list(items)
+        return EnvObservableVars(list(items))
 
     def env_vars(self, items):
         return list(items)
@@ -611,17 +621,17 @@ class ISPLTransformer(Transformer):
                 if not item:
                     continue
 
-                if all(isinstance(x, VariableDef) for x in item):
-                    if not observable_vars:
-                        observable_vars = item
-                    else:
+                elif all(isinstance(x, VariableDef) for x in item):
                         vars_ = item
 
                 elif all(isinstance(x, str) for x in item):
                     actions = item
 
-                elif all(isinstance(x, EvolutionRule) for x in item):
-                    evolution = item
+            if isinstance(item, EnvObservableVars):
+                observable_vars = item.vars
+
+            elif isinstance(item, Evolution):
+                evolution = item.rules
 
             elif isinstance(item, Protocol):
                 protocol = item
@@ -677,8 +687,8 @@ class ISPLTransformer(Transformer):
                 elif all(isinstance(x, str) for x in item):
                     actions = item
 
-                elif all(isinstance(x, EvolutionRule) for x in item):
-                    evolution = item
+            elif isinstance(item, Evolution):
+                evolution = item.rules
 
             elif isinstance(
                 item,
@@ -727,10 +737,10 @@ class ISPLTransformer(Transformer):
         )
 
     def env_evolution(self, items):
-        return list(items)
+        return Evolution(list(items))
 
     def agent_evolution(self, items):
-        return list(items)
+        return Evolution(list(items))
 
     # --------------------------------------------------------
     # References / names

@@ -14,7 +14,8 @@ def simple_run_test():
     parser = ISPLParser()
     # file = Path(__file__).parent / "example_specifications" / "mnk" / "mnk(3,3,3).ispl"
     # file = Path(__file__).parent / "example_specifications" / "nim" / "nim_2;3;4.ispl"
-    file = Path(__file__).parent / "example_specifications" / "tourality" / "simple_01.ispl"
+    # file = Path(__file__).parent / "example_specifications" / "tourality" / "simple_01.ispl"
+    file = Path(__file__).parent / "example_specifications" / "tourality" / "schlingloff_3.ispl"
     model = parser.parse_file(file)
     print("Model loaded")
     print(model.agents)
