@@ -8,7 +8,9 @@ from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormul
 from model_checking.mcmas_model_game import McmasModelGame, McmasModelState
 
 INDENT_SIZE = 6
-
+FIELD_EMPTY = 0
+FIELD_WALL = 1
+FIELD_REWARD = 2
 
 def clean_nl(text):
     if text[-1] == "\n":
@@ -38,7 +40,7 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
     if not can_players_overlap:
         for i in range(size_y):
             for j in range(size_x):
-                if board[i][j] == 1:
+                if board[i][j] == FIELD_WALL:
                     continue  # because agent cannot ever be in a field with a wall
                 if i > 0:
                     board_update += create_entry(j, i, j, i - 1, action="down")
@@ -78,7 +80,7 @@ def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
     size_y = len(board)
 
     def create_entry(bx, by, x, y, action):
-        if board[y][x] == 1:
+        if board[y][x] == FIELD_WALL:
             return ""
         elif can_players_overlap:
             return f"Environment.turn=turn_p{num} and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
@@ -87,7 +89,7 @@ def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
     agent_moves = ""
     for i in range(size_y):
         for j in range(size_x):
-            if board[i][j] == 1:
+            if board[i][j] == FIELD_WALL:
                 continue  # because agent cannot ever be in a field with a wall
             if i > 0:
                 agent_moves += create_entry(j, i, j, i-1, action="down")
@@ -116,11 +118,11 @@ def get_init_state(board: list, num_players: int, player_to_move: int):
     def encode_raw(x):
         return x
     def encode_visual(x):
-        if x == 0:
+        if x == FIELD_EMPTY:
             return "."
-        elif x == 1:
+        elif x == FIELD_WALL:
             return "W"
-        elif x == 2:
+        elif x == FIELD_REWARD:
             return "*"
         elif x >= 10:
             return x-10
