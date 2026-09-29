@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from pathlib import Path
 import pyspiel
@@ -59,4 +60,8 @@ def simple_run_test():
         print(str(state))
         print("Rewards: " + str(state.rewards()))
 
+
+start = time.time()
 simple_run_test()
+end = time.time()
+print(f"Time: {end - start}")
