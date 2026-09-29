@@ -148,9 +148,9 @@ class McmasModelState(pyspiel.State):
         self.ARTIFICIAL_PLAYER_ID = len(model.agents)
         self._silent = silent
         self._cur_player = pyspiel.PlayerId.SIMULTANEOUS
-        self._cur_obs = None
-        self._cur_executable_steps_dict = None
-        self._cur_num_steps = 0
+        # self._cur_obs = None
+        # self._cur_executable_steps_dict = None
+        # self._cur_num_steps = 0
         self._is_terminal = False
         self.formula_eval = None
         self.game = game
@@ -161,7 +161,7 @@ class McmasModelState(pyspiel.State):
         self.env_variables = {}
         self.initialize_variables(model)
         self.visited_states = {self.get_global_state()}
-        self._cache_evolution_rules = {rule_id: {} for rule_id, _ in enumerate(self.model.environment.evolution)}
+        # self._cache_evolution_rules = {rule_id: {} for rule_id, _ in enumerate(self.model.environment.evolution)}
         self._check_if_terminal_position()
 
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
@@ -437,17 +437,12 @@ class McmasModelState(pyspiel.State):
         self._check_if_terminal_position()
 
         new_global_state = self.get_global_state()
-        if self.is_cycle_detected(new_global_state):
+        if not self._is_terminal and self.is_cycle_detected(new_global_state):
             if not self._silent:
                 print("GAME ENTERED CYCLE (global state repeated in the trajectory)")
             self._is_terminal = True
         else:
             self.visited_states.add(new_global_state)
-
-    def execute_transition(self, player, transition):
-        if not self._silent:
-            print(f"*** Executing transition for player {player}: {transition}")
-        self.agent_local_states[player].execute_transition(transition)
 
     def _action_to_string(self, player, action):
         """Action -> string."""

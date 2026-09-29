@@ -153,6 +153,7 @@ flags.DEFINE_string("output_file", None, required=False, help="Path to the file 
 flags.DEFINE_string("submodels_dir", None, required=False, help="Path to the directory in which will be stored the generated submodels.")
 flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 5, help="How many rollouts to do in MCTS.")
+flags.DEFINE_integer("max_rollout_length", 100, help="Maximum number of moves explored during the rollout phase of MCTS.")
 flags.DEFINE_integer("max_simulations", 500, help="How many simulations to run in MCTS.")
 flags.DEFINE_float("selector_epsilon", 0.95, required=False, help="Seed for the random number generator.")
 flags.DEFINE_integer("selector_k", 3, required=False, help="How many best actions will be selected by selector.")
@@ -175,7 +176,7 @@ def _init_bot(bot_type, game, player_id):
     """Initializes a bot by type."""
     rng = np.random.RandomState(FLAGS.seed)
     if bot_type == "mcts":
-        evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng)
+        evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng, max_length=FLAGS.max_rollout_length)
         return mcts.MCTSBot(
             game,
             FLAGS.uct_c,

@@ -15,7 +15,7 @@ class GameInterfaceMcmasModel(GameInterface):
             self.model_text = file.read()
         self.model = parser.parse(self.model_text)
         self.formula: StrategicFormula = self.model.formulae.formulas[0]
-        self.coalition = self.model.groups.find_group_members(self.formula.agent)
+        self.coalition = {self.model.get_player_index(p) for p in self.model.groups.find_group_members(self.formula.agent)}
         GameInterface.__init__(self, players={a.name: i for i, a in enumerate(self.model.agents)})
 
     def get_name(self):
