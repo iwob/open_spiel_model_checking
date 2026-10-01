@@ -1,11 +1,13 @@
 from pathlib import Path
 import re
+from textwrap import indent
 
 from mcmas_model_game import McmasModelGame, McmasModelState
 from game_mnk import GameInterface
 import pyspiel
-
 from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula
+
+INDENT_SIZE = 6
 
 
 class GameInterfaceMcmasModel(GameInterface):
@@ -37,7 +39,8 @@ class GameInterfaceMcmasModel(GameInterface):
             formula_text = formula.get_text() + ";"
         else:
             formula_text = str(formula)
-        init_text = " and ".join([f"Environment.{k} = {v}" for k, v in game_state.env_variables.items()])
+        init_text = " and\n".join([f"Environment.{k} = {v}" for k, v in sorted(game_state.env_variables.items()) ])
+        init_text = indent(init_text, " " * INDENT_SIZE)
         spec = re.sub(r"InitStates.*?end InitStates", f"InitStates\n{init_text};\nend InitStates", self.model_text, flags=re.DOTALL)
         spec = re.sub(r"Formulae.*?end Formulae", f"Formulae\n{formula_text}\nend Formulae", spec, flags=re.DOTALL)
         return spec
