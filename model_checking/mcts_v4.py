@@ -103,10 +103,10 @@ class QueueNode:
 _KNOWN_GAMES = ["mnk", "nim", "kuhn_poker", "atl_model", "mcmas_model"]
 _KNOWN_PLAYERS = [
     # A generic online Monte Carlo Tree Search agent, which discards search tree after each step (default OpenSpiel implementation).
-    "mcts",
+    "mcts-reset",
 
     # A generic online Monte Carlo Tree Search agent which reuses generated search tree.
-    "mcts-reuse",
+    "mcts",
 
     #Information Set Monte Carlo Tree Search (MCTS variant for imperfect information games)
     "ismcts",
@@ -179,7 +179,7 @@ my_policy_value_pattern = re.compile(r",\s+sims:\s+([+-]?[0-9]+),")  # should gu
 def _init_bot(bot_type, game, player_id):
     """Initializes a bot by type."""
     rng = np.random.RandomState(FLAGS.seed)
-    if bot_type == "mcts":
+    if bot_type == "mcts-reset":
         evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng, max_length=FLAGS.max_rollout_length)
         return mcts.MCTSBot(
             game,
@@ -189,7 +189,7 @@ def _init_bot(bot_type, game, player_id):
             random_state=rng,
             solve=FLAGS.solve,
             verbose=False)
-    if bot_type == "mcts-reuse":
+    if bot_type == "mcts":
         evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng, max_length=FLAGS.max_rollout_length)
         return MCTSTreeReuseBot(
             game,
@@ -759,6 +759,11 @@ def main(argv):
         ]
     else:
         bots = [_init_bot(FLAGS.player, game, i) for i in range(game.num_players())]
+
+    if FLAGS.action_selector1 == "all" and isinstance(bots[0], (MCTSTreeReuseBot, mcts.MCTSBot)):
+        bots[0].max_simulations = int(bots[0].max_simulations / 2)
+    if FLAGS.action_selector2 == "all" and isinstance(bots[1], (MCTSTreeReuseBot, mcts.MCTSBot)):
+        bots[1].max_simulations = int(bots[1].max_simulations / 2)
 
     initial_moves = "" if FLAGS.initial_moves is None else FLAGS.initial_moves
 

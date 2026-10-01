@@ -390,6 +390,8 @@ class StrategicFormula:
     operand: object
     def get_text(self) -> str:
         return f"<{self.agent}> {self.operator} ({self.operand.get_text()})"
+    def __str__(self):
+        return self.get_text()
 
 @dataclass
 class StateLabel:
