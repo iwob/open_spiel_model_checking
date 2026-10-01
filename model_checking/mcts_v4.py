@@ -27,6 +27,7 @@ from game_nim import GameNim
 from game_kuhn_poker import GameKuhnPoker
 from game_atl_model import GameInterfaceAtlModel
 from game_mcmas_model import GameInterfaceMcmasModel
+from mcts_tree_reuse_bot import MCTSTreeReuseBot
 import os
 from dataclasses import *
 from typing import Optional
@@ -101,8 +102,11 @@ class QueueNode:
 
 _KNOWN_GAMES = ["mnk", "nim", "kuhn_poker", "atl_model", "mcmas_model"]
 _KNOWN_PLAYERS = [
-    # A generic Monte Carlo Tree Search agent.
+    # A generic online Monte Carlo Tree Search agent, which discards search tree after each step (default OpenSpiel implementation).
     "mcts",
+
+    # A generic online Monte Carlo Tree Search agent which reuses generated search tree.
+    "mcts-reuse",
 
     #Information Set Monte Carlo Tree Search (MCTS variant for imperfect information games)
     "ismcts",
@@ -178,6 +182,16 @@ def _init_bot(bot_type, game, player_id):
     if bot_type == "mcts":
         evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng, max_length=FLAGS.max_rollout_length)
         return mcts.MCTSBot(
+            game,
+            FLAGS.uct_c,
+            FLAGS.max_simulations,
+            evaluator,
+            random_state=rng,
+            solve=FLAGS.solve,
+            verbose=False)
+    if bot_type == "mcts-reuse":
+        evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng, max_length=FLAGS.max_rollout_length)
+        return MCTSTreeReuseBot(
             game,
             FLAGS.uct_c,
             FLAGS.max_simulations,
@@ -329,8 +343,16 @@ def _debug_player_name(node: QueueNode):
 
 
 def update_bots(bots, node: QueueNode, action_id: int):
-    new_bots = bots  # potentially deep copy here?
+    new_bots = []
+    for b in bots:
+        if isinstance(b, MCTSTreeReuseBot):
+            new_bots.append(b.copy())
+        else:
+            new_bots.append(b)
     _inform_bots(new_bots, node.state, action_id)
+    for b in new_bots:
+        if isinstance(b, MCTSTreeReuseBot):
+            b.update_current_root(action_id)
     return new_bots
 
 
@@ -375,12 +397,12 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             # Chance node acts as part of anti-coalition
             for action in node.state.legal_actions():
                 action_id = node.state.legal_actions(node.current_player())[0]
-                action_str = node.state.action_to_string(node.current_player(), action)
+                action_name = node.state.action_to_string(node.current_player(), action)
                 new_bots = update_bots(bots, node, action_id)
                 new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=None)
                 logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {action}")
                 dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
-                                        new_node, game_tree[action_str],
+                                        new_node, game_tree[action_name],
                                         run_results_dir=run_results_dir,
                                         results_dict=results_dict,
                                         max_game_depth=max_game_depth,
@@ -431,7 +453,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 
 
         bot = bots[current_player]
-        action = bot.step(node.state)  # for MCTS step() runs a given number of MCTS simulations (by default here: 60000)
+        policy, action = bot.step_with_policy(node.state)  # for MCTS step() runs a given number of MCTS simulations (by default here: 60000)
 
         # Example content of my_policy:
         # x(1,1): player: 0, prior: 0.043, value:  0.405, sims: 45770, outcome: none,  22 children
@@ -485,19 +507,22 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                 actions_to_explore = action_selector(actions_list, current_player, coalition)
             # Assumption: actions_to_explore are returned sorted by the action_selector
 
-        for outcome, val, a, a_id in actions_to_explore:
+        for outcome, val, action_name, a_id in actions_to_explore:
             if use_mcts_outcome_information and outcome == -1.0:
-                logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {a}, which cannot benefit the current player")
+                logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {action_name}, which cannot benefit the current player")
                 continue
                 # This whole if block can be commented out to generate a valid game tree.
-            action_id = _get_action_id(node.state, a) if a_id is None else a_id
-            # TODO: clone() method not implemented in the line below
-            # new_bots = [b.clone() for b in bots]  # Probably not needed for the perfect information, but may be needed for the imperfect case
+            action_id = _get_action_id(node.state, action_name) if a_id is None else a_id
+
+            # print(f"cur_player: {current_player}")
+            # print(f"old: {hex(id(bots[current_player]))}  (str: {str(bots[current_player].current_root)})")
             new_bots = update_bots(bots, node, action_id)
+            # print(f"new: {hex(id(new_bots[current_player]))}  (str: {str(new_bots[current_player].current_root)})")
+
             new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=val)
-            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {(val, a)}")
+            logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {(val, action_name)}")
             dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
-                                    new_node, game_tree[a],
+                                    new_node, game_tree[action_name],
                                     run_results_dir=run_results_dir,
                                     results_dict=results_dict,
                                     max_game_depth=max_game_depth,
@@ -815,6 +840,7 @@ def main(argv):
             results_dict["num_submodels"] = 0  # to be filled by collect_game_tree_stats
             collect_game_tree_stats(game_tree, results_dict)
             create_single_run_report(results_dict)
+            print("FORMULA:", results_dict["formula"])
             print("FINAL ANSWER:", result, f" (time: {end - start})")
         collected_results.append(results_dict)
         final_log += f"mcts ({run_results_dir}): {end - start}\n"
