@@ -30,6 +30,27 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
         player_position_update += f"x_p{i} = x_p{i} - 1 if turn = turn_p{i} and Player{i}.Action = left;\n"
         player_position_update += f"x_p{i} = x_p{i} + 1 if turn = turn_p{i} and Player{i}.Action = right;\n"
 
+    def create_entry(bx, by, x, y, action):
+        text = ""
+        for p in range(num_players):
+            text += f"b_{by}_{bx} = block if y_p{p} = {y} and x_p{p} = {x} and turn = turn_p{p} and Player{p}.Action = {action};\n"
+            text += f"b_{y}_{x} = empty if y_p{p} = {y} and x_p{p} = {x} and turn = turn_p{p} and Player{p}.Action = {action};\n"
+        return text
+    board_update = ""
+    if not can_players_overlap:
+        for i in range(size_y):
+            for j in range(size_x):
+                if board[i][j] == FIELD_WALL:
+                    continue  # because agent cannot ever be in a field with a wall
+                if i > 0:
+                    board_update += create_entry(j, i, j, i - 1, action="down")
+                if i < size_y - 1:
+                    board_update += create_entry(j, i, j, i + 1, action="up")
+                if j > 0:
+                    board_update += create_entry(j, i, j - 1, i, action="right")
+                if j < size_x - 1:
+                    board_update += create_entry(j, i, j + 1, i, action="left")
+
     rewards_deactivation = ""
     for i in range(num_rewards):
         rewards_deactivation += f"reward_{i} = taken if reward_{i} = avail and ("
@@ -44,6 +65,8 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
 
     return f"""-- turn switching
 {turn_switcher}
+-- board update (if agents cannot overlap)
+{board_update}
 -- positions are updated according to the move
 {player_position_update}
 -- board and points are updated according to the moves of the players:
@@ -52,7 +75,7 @@ def get_env_evolution(board: list, num_players: int, num_rewards: int, can_playe
 """
 
 
-def get_agent_spec(num: int, board: list, num_players: int, can_players_overlap: bool = False):
+def get_agent_spec(num: int, board: list, can_players_overlap: bool = False):
     size_x = len(board[0])
     size_y = len(board)
 
@@ -62,12 +85,7 @@ def get_agent_spec(num: int, board: list, num_players: int, can_players_overlap:
         elif can_players_overlap:
             return f"Environment.turn=turn_p{num} and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
         else:
-            player_collisions = []
-            for i in range(num_players):
-                if i != num:
-                    player_collisions.append(f"(! (Environment.y_p{i}={by} and Environment.x_p{i}={bx}))")
-            player_collisions_text = " and ".join(player_collisions)
-            return f"Environment.turn=turn_p{num} and {player_collisions_text} and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
+            return f"Environment.turn=turn_p{num} and Environment.b_{by}_{bx} = empty and Environment.y_p{num}={y} and Environment.x_p{num}={x}: {{ {action} }};\n"
     agent_moves = ""
     for i in range(size_y):
         for j in range(size_x):
@@ -122,13 +140,19 @@ def get_init_state(board: list, num_players: int, player_to_move: int):
     reward_id = 0
     for i, row in enumerate(board):
         for j, cell in enumerate(row):
-            if cell == FIELD_REWARD:
-                init_text += f" Environment.xreward_{reward_id} = {j} and Environment.yreward_{reward_id} = {i} and Environment.reward_{reward_id} = avail and"
-                reward_id += 1
-            elif cell >= 10:
-                init_text += f" Environment.x_p{cell - 10} = {j} and Environment.y_p{cell - 10} = {i} and"
-    init_text += "\n"
-    init_text += " and ".join([f"Environment.points_p{i} = 0" for i in range(num_players)]) + "\n"
+            if j > 0:
+                init_text += " and "
+            if cell < 10:
+                init_text += f"Environment.b_{i}_{j} = empty"
+                if cell == 2:  # reward fields
+                    init_text += f" and Environment.xreward_{reward_id} = {j} and Environment.yreward_{reward_id} = {i} and Environment.reward_{reward_id} = avail"
+                    reward_id += 1
+            else:
+                init_text += f"Environment.b_{i}_{j} = block and Environment.x_p{cell - 10} = {j} and Environment.y_p{cell - 10} = {i}"
+        if i < len(board) - 1:
+            init_text += " and "
+        init_text += "\n"
+    init_text += " and " + " and ".join([f"Environment.points_p{i} = 0" for i in range(num_players)]) + "\n"
     init_text += f" and Environment.turn = turn_p{player_to_move};"
     return comment + init_text
 
@@ -140,7 +164,7 @@ def get_evaluation(num_players: int, num_rewards: int, additional_evaluations: s
         text += f"player{i}wins if Environment.points_p{i} >= {int(thr)};\n"
     return text + additional_evaluations
 
-def make_tourality_specification(board: list, history, player_to_move: int, formulae: str,
+def make_tourality_specification(board: list, history, player_to_move: int, formula: str,
                                  can_players_overlap: bool=False, additional_evaluations: str = "") -> str:
     size_x = len(board[0])
     size_y = len(board)
@@ -153,7 +177,8 @@ def make_tourality_specification(board: list, history, player_to_move: int, form
     env_vars += " ".join([f"x_p{i} : 0..{size_x-1};" for i in range(num_players)]) + "\n"
     env_vars += " ".join([f"y_p{i} : 0..{size_y-1};" for i in range(num_players)]) + "\n"
     env_vars += " ".join([f"points_p{i} : 0..{num_rewards};" for i in range(num_players)]) + "\n"
-
+    for i in range(size_y):
+        env_vars += " ".join([f"b_{i}_{j} : {{empty, block}};" for j in range(size_x)]) + "\n"
     for i in range(num_rewards):
         env_vars += f"reward_{i} : {{ avail, taken }}; "
         env_vars += f"xreward_{i} : 0..{size_x-1}; "
@@ -169,7 +194,7 @@ def make_tourality_specification(board: list, history, player_to_move: int, form
 
     agents = ""
     for i in range(num_players):
-        agents += get_agent_spec(i, board, num_players, can_players_overlap=can_players_overlap)
+        agents += get_agent_spec(i, board, can_players_overlap=can_players_overlap)
         if i < num_players - 1:
             agents += "\n"
 
@@ -202,7 +227,7 @@ Groups
 end Groups
 
 Formulae
-{indent(formulae, " " * INDENT_SIZE)}
+{indent(formula, " " * INDENT_SIZE)}
 end Formulae
 """
 
