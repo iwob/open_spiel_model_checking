@@ -5,7 +5,7 @@ from textwrap import indent
 from mcmas_model_game import McmasModelGame, McmasModelState
 from game_mnk import GameInterface
 import pyspiel
-from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula
+from mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula
 
 INDENT_SIZE = 6
 

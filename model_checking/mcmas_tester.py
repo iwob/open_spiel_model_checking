@@ -5,7 +5,7 @@ import pyspiel
 
 from model_checking.game_mcmas_model import GameInterfaceMcmasModel
 from open_spiel.python.observation import make_observation
-from model_checking.mcmas.parsers.ispl_parser import ISPLParser
+from mcmas.parsers.ispl_parser import ISPLParser
 from mcmas_model_game import McmasModelGame
 
 

@@ -12,8 +12,6 @@ import psutil
 from multiprocessing import Process, Queue
 
 from action_selectors import *
-from model_checking.mcmas.parsers.ispl_parser import StrategicFormula
-from model_checking.stv.parsers.parser_stv_v2 import ModalExprNode
 from solvers import *
 from open_spiel.python.algorithms import mcts
 from open_spiel.python.algorithms import ismcts
@@ -777,8 +775,7 @@ def main(argv):
 
     start_time = time.time()
     for i in range(FLAGS.num_games):
-        seed = int(start_time) + i
-        print("seed={}".format(seed))
+        seed = int(start_time) + i if FLAGS.seed is None else FLAGS.seed
 
         if game.num_players() == 2 and (FLAGS.player1 is not None or FLAGS.player2 is not None):
             bots = [
@@ -805,6 +802,7 @@ def main(argv):
             results_dict["m,n,k"] = str((FLAGS.m, FLAGS.n, FLAGS.k))
         if FLAGS.action_selector1 == "k-best" or FLAGS.action_selector2 == "k-best":
             results_dict["selector_k"] = FLAGS.selector_k
+        results_dict["seed"] = seed
         results_dict["max_game_depth"] = FLAGS.max_game_depth
         results_dict["max_simulations"] = FLAGS.max_simulations
         results_dict["rollout_count"] = FLAGS.rollout_count

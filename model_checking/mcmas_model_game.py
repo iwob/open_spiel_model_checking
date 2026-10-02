@@ -3,7 +3,7 @@ import numpy as np
 
 from open_spiel.python.observation import IIGObserverForPublicInfoGame
 import pyspiel
-from model_checking.mcmas.parsers.ispl_parser import *
+from mcmas.parsers.ispl_parser import *
 
 _DEFAULT_PARAMS = {
     "spec": None,
