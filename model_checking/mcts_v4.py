@@ -159,6 +159,7 @@ flags.DEFINE_integer("uct_c", 1, help="UCT's exploration constant.")
 flags.DEFINE_integer("rollout_count", 5, help="How many rollouts to do in MCTS.")
 flags.DEFINE_integer("max_rollout_length", 100, help="Maximum number of moves explored during the rollout phase of MCTS.")
 flags.DEFINE_integer("max_simulations", 500, help="How many simulations to run in MCTS.")
+flags.DEFINE_integer("initial_simulations", 0, help="How many simulations to run at the start of the MCTS variant with tree reuse.")
 flags.DEFINE_float("selector_epsilon", 0.95, required=False, help="Seed for the random number generator.")
 flags.DEFINE_integer("selector_k", 3, required=False, help="How many best actions will be selected by selector.")
 flags.DEFINE_integer("num_games", 1, help="How many games to play.")
@@ -176,9 +177,9 @@ my_policy_value_pattern = re.compile(r",\s+sims:\s+([+-]?[0-9]+),")  # should gu
 # my_policy_value_pattern = re.compile(r",\s+value:\s+([+-]?[0-9]+\.[0-9]+),")
 
 
-def _init_bot(bot_type, game, player_id):
+def _init_bot(bot_type, game, player_id, seed):
     """Initializes a bot by type."""
-    rng = np.random.RandomState(FLAGS.seed)
+    rng = np.random.RandomState(seed)
     if bot_type == "mcts-reset":
         evaluator = mcts.RandomRolloutEvaluator(FLAGS.rollout_count, rng, max_length=FLAGS.max_rollout_length)
         return mcts.MCTSBot(
@@ -555,7 +556,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver, bots: list,
                   action_selector: ActionSelector, formula: str, coalition: set, run_results_dir,
                   results_dict, initial_moves: str="", max_game_depth=5, use_reward_in_terminal_states=False,
-                  unroll_chance_nodes=True, use_mcts_outcome_information=True):
+                  unroll_chance_nodes=True, use_mcts_outcome_information=True, initial_simulations=0):
     global SPEC_FILE_COUNTER
     SPEC_FILE_COUNTER = 0
     results_dict["time_solver"] = 0.0
@@ -564,6 +565,15 @@ def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver,
     state = game.new_initial_state()
     _restart_bots(bots)
     _execute_initial_moves(state, bots, initial_moves)
+
+    if initial_simulations > 0:
+        for b in bots:
+            # Initial tree pre-training
+            if isinstance(b, MCTSTreeReuseBot):
+                ms = b.max_simulations
+                b.max_simulations = initial_simulations
+                b.step(state)
+                b.max_simulations = ms
 
     # Initial nodes are not part of the game tree and are not taken into account when doing minmax.
     # The reason for that is that the initial moves form a single path without any branching, and the
@@ -752,33 +762,37 @@ def main(argv):
     collected_subproblem_dirs = []
     game = game_utils.load_game_as_turn_game()
 
-    if game.num_players() == 2 and (FLAGS.player1 is not None or FLAGS.player2 is not None):
-        bots = [
-            _init_bot(FLAGS.player1, game, 0),
-            _init_bot(FLAGS.player2, game, 1),
-        ]
-    else:
-        bots = [_init_bot(FLAGS.player, game, i) for i in range(game.num_players())]
-
-    if FLAGS.action_selector1 == "all" and isinstance(bots[0], (MCTSTreeReuseBot, mcts.MCTSBot)):
-        bots[0].max_simulations = int(bots[0].max_simulations / 2)
-    if FLAGS.action_selector2 == "all" and isinstance(bots[1], (MCTSTreeReuseBot, mcts.MCTSBot)):
-        bots[1].max_simulations = int(bots[1].max_simulations / 2)
-
     initial_moves = "" if FLAGS.initial_moves is None else FLAGS.initial_moves
 
-    def run_subprocess(queue, results_dict):
+    def run_subprocess(queue, results_dict, bots):
         result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
                       run_results_dir, results_dict, initial_moves,
                       max_game_depth=FLAGS.max_game_depth,
                       use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
-                      use_mcts_outcome_information=FLAGS.use_mcts_outcome_information)
+                      use_mcts_outcome_information=FLAGS.use_mcts_outcome_information,
+                      initial_simulations=FLAGS.initial_simulations,)
         queue.put(results_dict)
         queue.put(game_tree)
         queue.put(result)
 
-
+    start_time = time.time()
     for i in range(FLAGS.num_games):
+        seed = int(start_time) + i
+        print("seed={}".format(seed))
+
+        if game.num_players() == 2 and (FLAGS.player1 is not None or FLAGS.player2 is not None):
+            bots = [
+                _init_bot(FLAGS.player1, game, 0, seed=seed),
+                _init_bot(FLAGS.player2, game, 1, seed=seed),
+            ]
+        else:
+            bots = [_init_bot(FLAGS.player, game, i, seed=seed) for i in range(game.num_players())]
+
+        # if FLAGS.action_selector1 == "all" and isinstance(bots[0], (MCTSTreeReuseBot, mcts.MCTSBot)):
+        #     bots[0].max_simulations = int(bots[0].max_simulations / 2)
+        # if FLAGS.action_selector2 == "all" and isinstance(bots[1], (MCTSTreeReuseBot, mcts.MCTSBot)):
+        #     bots[1].max_simulations = int(bots[1].max_simulations / 2)
+
         run_results_dir = results_root / f"mcts_{i}"
         collected_subproblem_dirs.append(run_results_dir)
         run_results_dir.mkdir(parents=True, exist_ok=False)
@@ -815,7 +829,7 @@ def main(argv):
 
         # New multiprocessing function call with timeout check
         queue = Queue()
-        p = Process(target=run_subprocess, args=[queue, results_dict], daemon=True)
+        p = Process(target=run_subprocess, args=[queue, results_dict, bots], daemon=True)
         p.start()
         p.join(timeout=timeout)
         end = time.time()
