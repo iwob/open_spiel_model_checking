@@ -806,6 +806,7 @@ def main(argv):
         results_dict["max_game_depth"] = FLAGS.max_game_depth
         results_dict["max_simulations"] = FLAGS.max_simulations
         results_dict["rollout_count"] = FLAGS.rollout_count
+        results_dict["initial_simulations"] = FLAGS.initial_simulations
         results_dict["use_mcts_outcome_information"] = FLAGS.use_mcts_outcome_information
         results_dict["use_reward_in_terminal_states"] = FLAGS.use_reward_in_terminal_states
         results_dict["game"] = FLAGS.game

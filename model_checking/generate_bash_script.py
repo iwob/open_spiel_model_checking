@@ -5,10 +5,10 @@ benchmarks = [
     ("mnk5,5,3", "--game mnk -n 5 -m 5 -k 3"),
     ("mnk5,5,4", "--game mnk -n 5 -m 5 -k 4"),
     ("mnk6,6,3", "--game mnk -n 6 -m 6 -k 3"),
-    ("nim2;3;4", "--game nim --piles '2;3;4'"),  # winning position
-    ("nim2;3;5", "--game nim --piles '2;3;5'"),  # losing position
-    ("nim2;19;16", "--game nim --piles '2;19;16'"),  # winning position
-    ("nim2;19;17", "--game nim --piles '2;19;17'"),  # losing position
+    ("nim2;3;4", "--game nim --piles \"2;3;4\""),  # winning position
+    ("nim2;3;5", "--game nim --piles \"2;3;5\""),  # losing position
+    ("nim2;19;16", "--game nim --piles \"2;19;16\""),  # winning position
+    ("nim2;19;17", "--game nim --piles \"2;19;17\""),  # losing position
 ]
 # benchmarks["tourality"] = [
 #     "--game mcmas_model schlingloff_1.ispl",
@@ -34,6 +34,7 @@ def generate_config_run(config_name, benchmark, action_selector, max_simulations
 --output_file "{output_dir}/summary/{config_name}.txt"
 --rollout_count {rollout_count}
 --max_simulations {max_simulations}
+--initial_simulations {initial_simulations}
 --use_mcts_outcome_information 1
 --use_reward_in_terminal_states
 --num_games 10
