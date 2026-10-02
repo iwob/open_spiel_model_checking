@@ -189,13 +189,14 @@ if __name__ == "__main__":
     from absl import app
     from absl import flags
 
-    _KNOWN_MODES = ["generator", "move_tester"]
+    _KNOWN_MODES = ["generator", "move_tester", "folder_generator"]
     flags.DEFINE_enum("mode", "generator", _KNOWN_MODES, help="Mode of the application. 'Generator': generates a Nim specification. 'Move_tester': executes all possible moves to find their value.")
-    flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.", required=True)
-    flags.DEFINE_integer("player_to_move", 0, required=False, help="Player which has the move.")
+    flags.DEFINE_string("piles", None, help="(Game: nim) Piles in the format as in the example: '1;3;5;7'.")
+    flags.DEFINE_integer("player_to_move", 0, help="Player which has the move.")
     flags.DEFINE_string("formula", None, help="Formula to be verified. Player names and variables in the formula are problem-specific.")
-    flags.DEFINE_string("initial_moves", "", required=False, help="Initial actions to be specified in the game-specific format.")
-    flags.DEFINE_string("output_file", None, required=False, help="Path to the directory in which the results of this run will be stored.")
+    flags.DEFINE_string("initial_moves", "", help="Initial actions to be specified in the game-specific format.")
+    flags.DEFINE_string("output_file", None, help="Path to the directory in which the results of this run will be stored.")
+    flags.mark_flag_as_required('piles')
     FLAGS = flags.FLAGS
 
     def main(argv):
@@ -224,5 +225,23 @@ if __name__ == "__main__":
                     mark = "" if nim_sum > 0 else " (*)"
                     print(f"pile {i+1}, take {x}\t\t(new state: {';'.join([str(y) for y in new_state])})\t\t{nim_sum}{mark}")
 
+        elif FLAGS.mode == "folder_generator":
+            formula, _ = GameNim.get_default_formula_and_coalition()
+            with open("example_specifications/nim/nim_1;4;5.ispl", "w") as f:
+                f.write(make_nim_specification([1, 4, 5], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_2;4;5.ispl", "w") as f:
+                f.write(make_nim_specification([2, 4, 5], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_2;3;4.ispl", "w") as f:
+                f.write(make_nim_specification([2, 3, 4], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_2;3;5.ispl", "w") as f:
+                f.write(make_nim_specification([2, 3, 5], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_2;19;17.ispl", "w") as f:
+                f.write(make_nim_specification([2, 19, 17], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_5;7;9.ispl", "w") as f:
+                f.write(make_nim_specification([5, 7, 9], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_5;19;17.ispl", "w") as f:
+                f.write(make_nim_specification([5, 19, 17], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_15;19;17.ispl", "w") as f:
+                f.write(make_nim_specification([15, 19, 17], history="", player_to_move=0, formulae=formula))
 
     app.run(main)
