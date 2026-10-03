@@ -106,7 +106,7 @@ def generate_E2():
     --initial_simulations {inital_sim}
     --use_mcts_outcome_information 1
     --use_reward_in_terminal_states
-    --num_games 2
+    --num_games 10
     --timeout 3600""".replace("\n", " ")
 
     text = f"""#!/bin/bash
@@ -121,7 +121,7 @@ def generate_E2():
 
     for b in benchmarks:
         for a_s in action_selectors:
-            for inital_sim in [("in1000", 1000), ("in0", 0)]:
+            for inital_sim in [("in2000", 2000), ("in0", 0)]:
                 for max_sim in [("s200", 200)]:
                     for roll_count in [("r5", 5)]:
                         config_name = f"{prefix}_{b[0]}_{a_s[0]}_{inital_sim[0]}{max_sim[0]}{roll_count[0]}"

@@ -128,6 +128,8 @@ def create_report(data, report_dir_path, report_name):
     s1_exp1 = evoplotter.reporting.SectionRelative("Experiment 1")
     ss1 = evoplotter.reporting.SectionRelative(r"action\_selector1=1-best (proponent chooses only 1 action)")
     ss1.add(data["table_basic_time"])
+    ss1.add(data["table_true_01"])
+    ss1.add(data["table_false_01"])
     # ss1.add(data["table_depthPercent_1"])
     # ss1.add(data["table_decision1_1"])
     # ss1.add(data["table_depthPercent_cases0_1"])
@@ -218,11 +220,20 @@ def process_final(summary_folders, report_dir_path, report_name):
 
     df = pd.DataFrame.from_records(dicts)
     df.sort_values(by=["benchmark", "action_selector1", "initial_simulations"], inplace=True)
-    df_exp_true = df[df["expected_results"] == True]
-    df_exp_false = df[df["expected_results"] == False]
+    df_true = df[df["expected_results"] == True]
+    df_false = df[df["expected_results"] == False]
+    df_false = df[df["expected_results"] == False]
     print(df.dtypes)
     data["table_full"] = get_latex_table_default(df)
-    data["table_basic_time"] = get_latex_table_pivot1(df, index=["benchmark", "expected_results"], values=["avg.time_total", "sum.result_0", "sum.result_1"], columns=["action_selector1", "initial_simulations"])
+    data["table_basic_time"] = get_latex_table_pivot1(df, index=["benchmark", "expected_results"],
+                                                      values=["avg.time_total", "sum.result_0", "sum.result_1"],
+                                                      columns=["action_selector1", "initial_simulations"])
+    data["table_true_01"] = get_latex_table_pivot1(df_true, index=["benchmark", "expected_results"],
+                                                      values=["avg.time_total", "sum.result_0", "sum.result_1"],
+                                                      columns=["action_selector1", "initial_simulations"])
+    data["table_false_01"] = get_latex_table_pivot1(df_false, index=["benchmark", "expected_results"],
+                                                   values=["avg.time_total", "sum.result_0", "sum.result_1"],
+                                                   columns=["action_selector1", "initial_simulations"])
     # data["table_basic_decision"] = get_latex_table_pivot1(df, values=["avg.time_total"], columns=["action_selector1", "initial_simulations"])
     # data["table_time_by_selectors_knon3"] = get_latex_table_pivot1(df_exp_false, values=["avg.time_total"], columns=["action_selector1"])
     # data["table_decision1_by_selectors_k3"] = get_latex_table_pivot1_other(df_exp_true, values=["avg.time_total", "sum.result_1"], columns=["action_selector1"])
