@@ -74,8 +74,8 @@ def generate_E2():
         ("mnk5,5,3", "--game mnk -n 5 -m 5 -k 3"),
         ("mnk5,5,4", "--game mnk -n 5 -m 5 -k 4"),
         ("mnk6,6,3", "--game mnk -n 6 -m 6 -k 3"),
-        ("nim1;4;5", "--game nim --piles \"1;4;5\""),  # winning position
-        ("nim2;4;5", "--game nim --piles \"2;4;5\""),  # losing position
+        ("nim1;4;5", "--game nim --piles \"1;4;5\""),  # losing position
+        ("nim2;4;5", "--game nim --piles \"2;4;5\""),  # winning position
         ("nim2;19;16", "--game nim --piles \"2;19;16\""),  # winning position
         ("nim2;19;17", "--game nim --piles \"2;19;17\""),  # losing position
     ]
