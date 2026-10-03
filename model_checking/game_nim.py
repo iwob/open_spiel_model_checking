@@ -235,6 +235,8 @@ if __name__ == "__main__":
                 f.write(make_nim_specification([2, 3, 4], history="", player_to_move=0, formulae=formula))
             with open("example_specifications/nim/nim_2;3;5.ispl", "w") as f:
                 f.write(make_nim_specification([2, 3, 5], history="", player_to_move=0, formulae=formula))
+            with open("example_specifications/nim/nim_2;19;16.ispl", "w") as f:
+                f.write(make_nim_specification([2, 19, 16], history="", player_to_move=0, formulae=formula))
             with open("example_specifications/nim/nim_2;19;17.ispl", "w") as f:
                 f.write(make_nim_specification([2, 19, 17], history="", player_to_move=0, formulae=formula))
             with open("example_specifications/nim/nim_5;7;9.ispl", "w") as f:
