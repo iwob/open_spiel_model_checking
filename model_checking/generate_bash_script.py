@@ -181,7 +181,7 @@ def generate_E3():
         return f"""tsp python3 mcts_v4.py
     --quiet 1
     {benchmark}
-    --max_game_depth {max_depth * max_depths[benchmark_name]}
+    --max_game_depth {int(max_depth * max_depths[benchmark_name])}
     {action_selector}
     --submodels_dir "{output_dir}/{config_name}"
     --output_file "{output_dir}/summary/{config_name}.txt"

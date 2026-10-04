@@ -303,11 +303,98 @@ def process_final(summary_folders, report_dir_path, report_name):
 
 
 
+def process_final_E3(summary_folders, report_dir_path, report_name):
+    data = {}
+    dicts = []
+    for sf in summary_folders:
+        for p in load_properties_from_dir(sf):
+            dicts.append(process_dict(p))
+
+
+    df = pd.DataFrame.from_records(dicts)
+    # df = df[df["max_simulations"] == 5000]
+    df.sort_values(by=["benchmark", "action_selector1", "initial_simulations"], inplace=True)
+    df_true = df[df["expected_results"] == True]
+    df_false = df[df["expected_results"] == False]
+    df_false = df[df["expected_results"] == False]
+    print(df.dtypes)
+    data["table_full"] = get_latex_table_default(df)
+    data["table_basic_time"] = get_latex_table_pivot1(df, index=["benchmark", "expected_results"],
+                                                      values=["avg.time_total", "sum.result_0", "sum.result_1"],
+                                                      columns=["action_selector1", "initial_simulations"])
+
+    data["table_true_01_timeouts"] = get_latex_table_pivot1(df_true, index=["benchmark"],
+                                                      values=["sum.timeouts"],
+                                                      columns=["action_selector1", "initial_simulations", "max_simulations"])
+    data["table_true_01_time"] = get_latex_table_pivot1(df_true, index=["benchmark"],
+                                                        values=["avg.time_total", "stddev.time_total"],
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations"])
+    drop_list = [("sum.result_0", "1-best"), ("sum.result_1", "all")]
+    data["table_true_01_decision"] = get_latex_table_pivot1(df_true, index=["benchmark"],
+                                                        values=["sum.result_0", "sum.result_1"],
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations"],
+                                                        drop_list=drop_list)
+
+    # df_false_2 = df.copy()
+    # df_false_2.drop(["expected_results"], axis=1, inplace=True)
+    data["table_false_01_timeouts"] = get_latex_table_pivot1(df_false, index=["benchmark"],
+                                                         values=["sum.timeouts"],
+                                                         columns=["action_selector1", "initial_simulations"])
+    data["table_false_01_time"] = get_latex_table_pivot1(df_false, index=["benchmark"],
+                                                        values=["avg.time_total", "stddev.time_total"],
+                                                        columns=["action_selector1", "initial_simulations"])
+    drop_list = [("sum.result_0", "1-best"), ("sum.result_1", "all")]
+    data["table_false_01_decision"] = get_latex_table_pivot1(df_false, index=["benchmark"],
+                                                        values=["sum.result_0", "sum.result_1"],
+                                                        columns=["action_selector1", "initial_simulations"],
+                                                        drop_list=drop_list)
+
+    results_dir = report_dir_path
+    if results_dir.exists():
+        shutil.rmtree(results_dir)
+    os.makedirs(results_dir, exist_ok=True)
+
+    report = evoplotter.reporting.ReportPDF(packages=["multirow"],
+                                            geometry_params="[paperwidth=55cm, paperheight=100cm, margin=0.3cm]")
+
+    s0 = evoplotter.reporting.SectionRelative("Full data")
+    s0.add(data["table_full"])
+
+    s1_exp1 = evoplotter.reporting.SectionRelative("Experiment 1")
+    ss1 = evoplotter.reporting.SectionRelative(r"General results")
+    ss1.add("""Naming convention:\\\\
+        action\_selector1=1-best (proponent explores only 1 action)\\\\
+        action\_selector1=all (proponent explores all actions)\\\\
+        """)
+    ss1.add(data["table_basic_time"])
+
+    ss1_1 = evoplotter.reporting.SectionRelative(r"True benchmarks (satisfying the property)")
+    ss1_1.add(data["table_true_01_timeouts"])
+    ss1_1.add(data["table_true_01_time"])
+    ss1_1.add(data["table_true_01_decision"])
+
+    ss1_2 = evoplotter.reporting.SectionRelative(r"False benchmarks (not satisfying the property)")
+    ss1_2.add(data["table_false_01_timeouts"])
+    ss1_2.add(data["table_false_01_time"])
+    ss1_2.add(data["table_false_01_decision"])
+
+    s1_exp1.add(ss1)
+    s1_exp1.add(ss1_1)
+    s1_exp1.add(ss1_2)
+    report.add(s0)
+    report.add(s1_exp1)
+    f = results_dir / f"{report_name}.tex"
+    report.save_and_compile(f, output_dir=f.parent)
+
+
 # summary_folders = ["EXPERIMENTS_AAMAS27/E1[pure-mcts]/summary"]
 # process_final(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E1"), report_name="final_report_E1")
 
 
-summary_folders = ["EXPERIMENTS_AAMAS27/E2[pure-mcts-steps]/summary", "EXPERIMENTS_AAMAS27/E2[pure-mcts-steps]_s200/summary"]
-process_final(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E2"), report_name="final_report_E2_s5000")
+# summary_folders = ["EXPERIMENTS_AAMAS27/E2[pure-mcts-steps]/summary", "EXPERIMENTS_AAMAS27/E2[pure-mcts-steps]_s200/summary"]
+# process_final(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E2"), report_name="final_report_E2_s5000")
 
 
+
+summary_folders = ["EXPERIMENTS_AAMAS27/E3[mcsa]/summary"]
+process_final(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E3"), report_name="final_report_E3")
