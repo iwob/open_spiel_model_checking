@@ -280,6 +280,9 @@ class MCTSTreeReuseBot(pyspiel.Bot):
     new_bot.my_policy = self.my_policy
     return new_bot
 
+  def reset_search_tree(self):
+    self.current_root = None
+
   def restart_at(self, state):
     pass
 

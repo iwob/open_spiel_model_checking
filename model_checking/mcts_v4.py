@@ -325,17 +325,25 @@ def _debug_player_name(node: QueueNode):
         return str(node.state.current_player())
 
 
-def update_bots(bots, node: QueueNode, action_id: int):
+def update_bots(bots, node: QueueNode, action_id: int, is_last_explored_action: bool=False):
     new_bots = []
-    for b in bots:
+    for i, b in enumerate(bots):
         if isinstance(b, MCTSTreeReuseBot):
             new_bots.append(b.copy())
+            if is_last_explored_action:  # and node.current_player() == i
+                # If agent makes only a single action, we won't need other branches for both players.
+                b.reset_search_tree()
         else:
             new_bots.append(b)
     _inform_bots(new_bots, node.state, action_id)
-    for b in new_bots:
+    for b_old, b in zip(bots, new_bots):
         if isinstance(b, MCTSTreeReuseBot):
             b.update_current_root(action_id)
+            # Remove the action_id edge from the old parent's root - that branch won't be needed anymore
+            if b_old.current_root is not None:
+                for i, child in enumerate(b_old.current_root.children):
+                    if child.action == action_id:
+                        del b_old.current_root.children[i]
     return new_bots
 
 
@@ -420,7 +428,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             action_id = node.state.legal_actions(current_player)[0]  # it is cached, so it is fast
             action_name = node.state.action_to_string(action_id)
             logger.debug(f"{debug_indent}Executing the only action '{action_name}' available to the agent")
-            new_bots = update_bots(bots, node, action_id)
+            new_bots = update_bots(bots, node, action_id, is_last_explored_action=True)
             new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=None, construct_game_tree=construct_game_tree)
             new_game_tree = game_tree[action_name] if construct_game_tree else None
             dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
@@ -503,7 +511,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                 actions_to_explore = action_selector(actions_list, current_player, coalition)
             # Assumption: actions_to_explore are returned sorted by the action_selector
 
-        for outcome, val, action_name, a_id in actions_to_explore:
+        for i, (outcome, val, action_name, a_id) in enumerate(actions_to_explore):
             if use_mcts_outcome_information and outcome == -1.0:
                 logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {action_name}, which cannot benefit the current player")
                 continue
@@ -512,7 +520,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 
             # print(f"cur_player: {current_player}")
             # print(f"old: {hex(id(bots[current_player]))}  (str: {str(bots[current_player].current_root)})")
-            new_bots = update_bots(bots, node, action_id)
+            new_bots = update_bots(bots, node, action_id, is_last_explored_action=(i == len(actions_to_explore) - 1))
             # print(f"new: {hex(id(new_bots[current_player]))}  (str: {str(new_bots[current_player].current_root)})")
 
             new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=val, construct_game_tree=construct_game_tree)
