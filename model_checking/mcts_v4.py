@@ -836,6 +836,7 @@ def main(argv):
             p.terminate()
             results_dict["was_timeout"] = 1
             results_dict["decision"] = "timeout"
+            results_dict["time_total"] = timeout
         else:
             results_dict = queue.get()
             game_tree = queue.get()
@@ -851,15 +852,19 @@ def main(argv):
             results_dict["was_timeout"] = 0
             results_dict["decision"] = result
             results_dict["time_total"] = end - start
+
+        if "time_solver" in results_dict:
             results_dict["time_rl"] = results_dict["time_total"] - results_dict["time_solver"]
+        else:
+            results_dict["time_rl"] = "unknown"
             # results_dict["num_submodels"] = 0  # to be filled by collect_game_tree_stats
-            # if FLAGS.construct_game_tree:
-            #     collect_game_tree_stats(game_tree, results_dict)
-            create_single_run_report(results_dict)
-            print("FORMULA:", results_dict["formula"])
-            print("FINAL ANSWER:", result, f" (time: {end - start})")
+        # if FLAGS.construct_game_tree:
+        #     collect_game_tree_stats(game_tree, results_dict)
+        create_single_run_report(results_dict)
+        print("FORMULA:", results_dict["formula"])
+        print("FINAL ANSWER:", results_dict["decision"], f" (time: {results_dict["time_total"]})")
         collected_results.append(results_dict)
-        final_log += f"mcts ({run_results_dir}): {end - start}\n"
+        final_log += f"mcts ({run_results_dir}): {results_dict["time_total"]}\n"
 
     print()
     print("-" * 25)
