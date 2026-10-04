@@ -122,7 +122,8 @@ def generate_E2():
     for b in benchmarks:
         for a_s in action_selectors:
             for inital_sim in [("in2000", 2000), ("in0", 0)]:
-                for max_sim in [("s200", 200)]:
+                # for max_sim in [("s200", 200)]:
+                for max_sim in [("s5000", 5000)]:
                     for roll_count in [("r5", 5)]:
                         config_name = f"{prefix}_{b[0]}_{a_s[0]}_{inital_sim[0]}{max_sim[0]}{roll_count[0]}"
                         text += "\n"
