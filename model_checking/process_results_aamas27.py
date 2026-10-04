@@ -128,8 +128,14 @@ def create_report(data, report_dir_path, report_name):
     s1_exp1 = evoplotter.reporting.SectionRelative("Experiment 1")
     ss1 = evoplotter.reporting.SectionRelative(r"action\_selector1=1-best (proponent chooses only 1 action)")
     ss1.add(data["table_basic_time"])
-    ss1.add(data["table_true_01"])
-    ss1.add(data["table_false_01"])
+
+    ss1_1 = evoplotter.reporting.SectionRelative(r"True benchmarks (satisfying the property)")
+    ss1_1.add(data["table_true_01_time"])
+    ss1_1.add(data["table_true_01_decision"])
+
+    ss1_2 = evoplotter.reporting.SectionRelative(r"False benchmarks (not satisfying the property)")
+    ss1_2.add(data["table_false_01_time"])
+    ss1_2.add(data["table_false_01_decision"])
     # ss1.add(data["table_depthPercent_1"])
     # ss1.add(data["table_decision1_1"])
     # ss1.add(data["table_depthPercent_cases0_1"])
@@ -157,6 +163,8 @@ def create_report(data, report_dir_path, report_name):
     # ss_errors = evoplotter.reporting.SectionRelative("Runs with STV errors (exit code != 0)")
     # ss_errors.add(text_errors)
     s1_exp1.add(ss1)
+    s1_exp1.add(ss1_1)
+    s1_exp1.add(ss1_2)
     # s1_exp1.add(ss2)
     # s1_exp1.add(ss3)
     report.add(s0)
@@ -171,10 +179,12 @@ def get_latex_table_default(df):
            .to_latex(convert_css=True, hrules=True)  #float_format=lambda x: "{:.2f}".format(x)
 
 
-def get_latex_table_pivot1(df, values, columns, index=None):
+def get_latex_table_pivot1(df, values, columns, index=None, drop_list=None):
     if index is None:
         index = ["benchmark"]
     df = df.pivot_table(values=values, index=index, columns=columns, observed=True)  # , dropna=False
+    if drop_list is not None:
+        df = df.drop(drop_list, axis=1)
     # cmap="Greys",
     text = df.style \
         .format(precision=2, thousands=" ", decimal=".", na_rep="--") \
@@ -228,12 +238,25 @@ def process_final(summary_folders, report_dir_path, report_name):
     data["table_basic_time"] = get_latex_table_pivot1(df, index=["benchmark", "expected_results"],
                                                       values=["avg.time_total", "sum.result_0", "sum.result_1"],
                                                       columns=["action_selector1", "initial_simulations"])
-    data["table_true_01"] = get_latex_table_pivot1(df_true, index=["benchmark", "expected_results"],
-                                                      values=["avg.time_total", "sum.result_0", "sum.result_1"],
+    data["table_true_01_time"] = get_latex_table_pivot1(df_true, index=["benchmark", "expected_results"],
+                                                      values=["avg.time_total", "stddev.time_total"],
                                                       columns=["action_selector1", "initial_simulations"])
-    data["table_false_01"] = get_latex_table_pivot1(df_false, index=["benchmark", "expected_results"],
-                                                   values=["avg.time_total", "sum.result_0", "sum.result_1"],
-                                                   columns=["action_selector1", "initial_simulations"])
+    drop_list = [("sum.result_0", "1-best"), ("sum.result_1", "all")]
+    data["table_true_01_decision"] = get_latex_table_pivot1(df_true, index=["benchmark"],
+                                                        values=["sum.result_0", "sum.result_1"],
+                                                        columns=["action_selector1", "initial_simulations"],
+                                                        drop_list=drop_list)
+
+    # df_false_2 = df.copy()
+    # df_false_2.drop(["expected_results"], axis=1, inplace=True)
+    data["table_false_01_time"] = get_latex_table_pivot1(df_false, index=["benchmark"],
+                                                        values=["avg.time_total", "stddev.time_total"],
+                                                        columns=["action_selector1", "initial_simulations"])
+    drop_list = [("sum.result_0", "1-best"), ("sum.result_1", "all")]
+    data["table_false_01_decision"] = get_latex_table_pivot1(df_false, index=["benchmark"],
+                                                        values=["sum.result_0", "sum.result_1"],
+                                                        columns=["action_selector1", "initial_simulations"],
+                                                        drop_list=drop_list)
     # data["table_basic_decision"] = get_latex_table_pivot1(df, values=["avg.time_total"], columns=["action_selector1", "initial_simulations"])
     # data["table_time_by_selectors_knon3"] = get_latex_table_pivot1(df_exp_false, values=["avg.time_total"], columns=["action_selector1"])
     # data["table_decision1_by_selectors_k3"] = get_latex_table_pivot1_other(df_exp_true, values=["avg.time_total", "sum.result_1"], columns=["action_selector1"])
@@ -265,7 +288,7 @@ def process_final(summary_folders, report_dir_path, report_name):
 # process_final(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E1"), report_name="final_report_E1")
 
 
-summary_folders = ["EXPERIMENTS_AAMAS27/E2[pure-mcts-steps]/summary"]
+summary_folders = ["EXPERIMENTS_AAMAS27/E2[pure-mcts-steps]_s200/summary"]
 process_final(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E2"), report_name="final_report_E2")
 
 
