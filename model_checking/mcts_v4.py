@@ -870,9 +870,9 @@ def main(argv):
         #     collect_game_tree_stats(game_tree, results_dict)
         create_single_run_report(results_dict)
         print("FORMULA:", results_dict["formula"])
-        print("FINAL ANSWER:", results_dict["decision"], f" (time: {results_dict["time_total"]})")
+        print("FINAL ANSWER:", results_dict["decision"], f" (time: {results_dict['time_total']})")
         collected_results.append(results_dict)
-        final_log += f"mcts ({run_results_dir}): {results_dict["time_total"]}\n"
+        final_log += f"mcts ({run_results_dir}): {results_dict['time_total']}\n"
 
     print()
     print("-" * 25)

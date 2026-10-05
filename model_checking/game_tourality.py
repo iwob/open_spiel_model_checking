@@ -1,11 +1,13 @@
 import re
+from queue import Queue
 from pathlib import Path
 from textwrap import dedent, indent
 import pyspiel
 from game_mnk import GameInterface
-from model_checking.game_mcmas_model import GameInterfaceMcmasModel
-from model_checking.mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula
-from model_checking.mcmas_model_game import McmasModelGame, McmasModelState
+from game_mcmas_model import GameInterfaceMcmasModel
+from mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula, ISPLModel
+from mcmas_model_game import McmasModelGame, McmasModelState
+from model_checking.mcmas.parsers.ispl_parser import BooleanBinary
 
 INDENT_SIZE = 6
 FIELD_EMPTY = 0
@@ -205,6 +207,93 @@ Formulae
 {indent(formulae, " " * INDENT_SIZE)}
 end Formulae
 """
+
+
+
+class TouralityGame(McmasModelGame):
+    def new_initial_state(self):
+        """Returns a state corresponding to the start of a game."""
+        return TouralityState(game=self,
+                              model=self.spec,
+                              formula=self.formula,
+                              silent=self.silent)
+
+
+class TouralityState(McmasModelState):
+    def __init__(self, game: TouralityGame, model: ISPLModel, formula:StrategicFormula, seed=None, silent=True):
+        super().__init__(game, model, formula, seed=seed, silent=silent)
+        self.board = self._reconstruct_board()
+
+    def reconstruct_board(self):
+        # Get sizes of the board
+        self.num_players = self.game.num_players()
+        players_pos_x = {}
+        players_pos_y = {}
+        rewards_pos_x = {}
+        rewards_pos_y = {}
+
+        turn = None
+        vars_board = []
+        vars_players_x = []
+        vars_players_y = []
+        vars_rewards_status = []
+        vars_rewards_x = []
+        vars_rewards_y = []
+        vars_points = []
+        for v, value in self.env_variables.items():
+            if v.starts_with("b_"):
+                vars_board.append((v, value))
+            elif v.starts_with("reward"):
+                vars_rewards_status.append((v, value))
+            elif v.starts_with("xreward"):
+                vars_rewards_x.append((v, value))
+            elif v.starts_with("yreward"):
+                vars_rewards_y.append((v, value))
+            elif v.starts_with("x_p"):
+                vars_players_x.append((v, value))
+            elif v.starts_with("y_p"):
+                vars_players_y.append((v, value))
+            elif v == "turn":
+                # value = turn_p0
+                turn = int(value[6:])
+            else:
+                # points_p[...], turn
+                vars_points.append((v, value))
+
+            num_rows = max([int(v.split("_")[1]) for v, _ in vars_board])
+            num_cols = max([int(v.split("_")[2]) for v, _ in vars_board])
+            board = [[FIELD_WALL for j in range(num_cols)] for i in range(num_rows)]
+            # Extraction of free fields via player positions checked for in the protocol function.
+            # This needs to be done, because for efficiency reasons the board is not represented explicitly.
+            for rule in self.game.spec.agents[0].protocol.rules:
+                coords = None
+                q = Queue()
+                q.put(rule.condition.left)
+                q.put(rule.condition.right)
+                while not q.empty():
+                    item = q.get()
+                    if isinstance(item, BooleanBinary):
+                        q.put(q.left)
+                        q.put(q.right)
+                    elif isinstance(item, BooleanNot):
+                        coords
+                        coords =
+
+
+
+
+        #
+        # for i in range(self.num_players):
+        #     self.env_variables.
+
+
+
+        self.player_positions
+        num_rows = [int(v.split("_")[1]) for v in self.env_variables if v.starts_with("b_")]
+
+
+
+
 
 
 
