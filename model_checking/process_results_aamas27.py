@@ -321,7 +321,7 @@ def process_final_E3(summary_folders, report_dir_path, report_name):
     data["table_full"] = get_latex_table_default(df)
     data["table_basic_time"] = get_latex_table_pivot1(df, index=["benchmark", "expected_results"],
                                                       values=["avg.time_total", "sum.result_0", "sum.result_1"],
-                                                      columns=["action_selector1", "initial_simulations"])
+                                                      columns=["action_selector1", "initial_simulations", "max_simulations"])
 
     data["table_true_01_timeouts"] = get_latex_table_pivot1(df_true, index=["benchmark"],
                                                       values=["sum.timeouts"],
@@ -334,20 +334,28 @@ def process_final_E3(summary_folders, report_dir_path, report_name):
                                                         values=["sum.result_0", "sum.result_1"],
                                                         columns=["action_selector1", "initial_simulations", "max_simulations"],
                                                         drop_list=drop_list)
+    # drop_list = [("avg.num_submodels", "1-best"), ("avg.num_submodels", "all")]
+    data["table_true_01_submodels"] = get_latex_table_pivot1(df_true, index=["benchmark"],
+                                                              values=["avg.num_submodels"],
+                                                              columns=["action_selector1", "initial_simulations",
+                                                                       "max_simulations"])
 
     # df_false_2 = df.copy()
     # df_false_2.drop(["expected_results"], axis=1, inplace=True)
     data["table_false_01_timeouts"] = get_latex_table_pivot1(df_false, index=["benchmark"],
                                                          values=["sum.timeouts"],
-                                                         columns=["action_selector1", "initial_simulations"])
+                                                         columns=["action_selector1", "initial_simulations", "max_simulations"])
     data["table_false_01_time"] = get_latex_table_pivot1(df_false, index=["benchmark"],
                                                         values=["avg.time_total", "stddev.time_total"],
-                                                        columns=["action_selector1", "initial_simulations"])
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations"])
     drop_list = [("sum.result_0", "1-best"), ("sum.result_1", "all")]
     data["table_false_01_decision"] = get_latex_table_pivot1(df_false, index=["benchmark"],
                                                         values=["sum.result_0", "sum.result_1"],
-                                                        columns=["action_selector1", "initial_simulations"],
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations"],
                                                         drop_list=drop_list)
+    data["table_false_01_submodels"] = get_latex_table_pivot1(df_false, index=["benchmark"],
+                                                        values=["avg.num_submodels"],
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations"])
 
     results_dir = report_dir_path
     if results_dir.exists():
@@ -372,11 +380,13 @@ def process_final_E3(summary_folders, report_dir_path, report_name):
     ss1_1.add(data["table_true_01_timeouts"])
     ss1_1.add(data["table_true_01_time"])
     ss1_1.add(data["table_true_01_decision"])
+    ss1_1.add(data["table_true_01_submodels"])
 
     ss1_2 = evoplotter.reporting.SectionRelative(r"False benchmarks (not satisfying the property)")
     ss1_2.add(data["table_false_01_timeouts"])
     ss1_2.add(data["table_false_01_time"])
     ss1_2.add(data["table_false_01_decision"])
+    ss1_2.add(data["table_false_01_submodels"])
 
     s1_exp1.add(ss1)
     s1_exp1.add(ss1_1)
@@ -397,4 +407,4 @@ def process_final_E3(summary_folders, report_dir_path, report_name):
 
 
 summary_folders = ["EXPERIMENTS_AAMAS27/E3[mcsa]/summary"]
-process_final(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E3"), report_name="final_report_E3")
+process_final_E3(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E3"), report_name="final_report_E3")

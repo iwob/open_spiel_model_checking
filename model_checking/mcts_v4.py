@@ -25,6 +25,7 @@ from game_nim import GameNim
 from game_kuhn_poker import GameKuhnPoker
 from game_atl_model import GameInterfaceAtlModel
 from game_mcmas_model import GameInterfaceMcmasModel
+from game_tourality import GameTourality
 from mcts_tree_reuse_bot import MCTSTreeReuseBot
 import os
 from dataclasses import *
@@ -98,7 +99,7 @@ class QueueNode:
 
 
 
-_KNOWN_GAMES = ["mnk", "nim", "kuhn_poker", "atl_model", "mcmas_model"]
+_KNOWN_GAMES = ["mnk", "nim", "kuhn_poker", "atl_model", "mcmas_model", "tourality"]
 _KNOWN_PLAYERS = [
     # A generic online Monte Carlo Tree Search agent, which discards search tree after each step (default OpenSpiel implementation).
     "mcts-reset",
@@ -694,6 +695,8 @@ def main(argv):
         game_utils = GameInterfaceAtlModel(FLAGS.atl_spec_path)
     elif FLAGS.game == "mcmas_model":
         game_utils = GameInterfaceMcmasModel(FLAGS.atl_spec_path)
+    elif FLAGS.game == "tourality":
+        game_utils = GameTourality(FLAGS.atl_spec_path)
     else:
         raise Exception("Unknown game!")
 

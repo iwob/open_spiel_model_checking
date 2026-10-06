@@ -1,3 +1,4 @@
+import dataclasses
 import re
 from queue import Queue
 from pathlib import Path
@@ -5,9 +6,9 @@ from textwrap import dedent, indent
 import pyspiel
 from game_mnk import GameInterface
 from game_mcmas_model import GameInterfaceMcmasModel
-from mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula, ISPLModel
+from mcmas.parsers.ispl_parser import ISPLParser, StrategicFormula, ISPLModel, BooleanNot, Comparison
 from mcmas_model_game import McmasModelGame, McmasModelState
-from model_checking.mcmas.parsers.ispl_parser import BooleanBinary
+from mcmas.parsers.ispl_parser import BooleanBinary
 
 INDENT_SIZE = 6
 FIELD_EMPTY = 0
@@ -97,28 +98,35 @@ Evolution:
 end Evolution
 end Agent\n"""
 
+def encode_raw(x):
+    return x
+
+def encode_visual(x: int):
+    if x == FIELD_EMPTY:
+        return "."
+    elif x == FIELD_WALL:
+        return "W"
+    elif x == FIELD_REWARD:
+        return "*"
+    elif x >= 10:
+        return x-10
+    else:
+        raise Exception(f"Unknown board element (value={x})")
+
+
+def visualize_board(board: list, comment_markers: str = ""):
+    text = ""
+    for row in board:
+        text += comment_markers
+        for cell in row:
+            text += str(encode_visual(cell)) + " "
+        text += "\n"
+    return text
+
 
 def get_init_state(board: list, num_players: int, player_to_move: int):
-    def encode_raw(x):
-        return x
-    def encode_visual(x):
-        if x == FIELD_EMPTY:
-            return "."
-        elif x == FIELD_WALL:
-            return "W"
-        elif x == FIELD_REWARD:
-            return "*"
-        elif x >= 10:
-            return x-10
-        else:
-            raise Exception(f"Unknown board element (value={x})")
-
     comment = "-- Game state:\n"
-    for row in board:
-        comment += "-- "
-        for cell in row:
-            comment += str(encode_visual(cell)) + " "
-        comment += "\n"
+    comment += visualize_board(board, comment_markers="-- ")
 
     init_text = ""
     reward_id = 0
@@ -208,6 +216,52 @@ Formulae
 end Formulae
 """
 
+@dataclasses.dataclass
+class TouralityLogicState:
+    board: list
+    player_positions: dict[int, tuple[int, int]]
+    player_points: dict[int, int]
+    turn: int
+    num_players: int
+
+    def execute_actions(self, actions: list[str], env_variables):
+        for p_id, a_name in enumerate(actions):
+            if a_name == "pass":
+                continue
+            else:
+                y, x = self.player_positions[p_id]
+                self.board[y][x] = FIELD_EMPTY  # player leaves that spot
+                if a_name == "up":
+                    new_spot = y-1, x
+                elif a_name == "down":
+                    new_spot = y+1, x
+                elif a_name == "left":
+                    new_spot = y, x - 1
+                elif a_name == "right":
+                    new_spot = y, x + 1
+                else:
+                    raise Exception(f"Unknown action {a_name}")
+
+                env_variables[f"y_p{p_id}"] = new_spot[0]
+                env_variables[f"x_p{p_id}"] = new_spot[1]
+
+                if self.board[new_spot[0]][new_spot[1]] == FIELD_REWARD:
+                    self.player_points[p_id] += 1
+                    env_variables[f"points_p{p_id}"] = self.player_points[p_id]
+                    # TODO: actually update the reward here
+                    # for rew_var in env_variables:
+                    #     if rew_var.startswith("xreward_"):
+                    env_variables[f"reward_p{p_id}"] = self.player_points[p_id]
+                self.board[new_spot[0]][new_spot[1]] = 10 + p_id
+
+                self.turn = (self.turn + 1) % self.num_players
+                env_variables["turn"] = f"turn_p{self.turn}"
+
+    def _legal_actions(self, player):
+        """Returns a list of legal actions, sorted in ascending order. In simultaneous games
+         possible actions for each player are generated using function."""
+        super._legal_actions(player)
+
 
 
 class TouralityGame(McmasModelGame):
@@ -220,20 +274,23 @@ class TouralityGame(McmasModelGame):
 
 
 class TouralityState(McmasModelState):
+    COUNTER = 0
     def __init__(self, game: TouralityGame, model: ISPLModel, formula:StrategicFormula, seed=None, silent=True):
         super().__init__(game, model, formula, seed=seed, silent=silent)
-        self.board = self._reconstruct_board()
+        self.logic = self.reconstruct_board()
+        # print("Board initialized")
+        # print(str(self))
+        # TouralityState.COUNTER += 1
+        # print("Counter: ", TouralityState.COUNTER)
 
-    def reconstruct_board(self):
-        # Get sizes of the board
-        self.num_players = self.game.num_players()
-        players_pos_x = {}
-        players_pos_y = {}
-        rewards_pos_x = {}
-        rewards_pos_y = {}
+    def __str__(self):
+        text = "; ".join([f"{a.name}: {self.logic.player_points[i]}" for i, a in enumerate(self.model.agents)]) + "\n"
+        text += visualize_board(self.logic.board)
+        return text
 
+    def reconstruct_board(self) -> TouralityLogicState:
+        player_points = {}
         turn = None
-        vars_board = []
         vars_players_x = []
         vars_players_y = []
         vars_rewards_status = []
@@ -241,56 +298,81 @@ class TouralityState(McmasModelState):
         vars_rewards_y = []
         vars_points = []
         for v, value in self.env_variables.items():
-            if v.starts_with("b_"):
-                vars_board.append((v, value))
-            elif v.starts_with("reward"):
+            if v.startswith("reward"):
                 vars_rewards_status.append((v, value))
-            elif v.starts_with("xreward"):
+            elif v.startswith("xreward"):
                 vars_rewards_x.append((v, value))
-            elif v.starts_with("yreward"):
+            elif v.startswith("yreward"):
                 vars_rewards_y.append((v, value))
-            elif v.starts_with("x_p"):
+            elif v.startswith("x_p"):
                 vars_players_x.append((v, value))
-            elif v.starts_with("y_p"):
+            elif v.startswith("y_p"):
                 vars_players_y.append((v, value))
             elif v == "turn":
                 # value = turn_p0
                 turn = int(value[6:])
             else:
-                # points_p[...], turn
+                # v = points_p[...]
                 vars_points.append((v, value))
 
-            num_rows = max([int(v.split("_")[1]) for v, _ in vars_board])
-            num_cols = max([int(v.split("_")[2]) for v, _ in vars_board])
-            board = [[FIELD_WALL for j in range(num_cols)] for i in range(num_rows)]
-            # Extraction of free fields via player positions checked for in the protocol function.
-            # This needs to be done, because for efficiency reasons the board is not represented explicitly.
-            for rule in self.game.spec.agents[0].protocol.rules:
-                coords = None
-                q = Queue()
-                q.put(rule.condition.left)
-                q.put(rule.condition.right)
-                while not q.empty():
-                    item = q.get()
-                    if isinstance(item, BooleanBinary):
-                        q.put(q.left)
-                        q.put(q.right)
-                    elif isinstance(item, BooleanNot):
-                        coords
-                        coords =
+        num_rows = next(ov for ov in self.model.environment.observable_vars if ov.name == "y_p0").upper + 1
+        num_cols = next(ov for ov in self.model.environment.observable_vars if ov.name == "x_p0").upper + 1
+        board = [[FIELD_WALL for j in range(num_cols)] for i in range(num_rows)]
+
+        # Extraction of free fields via player possible positions checked for in the protocol function.
+        # This needs to be done, because for efficiency reasons the board is not represented explicitly.
+        for rule in self.game.spec.agents[0].protocol.rules:
+            q = Queue()
+            q.put(rule.condition.left)
+            q.put(rule.condition.right)
+            while not q.empty():
+                item = q.get()
+                if isinstance(item, BooleanBinary):
+                    if not isinstance(item.left, Comparison):
+                        q.put(item.left)
+                    if not isinstance(item.right, Comparison):
+                        q.put(item.right)
+                elif isinstance(item, BooleanNot):
+                    xy1 = (item.operand.left.left.name, int(item.operand.left.right.value))
+                    xy2 = (item.operand.right.left.name, int(item.operand.right.right.value))
+                    x, y = None, None
+                    if xy1[0].startswith("x_"):
+                        x = xy1[1]
+                    else:
+                        y = xy1[1]
+                    if xy2[0].startswith("x_"):
+                        x = xy2[1]
+                    else:
+                        y = xy2[1]
+                    # A field with coordinates (x,y) is definitely free
+                    board[y][x] = FIELD_EMPTY
+                    break  # We have found our negation in the formula, now we can move on to processing new rules
+
+        num_players = len(vars_players_x)
+
+        # Adding rewards to the board
+        for x, y in zip(sorted(vars_rewards_x), sorted(vars_rewards_y)):
+            board[y[1]][x[1]] = FIELD_REWARD
+
+        # Setting numbers of points for player
+        for p_name, value in vars_points:
+            # points_p1
+            p_id = int(p_name[8:])
+            player_points[p_id] = value
+
+        # Putting players on board
+        player_positions = {}
+        for x, y in zip(sorted(vars_players_x), sorted(vars_players_y)):
+            p_id = int(x[0][3:])
+            board[y[1]][x[1]] = 10 + p_id
+            player_positions[p_id] = (y[1], x[1])
+        return TouralityLogicState(board, player_positions, player_points, turn, num_players)
 
 
-
-
-        #
-        # for i in range(self.num_players):
-        #     self.env_variables.
-
-
-
-        self.player_positions
-        num_rows = [int(v.split("_")[1]) for v in self.env_variables if v.starts_with("b_")]
-
+    def _execute_agent_actions(self, actions):
+        agent_actions = [self.get_action_name(a) for a in actions]
+        self.logic.execute_actions(agent_actions, self.env_variables)
+        return False
 
 
 
@@ -306,8 +388,14 @@ class GameTourality(GameInterfaceMcmasModel):
         - 2: token to be collected
         - 1x: initial position of the player x
         """
-
         GameInterfaceMcmasModel.__init__(self, model_path)
+
+    def get_name(self):
+        return "tourality"
+
+    def load_game(self) -> pyspiel.Game:
+        params = {"spec": self.model, "formula": self.formula}
+        return TouralityGame(params)
 
     @classmethod
     def get_default_formula_and_coalition(cls):
