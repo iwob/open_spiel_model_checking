@@ -231,7 +231,6 @@ class TouralityLogicState:
                 continue
             else:
                 y, x = self.player_positions[p_id]
-                self.board[y][x] = FIELD_EMPTY  # player leaves that spot
 
                 if a_name == "up":
                     new_spot = y-1, x
@@ -252,13 +251,15 @@ class TouralityLogicState:
                     env_variables[f"points_p{p_id}"] = self.player_points[p_id]
                     for i, (r_id, r_x, r_y) in enumerate(self.rewards_status):
                         if r_y == new_spot[0] and r_x == new_spot[1]:
-                            print("Reward taken")
+                            # print("Reward taken")
                             env_variables[f"reward_{r_id}"] = "taken"
                             del self.rewards_status[i]
                             break
 
                     # env_variables[f"reward_p{p_id}"] = self.player_points[p_id]
+                self.board[y][x] = FIELD_EMPTY  # player leaves that spot
                 self.board[new_spot[0]][new_spot[1]] = 10 + p_id
+                self.player_positions[p_id] = new_spot
 
                 self.turn = (self.turn + 1) % self.num_players
                 env_variables["turn"] = f"turn_p{self.turn}"
