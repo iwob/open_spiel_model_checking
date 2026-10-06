@@ -330,7 +330,7 @@ class TouralityState(McmasModelState):
         # print("Counter: ", TouralityState.COUNTER)
 
     def __str__(self):
-        self.logic = self.reconstruct_board()
+        # self.logic = self.reconstruct_board()
         text = "; ".join([f"{a.name}: {self.logic.player_points[i]}" for i, a in enumerate(self.model.agents)]) + "\n"
         text += visualize_board(self.logic.board)
         text += "\n".join([f"{a}: {v}" for a, v in sorted(self.env_variables.items())])
