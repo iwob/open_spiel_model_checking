@@ -319,7 +319,7 @@ class McmasModelState(pyspiel.State):
                 actions_ids.append(action_idx)
             assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
             res = sorted(actions_ids)
-            self._cache_legal_actions[player] = res
+            # self._cache_legal_actions[player] = res
             return res
 
     def resample_from_infostate(self, player_id, rng=None):
@@ -339,10 +339,6 @@ class McmasModelState(pyspiel.State):
         # - Resampling is done in the R (Perfect Recall) fashion - we assume that a sequence of agent_id moves happened
         #  exactly that way.
         pass
-
-
-
-
 
     # def _apply_action(self, action):
     #     """Applies the specified action to the state."""

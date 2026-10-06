@@ -225,7 +225,47 @@ class TouralityLogicState:
     num_players: int
     rewards_status: list
 
+    # Implementation faithful to the annoying issues of MCMAS simultaneous specifications
     def execute_actions(self, actions: list[str], env_variables):
+        for p_id, a_name in enumerate(actions):
+            if a_name == "pass":
+                continue
+            else:
+                # Check, if a previous player obtained reward
+                prev_p_id = (p_id - 1) % self.num_players
+                for i, (r_id, r_y, r_x) in enumerate(self.rewards_status):
+                    if r_y == self.player_positions[prev_p_id][0] and r_x == self.player_positions[prev_p_id][1]:
+                        self.player_points[prev_p_id] += 1
+                        env_variables[f"points_p{prev_p_id}"] = self.player_points[prev_p_id]
+                        env_variables[f"reward_{r_id}"] = "taken"
+                        del self.rewards_status[i]
+                        break
+
+                y, x = self.player_positions[p_id]
+
+                if a_name == "up":
+                    new_spot = y-1, x
+                elif a_name == "down":
+                    new_spot = y+1, x
+                elif a_name == "left":
+                    new_spot = y, x - 1
+                elif a_name == "right":
+                    new_spot = y, x + 1
+                else:
+                    raise Exception(f"Unknown action {a_name}")
+
+                env_variables[f"y_p{p_id}"] = new_spot[0]
+                env_variables[f"x_p{p_id}"] = new_spot[1]
+
+                self.board[y][x] = FIELD_EMPTY  # player leaves that spot
+                self.board[new_spot[0]][new_spot[1]] = 10 + p_id
+                self.player_positions[p_id] = new_spot
+
+                self.turn = (self.turn + 1) % self.num_players
+                env_variables["turn"] = f"turn_p{self.turn}"
+
+
+    def execute_actions_better(self, actions: list[str], env_variables):
         for p_id, a_name in enumerate(actions):
             if a_name == "pass":
                 continue
@@ -249,14 +289,13 @@ class TouralityLogicState:
                 if self.board[new_spot[0]][new_spot[1]] == FIELD_REWARD:
                     self.player_points[p_id] += 1
                     env_variables[f"points_p{p_id}"] = self.player_points[p_id]
-                    for i, (r_id, r_x, r_y) in enumerate(self.rewards_status):
+                    for i, (r_id, r_y, r_x) in enumerate(self.rewards_status):
                         if r_y == new_spot[0] and r_x == new_spot[1]:
                             # print("Reward taken")
                             env_variables[f"reward_{r_id}"] = "taken"
                             del self.rewards_status[i]
                             break
 
-                    # env_variables[f"reward_p{p_id}"] = self.player_points[p_id]
                 self.board[y][x] = FIELD_EMPTY  # player leaves that spot
                 self.board[new_spot[0]][new_spot[1]] = 10 + p_id
                 self.player_positions[p_id] = new_spot
@@ -291,8 +330,10 @@ class TouralityState(McmasModelState):
         # print("Counter: ", TouralityState.COUNTER)
 
     def __str__(self):
+        self.logic = self.reconstruct_board()
         text = "; ".join([f"{a.name}: {self.logic.player_points[i]}" for i, a in enumerate(self.model.agents)]) + "\n"
         text += visualize_board(self.logic.board)
+        text += "\n".join([f"{a}: {v}" for a, v in sorted(self.env_variables.items())])
         return text
 
     def reconstruct_board(self) -> TouralityLogicState:
@@ -357,10 +398,6 @@ class TouralityState(McmasModelState):
 
         num_players = len(vars_players_x)
 
-        # Adding rewards to the board
-        for x, y in zip(sorted(vars_rewards_x), sorted(vars_rewards_y)):
-            board[y[1]][x[1]] = FIELD_REWARD
-
         # Setting numbers of points for player
         for p_name, value in vars_points:
             # points_p1
@@ -374,12 +411,14 @@ class TouralityState(McmasModelState):
             board[y[1]][x[1]] = 10 + p_id
             player_positions[p_id] = (y[1], x[1])
 
-        # Rewards status
+        # Adding rewards to the board and setting rewards status
         rewards_status = []
         for r_status, r_y, r_x in zip(sorted(vars_rewards_status), sorted(vars_rewards_y), sorted(vars_rewards_x)):
             if r_status[1] == "avail":
                 r_id = int(r_status[0][7:])  # e.g.: reward_1
                 rewards_status.append((r_id, r_y[1], r_x[1]))
+                # Only available rewards are put on the board
+                board[r_y[1]][r_x[1]] = FIELD_REWARD
         return TouralityLogicState(board, player_positions, player_points, turn, num_players, rewards_status)
 
 
@@ -413,7 +452,8 @@ class GameTourality(GameInterfaceMcmasModel):
 
     @classmethod
     def get_default_formula_and_coalition(cls):
-        return "<Player0> F player0wins;", {0}
+        raise Exception("Default formula not supported for this interface. Use .formula attribute instead.")
+        # return "<Player0> F player0wins;", {0}
 
 
 
@@ -485,6 +525,14 @@ if __name__ == "__main__":
     ]
     with open("example_specifications/tourality/simple_03.ispl", "w") as f:
         f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
+    board = [
+        [0, 0, 0, 10, 0, 0, 11, 2],
+        [1, 1, 1, 1, 0, 0, 0, 0 ]
+    ]
+    with open("example_specifications/tourality/simple_04.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);\n<Player1> F (player1wins);\n<All> F (player0wins);"))
+
 
     board = [
         [2, 11, 10]

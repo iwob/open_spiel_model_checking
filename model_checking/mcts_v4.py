@@ -706,7 +706,7 @@ def main(argv):
         results_root = Path(FLAGS.submodels_dir)
 
     if FLAGS.formula is None and FLAGS.coalition is None:
-        if FLAGS.game in {"atl_model", "mcmas_model"}:
+        if FLAGS.game in {"atl_model", "mcmas_model", "tourality"}:
             formula, coalition = game_utils.formula, game_utils.coalition
         else:
             formula, coalition = game_utils.get_default_formula_and_coalition()

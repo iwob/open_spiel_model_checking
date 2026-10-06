@@ -5,10 +5,8 @@ Obsvars:
       turn: {turn_p0, turn_p1};
       x_p0 : 0..7; x_p1 : 0..7;
       y_p0 : 0..1; y_p1 : 0..1;
-      points_p0 : 0..3; points_p1 : 0..3;
+      points_p0 : 0..1; points_p1 : 0..1;
       reward_0 : { avail, taken }; xreward_0 : 0..7; yreward_0 : 0..1;
-      reward_1 : { avail, taken }; xreward_1 : 0..7; yreward_1 : 0..1;
-      reward_2 : { avail, taken }; xreward_2 : 0..7; yreward_2 : 0..1;
 end Obsvars
 Actions = { };
 Protocol: end Protocol
@@ -27,15 +25,9 @@ Evolution:
 
       -- board and points are updated according to the moves of the players:
       reward_0 = taken if reward_0 = avail and ((turn = turn_p1 and x_p0 = xreward_0 and y_p0 = yreward_0) or (turn = turn_p0 and x_p1 = xreward_0 and y_p1 = yreward_0));
-      reward_1 = taken if reward_1 = avail and ((turn = turn_p1 and x_p0 = xreward_1 and y_p0 = yreward_1) or (turn = turn_p0 and x_p1 = xreward_1 and y_p1 = yreward_1));
-      reward_2 = taken if reward_2 = avail and ((turn = turn_p1 and x_p0 = xreward_2 and y_p0 = yreward_2) or (turn = turn_p0 and x_p1 = xreward_2 and y_p1 = yreward_2));
 
       points_p0 = points_p0 + 1 if reward_0 = avail and turn = turn_p1 and x_p0 = xreward_0 and y_p0 = yreward_0;
       points_p1 = points_p1 + 1 if reward_0 = avail and turn = turn_p0 and x_p1 = xreward_0 and y_p1 = yreward_0;
-      points_p0 = points_p0 + 1 if reward_1 = avail and turn = turn_p1 and x_p0 = xreward_1 and y_p0 = yreward_1;
-      points_p1 = points_p1 + 1 if reward_1 = avail and turn = turn_p0 and x_p1 = xreward_1 and y_p1 = yreward_1;
-      points_p0 = points_p0 + 1 if reward_2 = avail and turn = turn_p1 and x_p0 = xreward_2 and y_p0 = yreward_2;
-      points_p1 = points_p1 + 1 if reward_2 = avail and turn = turn_p0 and x_p1 = xreward_2 and y_p1 = yreward_2;
 end Evolution
 end Agent
 
@@ -123,15 +115,15 @@ end Agent
 
 
 Evaluation
-      player0wins if Environment.points_p0 >= 2;
-      player1wins if Environment.points_p1 >= 2;
+      player0wins if Environment.points_p0 >= 1;
+      player1wins if Environment.points_p1 >= 1;
 end Evaluation
 
 InitStates
       -- Game state:
-      -- * . . 0 1 . * * 
+      -- . . . 0 . . 1 * 
       -- W W W W . . . . 
-       Environment.xreward_0 = 0 and Environment.yreward_0 = 0 and Environment.reward_0 = avail and Environment.x_p0 = 3 and Environment.y_p0 = 0 and Environment.x_p1 = 4 and Environment.y_p1 = 0 and Environment.xreward_1 = 6 and Environment.yreward_1 = 0 and Environment.reward_1 = avail and Environment.xreward_2 = 7 and Environment.yreward_2 = 0 and Environment.reward_2 = avail and
+       Environment.x_p0 = 3 and Environment.y_p0 = 0 and Environment.x_p1 = 6 and Environment.y_p1 = 0 and Environment.xreward_0 = 7 and Environment.yreward_0 = 0 and Environment.reward_0 = avail and
       Environment.points_p0 = 0 and Environment.points_p1 = 0
        and Environment.turn = turn_p0;
 end InitStates
