@@ -223,6 +223,7 @@ class TouralityLogicState:
     player_points: dict[int, int]
     turn: int
     num_players: int
+    rewards_status: list
 
     def execute_actions(self, actions: list[str], env_variables):
         for p_id, a_name in enumerate(actions):
@@ -231,6 +232,7 @@ class TouralityLogicState:
             else:
                 y, x = self.player_positions[p_id]
                 self.board[y][x] = FIELD_EMPTY  # player leaves that spot
+
                 if a_name == "up":
                     new_spot = y-1, x
                 elif a_name == "down":
@@ -248,10 +250,14 @@ class TouralityLogicState:
                 if self.board[new_spot[0]][new_spot[1]] == FIELD_REWARD:
                     self.player_points[p_id] += 1
                     env_variables[f"points_p{p_id}"] = self.player_points[p_id]
-                    # TODO: actually update the reward here
-                    # for rew_var in env_variables:
-                    #     if rew_var.startswith("xreward_"):
-                    env_variables[f"reward_p{p_id}"] = self.player_points[p_id]
+                    for i, (r_id, r_x, r_y) in enumerate(self.rewards_status):
+                        if r_y == new_spot[0] and r_x == new_spot[1]:
+                            print("Reward taken")
+                            env_variables[f"reward_{r_id}"] = "taken"
+                            del self.rewards_status[i]
+                            break
+
+                    # env_variables[f"reward_p{p_id}"] = self.player_points[p_id]
                 self.board[new_spot[0]][new_spot[1]] = 10 + p_id
 
                 self.turn = (self.turn + 1) % self.num_players
@@ -366,7 +372,14 @@ class TouralityState(McmasModelState):
             p_id = int(x[0][3:])
             board[y[1]][x[1]] = 10 + p_id
             player_positions[p_id] = (y[1], x[1])
-        return TouralityLogicState(board, player_positions, player_points, turn, num_players)
+
+        # Rewards status
+        rewards_status = []
+        for r_status, r_y, r_x in zip(sorted(vars_rewards_status), sorted(vars_rewards_y), sorted(vars_rewards_x)):
+            if r_status[1] == "avail":
+                r_id = int(r_status[0][7:])  # e.g.: reward_1
+                rewards_status.append((r_id, r_y[1], r_x[1]))
+        return TouralityLogicState(board, player_positions, player_points, turn, num_players, rewards_status)
 
 
     def _execute_agent_actions(self, actions):

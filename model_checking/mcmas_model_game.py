@@ -299,7 +299,7 @@ class McmasModelState(pyspiel.State):
         """Returns a list of legal actions, sorted in ascending order. In simultaneous games
          possible actions for each player are generated using function."""
         assert player >= 0
-        if player in self._cache_legal_actions:
+        if False and player in self._cache_legal_actions:
             return self._cache_legal_actions[player]
         else:
             player_name = self.get_player_name(player)
