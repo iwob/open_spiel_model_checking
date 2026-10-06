@@ -1,5 +1,6 @@
 import dataclasses
 import re
+import copy
 from queue import Queue
 from pathlib import Path
 from textwrap import dedent, indent
@@ -328,30 +329,18 @@ class TouralityLogicState:
 
 
 class TouralityGame(McmasModelGame):
+    def __init__(self, params, silent=True):
+        super().__init__(params, silent=silent)
+        self.tourality_logic = self.reconstruct_board()
+
     def new_initial_state(self):
         """Returns a state corresponding to the start of a game."""
         return TouralityState(game=self,
-                              model=self.spec,
+                              model=self.model,
                               formula=self.formula,
+                              initial_env_state=self.initial_env_variables.copy(),
+                              logic=copy.deepcopy(self.tourality_logic),
                               silent=self.silent)
-
-
-class TouralityState(McmasModelState):
-    COUNTER = 0
-    def __init__(self, game: TouralityGame, model: ISPLModel, formula:StrategicFormula, seed=None, silent=True):
-        super().__init__(game, model, formula, seed=seed, silent=silent)
-        self.logic = self.reconstruct_board()
-        # print("Board initialized")
-        # print(str(self))
-        # TouralityState.COUNTER += 1
-        # print("Counter: ", TouralityState.COUNTER)
-
-    def __str__(self):
-        # self.logic = self.reconstruct_board()
-        text = "; ".join([f"{a.name}: {self.logic.player_points[i]}" for i, a in enumerate(self.model.agents)]) + "\n"
-        text += visualize_board(self.logic.board)
-        text += "\n".join([f"{a}: {v}" for a, v in sorted(self.env_variables.items())])
-        return text
 
     def reconstruct_board(self) -> TouralityLogicState:
         player_points = {}
@@ -362,7 +351,7 @@ class TouralityState(McmasModelState):
         vars_rewards_x = []
         vars_rewards_y = []
         vars_points = []
-        for v, value in self.env_variables.items():
+        for v, value in self.initial_env_variables.items():
             if v.startswith("reward"):
                 vars_rewards_status.append((v, value))
             elif v.startswith("xreward"):
@@ -387,7 +376,7 @@ class TouralityState(McmasModelState):
 
         # Extraction of free fields via player possible positions checked for in the protocol function.
         # This needs to be done, because for efficiency reasons the board is not represented explicitly.
-        for rule in self.game.spec.agents[0].protocol.rules:
+        for rule in self.model.agents[0].protocol.rules:
             q = Queue()
             q.put(rule.condition.left)
             q.put(rule.condition.right)
@@ -438,6 +427,24 @@ class TouralityState(McmasModelState):
                 # Only available rewards are put on the board
                 board[r_y[1]][r_x[1]] = FIELD_REWARD
         return TouralityLogicState(board, board_size, player_positions, player_points, turn, num_players, rewards_status)
+
+
+
+
+class TouralityState(McmasModelState):
+    def __init__(self, game: TouralityGame, model: ISPLModel, formula:StrategicFormula,
+                 initial_env_state: dict, logic: TouralityLogicState, seed=None, silent=True):
+        super().__init__(game, model, formula, initial_env_state, seed=seed, silent=silent)
+        self.logic = logic
+
+    def __str__(self):
+        # self.logic = self.reconstruct_board()
+        text = "; ".join([f"{a.name}: {self.logic.player_points[i]}" for i, a in enumerate(self.model.agents)]) + "\n"
+        text += visualize_board(self.logic.board)
+        text += "\n".join([f"{a}: {v}" for a, v in sorted(self.env_variables.items())])
+        return text
+
+
 
 
     def _execute_agent_actions_mcmas(self, actions):

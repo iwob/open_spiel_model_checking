@@ -37,25 +37,26 @@ class McmasModelGame(pyspiel.Game):
     def __init__(self, params, silent=True):
         assert "spec" in params, "Model specification not provided to the Game constructor!"
         assert "formula" in params, "Formula not provided to the Game constructor!"
-        self.spec = params["spec"]
+        self.model = params["spec"]
         self.formula = params["formula"]
+        self.initial_env_variables = self.get_initial_variables()
 
         self.silent = silent
-        self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(self.spec)
-        self.possible_actions = self.get_possible_actions(self.spec, self.agent_actions)
+        self.agent_actions, self.action_name_to_id_dict = self.get_agent_actions_dict(self.model)
+        self.possible_actions = self.get_possible_actions(self.model, self.agent_actions)
         print("agent_actions:", self.agent_actions)
         print("action_name_to_id_dict:", self.action_name_to_id_dict)
         self._GAME_INFO = pyspiel.GameInfo(
             num_distinct_actions=len(self.possible_actions),
             max_chance_outcomes=0,
-            num_players=len(self.spec.agents),  # potentially +1 because of environment
+            num_players=len(self.model.agents),  # potentially +1 because of environment
             min_utility=-1.0,
             max_utility=1.0,
             utility_sum=0.0,
             max_game_length=100)
 
-        self.registered_vars: set[str] = set(v.name for v in self.spec.get_all_registered_vars())
-        self.registered_enum_values = self.spec.get_all_registered_enum_values()
+        self.registered_vars: set[str] = set(v.name for v in self.model.get_all_registered_vars())
+        self.registered_enum_values = self.model.get_all_registered_enum_values()
         super().__init__(_GAME_TYPE, self._GAME_INFO, {})
 
     def __deepcopy__(self, memo):
@@ -63,11 +64,11 @@ class McmasModelGame(pyspiel.Game):
 
     def get_player_name(self, player_index):
         """Converts a player's number ID in Open Spiel to an identifier used for actions."""
-        return self.spec.agents[player_index].name
+        return self.model.agents[player_index].name
 
     def get_player_index(self, player_name):
         """Converts a player's name to a number ID used in Open Spiel."""
-        for i, a in enumerate(self.spec.agents):
+        for i, a in enumerate(self.model.agents):
             if a.name == player_name:
                 return i
         raise Exception(f"Player '{player_name}' was not found.")
@@ -119,8 +120,9 @@ class McmasModelGame(pyspiel.Game):
     def new_initial_state(self):
         """Returns a state corresponding to the start of a game."""
         return McmasModelState(game=self,
-                               model=self.spec,
+                               model=self.model,
                                formula=self.formula,
+                               initial_env_state=self.initial_env_variables.copy(),
                                silent=self.silent)
 
     def make_py_observer(self, iig_obs_type=None, params=None):
@@ -134,13 +136,28 @@ class McmasModelGame(pyspiel.Game):
         else:
             return IIGObserverForPublicInfoGame(iig_obs_type, params)
 
+    def get_initial_variables(self):
+        def collect_comparisons(expr):
+            if isinstance(expr, BooleanBinary):
+                if expr.operator == "and":
+                    return collect_comparisons(expr.left) + collect_comparisons(expr.right)
+                else:
+                    raise Exception(f"Unsupported boolean operator: '{expr.operator}'")
+            elif isinstance(expr, Comparison):
+                return [expr]
+            else:
+                raise Exception(f"Unsupported tree node: {str(expr)}")
+        comps = collect_comparisons(self.model.initial_states.condition)
+        return {self.model.get_cmp_name(c): self.model.get_cmp_value(c) for c in comps}
+
 
 
 
 class McmasModelState(pyspiel.State):
     """A state of the planning game. It is modified in place after each action."""
 
-    def __init__(self, game: McmasModelGame, model: ISPLModel, formula:StrategicFormula, seed=None, silent=True):
+    def __init__(self, game: McmasModelGame, model: ISPLModel, formula:StrategicFormula,
+                 initial_env_state: dict, seed=None, silent=True):
         """Constructor; should only be called by Game.new_initial_state."""
         super().__init__(game)
         if seed is not None:
@@ -158,29 +175,14 @@ class McmasModelState(pyspiel.State):
         self.formula = formula
         self.coalition = set(self.model.groups.find_group_members(self.formula.agent))
         self.evaluation_rules = {rule.name: rule.condition for rule in self.model.evaluation.rules}
-        self.env_variables = {}
+        self.env_variables = initial_env_state
         self._cache_legal_actions = {}
-        self.initialize_variables(model)
         self.visited_states = {self.get_global_state()}
         # self._cache_evolution_rules = {rule_id: {} for rule_id, _ in enumerate(self.model.environment.evolution)}
         self._check_if_terminal_position()
 
     # OpenSpiel (PySpiel) API functions are below. This is the standard set that
     # should be implemented by every perfect-information sequential-move game.
-
-    def initialize_variables(self, model: ISPLModel):
-        def collect_comparisons(expr):
-            if isinstance(expr, BooleanBinary):
-                if expr.operator == "and":
-                    return collect_comparisons(expr.left) + collect_comparisons(expr.right)
-                else:
-                    raise Exception(f"Unsupported boolean operator: '{expr.operator}'")
-            elif isinstance(expr, Comparison):
-                return [expr]
-            else:
-                raise Exception(f"Unsupported tree node: {str(expr)}")
-        comps = collect_comparisons(model.initial_states.condition)
-        self.env_variables = {self.game.spec.get_cmp_name(c): self.game.spec.get_cmp_value(c) for c in comps}
 
     def get_global_state(self):
         return tuple(sorted(self.env_variables.items()))
