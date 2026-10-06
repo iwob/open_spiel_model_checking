@@ -219,13 +219,14 @@ end Formulae
 @dataclasses.dataclass
 class TouralityLogicState:
     board: list
+    board_size: tuple[int, int]
     player_positions: dict[int, tuple[int, int]]
     player_points: dict[int, int]
     turn: int
     num_players: int
     rewards_status: list
 
-    # Implementation faithful to the annoying issues of MCMAS simultaneous specifications
+    # Implementation faithful to the MCMAS simultaneous specifications
     def execute_actions(self, actions: list[str], env_variables):
         for p_id, a_name in enumerate(actions):
             if a_name == "pass":
@@ -261,8 +262,8 @@ class TouralityLogicState:
                 self.board[new_spot[0]][new_spot[1]] = 10 + p_id
                 self.player_positions[p_id] = new_spot
 
-                self.turn = (self.turn + 1) % self.num_players
-                env_variables["turn"] = f"turn_p{self.turn}"
+        self.turn = (self.turn + 1) % self.num_players
+        env_variables["turn"] = f"turn_p{self.turn}"
 
 
     def execute_actions_better(self, actions: list[str], env_variables):
@@ -300,13 +301,29 @@ class TouralityLogicState:
                 self.board[new_spot[0]][new_spot[1]] = 10 + p_id
                 self.player_positions[p_id] = new_spot
 
-                self.turn = (self.turn + 1) % self.num_players
-                env_variables["turn"] = f"turn_p{self.turn}"
+        self.turn = (self.turn + 1) % self.num_players
+        env_variables["turn"] = f"turn_p{self.turn}"
 
-    def _legal_actions(self, player):
-        """Returns a list of legal actions, sorted in ascending order. In simultaneous games
-         possible actions for each player are generated using function."""
-        super._legal_actions(player)
+
+    def get_legal_action_names(self, player):
+        if self.turn != player:
+            return ["pass"]
+
+        y, x = self.player_positions[player]
+        action_names = []
+        empty_field_types = {FIELD_EMPTY, FIELD_REWARD}
+        if x < self.board_size[1]-1 and self.board[y][x+1] in empty_field_types:
+            action_names.append("right")
+        if x > 0 and self.board[y][x-1] in empty_field_types:
+            action_names.append("left")
+        if y < self.board_size[0]-1 and self.board[y+1][x] in empty_field_types:
+            action_names.append("down")
+        if y > 0 and self.board[y-1][x] in empty_field_types:
+            action_names.append("up")
+
+        if len(action_names) == 0:
+            action_names.append("pass")  # possible to get if a player is blocked
+        return action_names
 
 
 
@@ -365,6 +382,7 @@ class TouralityState(McmasModelState):
 
         num_rows = next(ov for ov in self.model.environment.observable_vars if ov.name == "y_p0").upper + 1
         num_cols = next(ov for ov in self.model.environment.observable_vars if ov.name == "x_p0").upper + 1
+        board_size = num_rows, num_cols
         board = [[FIELD_WALL for j in range(num_cols)] for i in range(num_rows)]
 
         # Extraction of free fields via player possible positions checked for in the protocol function.
@@ -419,13 +437,101 @@ class TouralityState(McmasModelState):
                 rewards_status.append((r_id, r_y[1], r_x[1]))
                 # Only available rewards are put on the board
                 board[r_y[1]][r_x[1]] = FIELD_REWARD
-        return TouralityLogicState(board, player_positions, player_points, turn, num_players, rewards_status)
+        return TouralityLogicState(board, board_size, player_positions, player_points, turn, num_players, rewards_status)
 
 
-    def _execute_agent_actions(self, actions):
+    def _execute_agent_actions_mcmas(self, actions):
+        """Action execution as done by MCMAS, for comparison reasons."""
+        agent_actions = [self.get_action_name(a) for a in actions]
+        env_variables_2 = self.env_variables.copy()
+        for rule_id, r in enumerate(self.model.environment.evolution):
+            is_rule_satisfied = self.evaluate_expression(r.condition, agent_actions=agent_actions)
+            if is_rule_satisfied:
+                # When condition is true, we need to update environment. There are two cases:
+                # 1) easy - we assign a new constant to a variable
+                # 2) hard - we update variable by evaluating a complex expression
+                # r.result: EvolutionAssignment is this condition, and we are guaranteed that variable is first
+                name = r.result.target
+                value = self.evaluate_expression(r.result.value, agent_actions=agent_actions)
+                env_variables_2[name] = value
+        self.env_variables = env_variables_2
+        return False
+
+
+    def execute_agent_actions(self, actions):
+        # ---------------------------------------------------------------------------------
+        # This code is for checking Tourality-McmasModel equivalence
+        # env_variables_start = self.env_variables.copy()
+        #
+        # self._execute_agent_actions_mcmas(actions)
+        # env_variables_mcmas = self.env_variables.copy()
+        #
+        # self.env_variables = env_variables_start
+        # env_variables_tourality = self.env_variables.copy()
+        # agent_actions = [self.get_action_name(a) for a in actions]
+        # self.logic.execute_actions(agent_actions, env_variables_tourality)
+        #
+        # assert len(env_variables_tourality) == len(env_variables_mcmas)
+        # for k in env_variables_tourality.keys():
+        #     if env_variables_tourality[k] != env_variables_mcmas[k]:
+        #         print("Difference detected!")
+        #         print("State before:")
+        #         print(str(self))
+        #         print("env_variables_tourality:", str(sorted(env_variables_tourality.items())))
+        #         print("env_variables_mcmas:    ", str(sorted(env_variables_mcmas.items())))
+        #
+        # self.env_variables = env_variables_tourality
+        # ---------------------------------------------------------------------------------
+
         agent_actions = [self.get_action_name(a) for a in actions]
         self.logic.execute_actions(agent_actions, self.env_variables)
         return False
+
+
+    def _legal_actions_mcmas(self, player):
+        """Returns a list of legal actions, sorted in ascending order. In simultaneous games
+         possible actions for each player are generated using function."""
+        assert player >= 0
+        if False and player in self._cache_legal_actions:
+            return self._cache_legal_actions[player]
+        else:
+            player_name = self.get_player_name(player)
+            actions = set()
+            for r in self.model.agents[player].protocol.rules:
+                # Check if a given rule can be triggered
+                if self.evaluate_expression(r.condition):
+                    actions.update(r.actions)
+
+            # If no rules triggered, use the default actions
+            if len(actions) == 0:
+                actions = self.model.agents[player].protocol.other.actions
+
+            actions_ids = []
+            for a in actions:
+                action_idx = self.game.action_name_to_id_dict[player_name][a]
+                actions_ids.append(action_idx)
+            assert len(actions) > 0, f"No legal actions found for agent '{player_name}' despite the game not being in a terminal state. This may be caused by a missing final idle loop."
+            res = sorted(actions_ids)
+            # self._cache_legal_actions[player] = res
+            return res
+
+
+    def _legal_actions(self, player_id):
+        player_name = self.game.get_player_name(player_id)
+        action_names = self.logic.get_legal_action_names(player_id)
+        actions = sorted([self.game.action_name_to_id_dict[player_name][a] for a in action_names])
+
+        # ---------------------------------------------------------------------------------
+        # This code is for checking Tourality-McmasModel equivalence
+        # actions_mcmas = self._legal_actions_mcmas(player_id)
+        # assert len(actions_mcmas) == len(actions)
+        # if not actions_mcmas == actions:
+        #     print("Difference in legal action detected!")
+        #     print("Actions tourality: ", actions)
+        #     print("Actions mcmas:     ", actions_mcmas)
+        # ---------------------------------------------------------------------------------
+
+        return actions
 
 
 

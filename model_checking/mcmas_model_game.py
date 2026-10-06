@@ -347,7 +347,7 @@ class McmasModelState(pyspiel.State):
     #     raise Exception("Trying to execute a single action in a game with simultaneous moves!")
 
 
-    def _execute_agent_actions(self, actions):
+    def execute_agent_actions(self, actions):
         # TODO: We get a vector of actions for both agents, because moves are simultanous. How should we handle this?
         # for player, action in enumerate(actions):
         #     action_name = self.game.possible_actions[action]
@@ -377,7 +377,7 @@ class McmasModelState(pyspiel.State):
                 # print(f"Updating {name} to: {value}")
                 env_variables_2[name] = value
         self.env_variables = env_variables_2
-        self._cache_legal_actions.clear()
+        # self._cache_legal_actions.clear()
         return False
 
 
@@ -436,7 +436,7 @@ class McmasModelState(pyspiel.State):
         if self._is_terminal:
             raise Exception("Trying to execute actions in a finished game!")
 
-        self._execute_agent_actions(actions)
+        self.execute_agent_actions(actions)
         self._check_if_terminal_position()
 
         new_global_state = self.get_global_state()
