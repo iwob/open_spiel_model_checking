@@ -221,11 +221,17 @@ def generate_E3():
 
 
 def generate_E4():
-    benchmarks = [
+    benchmarks_mcmas = [
         ("simple_01", "--game mcmas_model --atl_spec_path example_specifications/tourality/simple_01.ispl"),
         ("schlingloff_1", "--game mcmas_model --atl_spec_path example_specifications/tourality/schlingloff_1.ispl"),
         ("schlingloff_2", "--game mcmas_model --atl_spec_path example_specifications/tourality/schlingloff_2.ispl"),
         ("schlingloff_3", "--game mcmas_model --atl_spec_path example_specifications/tourality/schlingloff_3.ispl"),
+    ]
+    benchmarks_tourality = [
+        ("simple_01", "--game tourality --atl_spec_path example_specifications/tourality/simple_01.ispl"),
+        ("schlingloff_1", "--game tourality --atl_spec_path example_specifications/tourality/schlingloff_1.ispl"),
+        ("schlingloff_2", "--game tourality --atl_spec_path example_specifications/tourality/schlingloff_2.ispl"),
+        ("schlingloff_3", "--game tourality --atl_spec_path example_specifications/tourality/schlingloff_3.ispl"),
     ]
     # benchmarks["tourality"] = [
     #     "--game mcmas_model schlingloff_1.ispl",
@@ -253,8 +259,8 @@ def generate_E4():
         "schlingloff_3" : 2 * 64,
     }
 
-    output_dir = "E4[tourality]"
-    prefix = "E4[tourality]"
+    output_dir = "E4[tourality]_improved"
+    prefix = "E4[tourality]_improved"
 
     def generate_config_run(config_name, benchmark_tup, action_selector, inital_sim, max_simulations, rollout_count, max_depth):
         benchmark_name, benchmark = benchmark_tup
@@ -283,7 +289,7 @@ def generate_E4():
 
     """
 
-    for b in benchmarks:
+    for b in benchmarks_tourality:
         for a_s in action_selectors:
             for inital_sim in [("in2000", 2000), ("in0", 0)]:
                 for max_sim in [("s200", 200), ("s5000", 5000)]:  # ("s200", 200), ("s5000", 5000)
@@ -301,6 +307,6 @@ def generate_E4():
 
 if __name__ == "__main__":
     # generate_E1()
-    generate_E2()
-    generate_E3()
+    # generate_E2()
+    # generate_E3()
     generate_E4()
