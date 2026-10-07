@@ -56,6 +56,7 @@ def map_max_depth_to_depth_percent(n, x):
         else:
             return d2[x]
 
+tourality_prefix = ""
 expected_results_dict = {
     "mnk(3,3,3)": False,
     "mnk(4,4,3)": True,
@@ -71,7 +72,11 @@ expected_results_dict = {
     "nim(2,3,5)": True,
     "nim(2,4,5)": True,
     "nim(2,19,17)": False,
-    "nim(2,19,16)": True
+    "nim(2,19,16)": True,
+    f"{tourality_prefix}simple_01": False,
+    f"{tourality_prefix}schlingloff_1": False,
+    f"{tourality_prefix}schlingloff_2": True,
+    f"{tourality_prefix}schlingloff_3": True,
 }
 
 
@@ -83,8 +88,17 @@ def get_benchmark_name(d):
         return f"mnk({n},{m},{k})"
     elif d["game"] == "nim":
         return f"nim({d["piles"].replace(";", ",")})"
-    elif d["game"] == "mcmas_model":
-        return "tourality_mcmas"
+    elif d["game"] == "mcmas_model" or d["game"] == "tourality":
+        if "simple_01" in d["submodels_dir"]:
+            return f"{tourality_prefix}simple_01"
+        elif "schlingloff_1" in d["submodels_dir"]:
+            return f"{tourality_prefix}schlingloff_1"
+        elif "schlingloff_2" in d["submodels_dir"]:
+            return f"{tourality_prefix}schlingloff_2"
+        elif "schlingloff_3" in d["submodels_dir"]:
+            return f"{tourality_prefix}schlingloff_3"
+        else:
+            raise Exception(f"Unknown Tourality bencmhark")
     else:
         raise Exception(f"Unknown game: {d['game']}")
 
@@ -513,3 +527,6 @@ def process_final_E4(summary_folders, report_dir_path, report_name):
 
 summary_folders = ["EXPERIMENTS_AAMAS27/E4[tourality]/summary"]
 process_final_E4(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E4"), report_name="final_report_E4")
+
+summary_folders = ["EXPERIMENTS_AAMAS27/E4[tourality]_improved/summary"]
+process_final_E4(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E4_improved"), report_name="final_report_E4_improved")
