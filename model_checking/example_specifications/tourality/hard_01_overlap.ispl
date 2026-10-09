@@ -1,0 +1,360 @@
+Semantics=SingleAssignment;
+
+Agent Environment
+Obsvars:
+      turn: {turn_p0, turn_p1};
+      x_p0 : 0..7; x_p1 : 0..7;
+      y_p0 : 0..7; y_p1 : 0..7;
+      points_p0 : 0..33; points_p1 : 0..33;
+      reward_0 : { avail, taken }; xreward_0 : 0..7; yreward_0 : 0..7;
+      reward_1 : { avail, taken }; xreward_1 : 0..7; yreward_1 : 0..7;
+      reward_2 : { avail, taken }; xreward_2 : 0..7; yreward_2 : 0..7;
+      reward_3 : { avail, taken }; xreward_3 : 0..7; yreward_3 : 0..7;
+      reward_4 : { avail, taken }; xreward_4 : 0..7; yreward_4 : 0..7;
+      reward_5 : { avail, taken }; xreward_5 : 0..7; yreward_5 : 0..7;
+      reward_6 : { avail, taken }; xreward_6 : 0..7; yreward_6 : 0..7;
+      reward_7 : { avail, taken }; xreward_7 : 0..7; yreward_7 : 0..7;
+      reward_8 : { avail, taken }; xreward_8 : 0..7; yreward_8 : 0..7;
+      reward_9 : { avail, taken }; xreward_9 : 0..7; yreward_9 : 0..7;
+      reward_10 : { avail, taken }; xreward_10 : 0..7; yreward_10 : 0..7;
+      reward_11 : { avail, taken }; xreward_11 : 0..7; yreward_11 : 0..7;
+      reward_12 : { avail, taken }; xreward_12 : 0..7; yreward_12 : 0..7;
+      reward_13 : { avail, taken }; xreward_13 : 0..7; yreward_13 : 0..7;
+      reward_14 : { avail, taken }; xreward_14 : 0..7; yreward_14 : 0..7;
+      reward_15 : { avail, taken }; xreward_15 : 0..7; yreward_15 : 0..7;
+      reward_16 : { avail, taken }; xreward_16 : 0..7; yreward_16 : 0..7;
+      reward_17 : { avail, taken }; xreward_17 : 0..7; yreward_17 : 0..7;
+      reward_18 : { avail, taken }; xreward_18 : 0..7; yreward_18 : 0..7;
+      reward_19 : { avail, taken }; xreward_19 : 0..7; yreward_19 : 0..7;
+      reward_20 : { avail, taken }; xreward_20 : 0..7; yreward_20 : 0..7;
+      reward_21 : { avail, taken }; xreward_21 : 0..7; yreward_21 : 0..7;
+      reward_22 : { avail, taken }; xreward_22 : 0..7; yreward_22 : 0..7;
+      reward_23 : { avail, taken }; xreward_23 : 0..7; yreward_23 : 0..7;
+      reward_24 : { avail, taken }; xreward_24 : 0..7; yreward_24 : 0..7;
+      reward_25 : { avail, taken }; xreward_25 : 0..7; yreward_25 : 0..7;
+      reward_26 : { avail, taken }; xreward_26 : 0..7; yreward_26 : 0..7;
+      reward_27 : { avail, taken }; xreward_27 : 0..7; yreward_27 : 0..7;
+      reward_28 : { avail, taken }; xreward_28 : 0..7; yreward_28 : 0..7;
+      reward_29 : { avail, taken }; xreward_29 : 0..7; yreward_29 : 0..7;
+      reward_30 : { avail, taken }; xreward_30 : 0..7; yreward_30 : 0..7;
+      reward_31 : { avail, taken }; xreward_31 : 0..7; yreward_31 : 0..7;
+      reward_32 : { avail, taken }; xreward_32 : 0..7; yreward_32 : 0..7;
+end Obsvars
+Actions = { };
+Protocol: end Protocol
+Evolution:
+      -- turn switching
+      turn=turn_p0 if turn=turn_p1; turn=turn_p1 if turn=turn_p0;
+      -- positions are updated according to the move
+      y_p0 = y_p0 - 1 if turn = turn_p0 and Player0.Action = up;
+      y_p0 = y_p0 + 1 if turn = turn_p0 and Player0.Action = down;
+      x_p0 = x_p0 - 1 if turn = turn_p0 and Player0.Action = left;
+      x_p0 = x_p0 + 1 if turn = turn_p0 and Player0.Action = right;
+      y_p1 = y_p1 - 1 if turn = turn_p1 and Player1.Action = up;
+      y_p1 = y_p1 + 1 if turn = turn_p1 and Player1.Action = down;
+      x_p1 = x_p1 - 1 if turn = turn_p1 and Player1.Action = left;
+      x_p1 = x_p1 + 1 if turn = turn_p1 and Player1.Action = right;
+
+      -- board and points are updated according to the moves of the players:
+      reward_0 = taken if reward_0 = avail and ((turn = turn_p1 and x_p0 = xreward_0 and y_p0 = yreward_0) or (turn = turn_p0 and x_p1 = xreward_0 and y_p1 = yreward_0));
+      reward_1 = taken if reward_1 = avail and ((turn = turn_p1 and x_p0 = xreward_1 and y_p0 = yreward_1) or (turn = turn_p0 and x_p1 = xreward_1 and y_p1 = yreward_1));
+      reward_2 = taken if reward_2 = avail and ((turn = turn_p1 and x_p0 = xreward_2 and y_p0 = yreward_2) or (turn = turn_p0 and x_p1 = xreward_2 and y_p1 = yreward_2));
+      reward_3 = taken if reward_3 = avail and ((turn = turn_p1 and x_p0 = xreward_3 and y_p0 = yreward_3) or (turn = turn_p0 and x_p1 = xreward_3 and y_p1 = yreward_3));
+      reward_4 = taken if reward_4 = avail and ((turn = turn_p1 and x_p0 = xreward_4 and y_p0 = yreward_4) or (turn = turn_p0 and x_p1 = xreward_4 and y_p1 = yreward_4));
+      reward_5 = taken if reward_5 = avail and ((turn = turn_p1 and x_p0 = xreward_5 and y_p0 = yreward_5) or (turn = turn_p0 and x_p1 = xreward_5 and y_p1 = yreward_5));
+      reward_6 = taken if reward_6 = avail and ((turn = turn_p1 and x_p0 = xreward_6 and y_p0 = yreward_6) or (turn = turn_p0 and x_p1 = xreward_6 and y_p1 = yreward_6));
+      reward_7 = taken if reward_7 = avail and ((turn = turn_p1 and x_p0 = xreward_7 and y_p0 = yreward_7) or (turn = turn_p0 and x_p1 = xreward_7 and y_p1 = yreward_7));
+      reward_8 = taken if reward_8 = avail and ((turn = turn_p1 and x_p0 = xreward_8 and y_p0 = yreward_8) or (turn = turn_p0 and x_p1 = xreward_8 and y_p1 = yreward_8));
+      reward_9 = taken if reward_9 = avail and ((turn = turn_p1 and x_p0 = xreward_9 and y_p0 = yreward_9) or (turn = turn_p0 and x_p1 = xreward_9 and y_p1 = yreward_9));
+      reward_10 = taken if reward_10 = avail and ((turn = turn_p1 and x_p0 = xreward_10 and y_p0 = yreward_10) or (turn = turn_p0 and x_p1 = xreward_10 and y_p1 = yreward_10));
+      reward_11 = taken if reward_11 = avail and ((turn = turn_p1 and x_p0 = xreward_11 and y_p0 = yreward_11) or (turn = turn_p0 and x_p1 = xreward_11 and y_p1 = yreward_11));
+      reward_12 = taken if reward_12 = avail and ((turn = turn_p1 and x_p0 = xreward_12 and y_p0 = yreward_12) or (turn = turn_p0 and x_p1 = xreward_12 and y_p1 = yreward_12));
+      reward_13 = taken if reward_13 = avail and ((turn = turn_p1 and x_p0 = xreward_13 and y_p0 = yreward_13) or (turn = turn_p0 and x_p1 = xreward_13 and y_p1 = yreward_13));
+      reward_14 = taken if reward_14 = avail and ((turn = turn_p1 and x_p0 = xreward_14 and y_p0 = yreward_14) or (turn = turn_p0 and x_p1 = xreward_14 and y_p1 = yreward_14));
+      reward_15 = taken if reward_15 = avail and ((turn = turn_p1 and x_p0 = xreward_15 and y_p0 = yreward_15) or (turn = turn_p0 and x_p1 = xreward_15 and y_p1 = yreward_15));
+      reward_16 = taken if reward_16 = avail and ((turn = turn_p1 and x_p0 = xreward_16 and y_p0 = yreward_16) or (turn = turn_p0 and x_p1 = xreward_16 and y_p1 = yreward_16));
+      reward_17 = taken if reward_17 = avail and ((turn = turn_p1 and x_p0 = xreward_17 and y_p0 = yreward_17) or (turn = turn_p0 and x_p1 = xreward_17 and y_p1 = yreward_17));
+      reward_18 = taken if reward_18 = avail and ((turn = turn_p1 and x_p0 = xreward_18 and y_p0 = yreward_18) or (turn = turn_p0 and x_p1 = xreward_18 and y_p1 = yreward_18));
+      reward_19 = taken if reward_19 = avail and ((turn = turn_p1 and x_p0 = xreward_19 and y_p0 = yreward_19) or (turn = turn_p0 and x_p1 = xreward_19 and y_p1 = yreward_19));
+      reward_20 = taken if reward_20 = avail and ((turn = turn_p1 and x_p0 = xreward_20 and y_p0 = yreward_20) or (turn = turn_p0 and x_p1 = xreward_20 and y_p1 = yreward_20));
+      reward_21 = taken if reward_21 = avail and ((turn = turn_p1 and x_p0 = xreward_21 and y_p0 = yreward_21) or (turn = turn_p0 and x_p1 = xreward_21 and y_p1 = yreward_21));
+      reward_22 = taken if reward_22 = avail and ((turn = turn_p1 and x_p0 = xreward_22 and y_p0 = yreward_22) or (turn = turn_p0 and x_p1 = xreward_22 and y_p1 = yreward_22));
+      reward_23 = taken if reward_23 = avail and ((turn = turn_p1 and x_p0 = xreward_23 and y_p0 = yreward_23) or (turn = turn_p0 and x_p1 = xreward_23 and y_p1 = yreward_23));
+      reward_24 = taken if reward_24 = avail and ((turn = turn_p1 and x_p0 = xreward_24 and y_p0 = yreward_24) or (turn = turn_p0 and x_p1 = xreward_24 and y_p1 = yreward_24));
+      reward_25 = taken if reward_25 = avail and ((turn = turn_p1 and x_p0 = xreward_25 and y_p0 = yreward_25) or (turn = turn_p0 and x_p1 = xreward_25 and y_p1 = yreward_25));
+      reward_26 = taken if reward_26 = avail and ((turn = turn_p1 and x_p0 = xreward_26 and y_p0 = yreward_26) or (turn = turn_p0 and x_p1 = xreward_26 and y_p1 = yreward_26));
+      reward_27 = taken if reward_27 = avail and ((turn = turn_p1 and x_p0 = xreward_27 and y_p0 = yreward_27) or (turn = turn_p0 and x_p1 = xreward_27 and y_p1 = yreward_27));
+      reward_28 = taken if reward_28 = avail and ((turn = turn_p1 and x_p0 = xreward_28 and y_p0 = yreward_28) or (turn = turn_p0 and x_p1 = xreward_28 and y_p1 = yreward_28));
+      reward_29 = taken if reward_29 = avail and ((turn = turn_p1 and x_p0 = xreward_29 and y_p0 = yreward_29) or (turn = turn_p0 and x_p1 = xreward_29 and y_p1 = yreward_29));
+      reward_30 = taken if reward_30 = avail and ((turn = turn_p1 and x_p0 = xreward_30 and y_p0 = yreward_30) or (turn = turn_p0 and x_p1 = xreward_30 and y_p1 = yreward_30));
+      reward_31 = taken if reward_31 = avail and ((turn = turn_p1 and x_p0 = xreward_31 and y_p0 = yreward_31) or (turn = turn_p0 and x_p1 = xreward_31 and y_p1 = yreward_31));
+      reward_32 = taken if reward_32 = avail and ((turn = turn_p1 and x_p0 = xreward_32 and y_p0 = yreward_32) or (turn = turn_p0 and x_p1 = xreward_32 and y_p1 = yreward_32));
+
+      points_p0 = points_p0 + 1 if reward_0 = avail and turn = turn_p1 and x_p0 = xreward_0 and y_p0 = yreward_0;
+      points_p1 = points_p1 + 1 if reward_0 = avail and turn = turn_p0 and x_p1 = xreward_0 and y_p1 = yreward_0;
+      points_p0 = points_p0 + 1 if reward_1 = avail and turn = turn_p1 and x_p0 = xreward_1 and y_p0 = yreward_1;
+      points_p1 = points_p1 + 1 if reward_1 = avail and turn = turn_p0 and x_p1 = xreward_1 and y_p1 = yreward_1;
+      points_p0 = points_p0 + 1 if reward_2 = avail and turn = turn_p1 and x_p0 = xreward_2 and y_p0 = yreward_2;
+      points_p1 = points_p1 + 1 if reward_2 = avail and turn = turn_p0 and x_p1 = xreward_2 and y_p1 = yreward_2;
+      points_p0 = points_p0 + 1 if reward_3 = avail and turn = turn_p1 and x_p0 = xreward_3 and y_p0 = yreward_3;
+      points_p1 = points_p1 + 1 if reward_3 = avail and turn = turn_p0 and x_p1 = xreward_3 and y_p1 = yreward_3;
+      points_p0 = points_p0 + 1 if reward_4 = avail and turn = turn_p1 and x_p0 = xreward_4 and y_p0 = yreward_4;
+      points_p1 = points_p1 + 1 if reward_4 = avail and turn = turn_p0 and x_p1 = xreward_4 and y_p1 = yreward_4;
+      points_p0 = points_p0 + 1 if reward_5 = avail and turn = turn_p1 and x_p0 = xreward_5 and y_p0 = yreward_5;
+      points_p1 = points_p1 + 1 if reward_5 = avail and turn = turn_p0 and x_p1 = xreward_5 and y_p1 = yreward_5;
+      points_p0 = points_p0 + 1 if reward_6 = avail and turn = turn_p1 and x_p0 = xreward_6 and y_p0 = yreward_6;
+      points_p1 = points_p1 + 1 if reward_6 = avail and turn = turn_p0 and x_p1 = xreward_6 and y_p1 = yreward_6;
+      points_p0 = points_p0 + 1 if reward_7 = avail and turn = turn_p1 and x_p0 = xreward_7 and y_p0 = yreward_7;
+      points_p1 = points_p1 + 1 if reward_7 = avail and turn = turn_p0 and x_p1 = xreward_7 and y_p1 = yreward_7;
+      points_p0 = points_p0 + 1 if reward_8 = avail and turn = turn_p1 and x_p0 = xreward_8 and y_p0 = yreward_8;
+      points_p1 = points_p1 + 1 if reward_8 = avail and turn = turn_p0 and x_p1 = xreward_8 and y_p1 = yreward_8;
+      points_p0 = points_p0 + 1 if reward_9 = avail and turn = turn_p1 and x_p0 = xreward_9 and y_p0 = yreward_9;
+      points_p1 = points_p1 + 1 if reward_9 = avail and turn = turn_p0 and x_p1 = xreward_9 and y_p1 = yreward_9;
+      points_p0 = points_p0 + 1 if reward_10 = avail and turn = turn_p1 and x_p0 = xreward_10 and y_p0 = yreward_10;
+      points_p1 = points_p1 + 1 if reward_10 = avail and turn = turn_p0 and x_p1 = xreward_10 and y_p1 = yreward_10;
+      points_p0 = points_p0 + 1 if reward_11 = avail and turn = turn_p1 and x_p0 = xreward_11 and y_p0 = yreward_11;
+      points_p1 = points_p1 + 1 if reward_11 = avail and turn = turn_p0 and x_p1 = xreward_11 and y_p1 = yreward_11;
+      points_p0 = points_p0 + 1 if reward_12 = avail and turn = turn_p1 and x_p0 = xreward_12 and y_p0 = yreward_12;
+      points_p1 = points_p1 + 1 if reward_12 = avail and turn = turn_p0 and x_p1 = xreward_12 and y_p1 = yreward_12;
+      points_p0 = points_p0 + 1 if reward_13 = avail and turn = turn_p1 and x_p0 = xreward_13 and y_p0 = yreward_13;
+      points_p1 = points_p1 + 1 if reward_13 = avail and turn = turn_p0 and x_p1 = xreward_13 and y_p1 = yreward_13;
+      points_p0 = points_p0 + 1 if reward_14 = avail and turn = turn_p1 and x_p0 = xreward_14 and y_p0 = yreward_14;
+      points_p1 = points_p1 + 1 if reward_14 = avail and turn = turn_p0 and x_p1 = xreward_14 and y_p1 = yreward_14;
+      points_p0 = points_p0 + 1 if reward_15 = avail and turn = turn_p1 and x_p0 = xreward_15 and y_p0 = yreward_15;
+      points_p1 = points_p1 + 1 if reward_15 = avail and turn = turn_p0 and x_p1 = xreward_15 and y_p1 = yreward_15;
+      points_p0 = points_p0 + 1 if reward_16 = avail and turn = turn_p1 and x_p0 = xreward_16 and y_p0 = yreward_16;
+      points_p1 = points_p1 + 1 if reward_16 = avail and turn = turn_p0 and x_p1 = xreward_16 and y_p1 = yreward_16;
+      points_p0 = points_p0 + 1 if reward_17 = avail and turn = turn_p1 and x_p0 = xreward_17 and y_p0 = yreward_17;
+      points_p1 = points_p1 + 1 if reward_17 = avail and turn = turn_p0 and x_p1 = xreward_17 and y_p1 = yreward_17;
+      points_p0 = points_p0 + 1 if reward_18 = avail and turn = turn_p1 and x_p0 = xreward_18 and y_p0 = yreward_18;
+      points_p1 = points_p1 + 1 if reward_18 = avail and turn = turn_p0 and x_p1 = xreward_18 and y_p1 = yreward_18;
+      points_p0 = points_p0 + 1 if reward_19 = avail and turn = turn_p1 and x_p0 = xreward_19 and y_p0 = yreward_19;
+      points_p1 = points_p1 + 1 if reward_19 = avail and turn = turn_p0 and x_p1 = xreward_19 and y_p1 = yreward_19;
+      points_p0 = points_p0 + 1 if reward_20 = avail and turn = turn_p1 and x_p0 = xreward_20 and y_p0 = yreward_20;
+      points_p1 = points_p1 + 1 if reward_20 = avail and turn = turn_p0 and x_p1 = xreward_20 and y_p1 = yreward_20;
+      points_p0 = points_p0 + 1 if reward_21 = avail and turn = turn_p1 and x_p0 = xreward_21 and y_p0 = yreward_21;
+      points_p1 = points_p1 + 1 if reward_21 = avail and turn = turn_p0 and x_p1 = xreward_21 and y_p1 = yreward_21;
+      points_p0 = points_p0 + 1 if reward_22 = avail and turn = turn_p1 and x_p0 = xreward_22 and y_p0 = yreward_22;
+      points_p1 = points_p1 + 1 if reward_22 = avail and turn = turn_p0 and x_p1 = xreward_22 and y_p1 = yreward_22;
+      points_p0 = points_p0 + 1 if reward_23 = avail and turn = turn_p1 and x_p0 = xreward_23 and y_p0 = yreward_23;
+      points_p1 = points_p1 + 1 if reward_23 = avail and turn = turn_p0 and x_p1 = xreward_23 and y_p1 = yreward_23;
+      points_p0 = points_p0 + 1 if reward_24 = avail and turn = turn_p1 and x_p0 = xreward_24 and y_p0 = yreward_24;
+      points_p1 = points_p1 + 1 if reward_24 = avail and turn = turn_p0 and x_p1 = xreward_24 and y_p1 = yreward_24;
+      points_p0 = points_p0 + 1 if reward_25 = avail and turn = turn_p1 and x_p0 = xreward_25 and y_p0 = yreward_25;
+      points_p1 = points_p1 + 1 if reward_25 = avail and turn = turn_p0 and x_p1 = xreward_25 and y_p1 = yreward_25;
+      points_p0 = points_p0 + 1 if reward_26 = avail and turn = turn_p1 and x_p0 = xreward_26 and y_p0 = yreward_26;
+      points_p1 = points_p1 + 1 if reward_26 = avail and turn = turn_p0 and x_p1 = xreward_26 and y_p1 = yreward_26;
+      points_p0 = points_p0 + 1 if reward_27 = avail and turn = turn_p1 and x_p0 = xreward_27 and y_p0 = yreward_27;
+      points_p1 = points_p1 + 1 if reward_27 = avail and turn = turn_p0 and x_p1 = xreward_27 and y_p1 = yreward_27;
+      points_p0 = points_p0 + 1 if reward_28 = avail and turn = turn_p1 and x_p0 = xreward_28 and y_p0 = yreward_28;
+      points_p1 = points_p1 + 1 if reward_28 = avail and turn = turn_p0 and x_p1 = xreward_28 and y_p1 = yreward_28;
+      points_p0 = points_p0 + 1 if reward_29 = avail and turn = turn_p1 and x_p0 = xreward_29 and y_p0 = yreward_29;
+      points_p1 = points_p1 + 1 if reward_29 = avail and turn = turn_p0 and x_p1 = xreward_29 and y_p1 = yreward_29;
+      points_p0 = points_p0 + 1 if reward_30 = avail and turn = turn_p1 and x_p0 = xreward_30 and y_p0 = yreward_30;
+      points_p1 = points_p1 + 1 if reward_30 = avail and turn = turn_p0 and x_p1 = xreward_30 and y_p1 = yreward_30;
+      points_p0 = points_p0 + 1 if reward_31 = avail and turn = turn_p1 and x_p0 = xreward_31 and y_p0 = yreward_31;
+      points_p1 = points_p1 + 1 if reward_31 = avail and turn = turn_p0 and x_p1 = xreward_31 and y_p1 = yreward_31;
+      points_p0 = points_p0 + 1 if reward_32 = avail and turn = turn_p1 and x_p0 = xreward_32 and y_p0 = yreward_32;
+      points_p1 = points_p1 + 1 if reward_32 = avail and turn = turn_p0 and x_p1 = xreward_32 and y_p1 = yreward_32;
+end Evolution
+end Agent
+
+Agent Player0
+Vars:
+      null : boolean; -- for syntax reasons only
+end Vars
+Actions = { up, down, left, right, pass };
+Protocol:
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=0: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=2: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=3: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=2: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=4: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=4: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=3: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=7: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=0: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=0: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=2: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=2: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=4: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=5: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=4: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=6: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=5: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=7: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=0 and Environment.x_p0=7: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=7: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=6: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=0: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=1: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=0: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=2: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=2: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=1: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=3: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=3: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=2: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=1 and Environment.x_p0=7: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=7: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=3: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=3: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=4: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=4: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=3: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=5: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=4: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=6: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=5: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=7: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=2 and Environment.x_p0=7: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=6: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=2: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=3: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=3: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=2: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=4: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=3 and Environment.x_p0=4: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=4: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=3: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=6 and Environment.x_p0=1: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=2: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=2: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=1: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=4 and Environment.x_p0=4: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=5: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=6 and Environment.x_p0=5: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=4: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=1: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=7 and Environment.x_p0=1: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=5 and Environment.x_p0=5: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=6 and Environment.x_p0=6: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=7 and Environment.x_p0=6: { up };
+      Environment.turn=turn_p0 and Environment.y_p0=6 and Environment.x_p0=5: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=7 and Environment.x_p0=1: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=6 and Environment.x_p0=1: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=7 and Environment.x_p0=0: { right };
+      Environment.turn=turn_p0 and Environment.y_p0=6 and Environment.x_p0=6: { down };
+      Environment.turn=turn_p0 and Environment.y_p0=7 and Environment.x_p0=7: { left };
+      Environment.turn=turn_p0 and Environment.y_p0=7 and Environment.x_p0=6: { right };
+      Other : { pass };
+end Protocol
+Evolution:
+      null=true if null=true;
+end Evolution
+end Agent
+
+Agent Player1
+Vars:
+      null : boolean; -- for syntax reasons only
+end Vars
+Actions = { up, down, left, right, pass };
+Protocol:
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=0: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=2: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=3: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=2: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=4: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=4: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=3: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=7: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=0: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=0: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=2: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=2: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=4: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=5: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=4: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=6: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=5: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=7: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=0 and Environment.x_p1=7: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=7: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=6: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=0: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=1: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=0: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=2: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=2: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=1: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=3: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=3: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=2: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=1 and Environment.x_p1=7: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=7: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=3: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=3: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=4: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=4: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=3: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=5: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=4: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=6: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=5: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=7: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=2 and Environment.x_p1=7: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=6: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=2: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=3: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=3: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=2: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=4: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=3 and Environment.x_p1=4: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=4: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=3: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=6 and Environment.x_p1=1: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=2: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=2: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=1: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=4 and Environment.x_p1=4: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=5: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=6 and Environment.x_p1=5: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=4: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=1: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=7 and Environment.x_p1=1: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=5 and Environment.x_p1=5: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=6 and Environment.x_p1=6: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=7 and Environment.x_p1=6: { up };
+      Environment.turn=turn_p1 and Environment.y_p1=6 and Environment.x_p1=5: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=7 and Environment.x_p1=1: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=6 and Environment.x_p1=1: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=7 and Environment.x_p1=0: { right };
+      Environment.turn=turn_p1 and Environment.y_p1=6 and Environment.x_p1=6: { down };
+      Environment.turn=turn_p1 and Environment.y_p1=7 and Environment.x_p1=7: { left };
+      Environment.turn=turn_p1 and Environment.y_p1=7 and Environment.x_p1=6: { right };
+      Other : { pass };
+end Protocol
+Evolution:
+      null=true if null=true;
+end Evolution
+end Agent
+
+
+Evaluation
+      player0wins if Environment.points_p0 >= 17;
+      player1wins if Environment.points_p1 >= 17;
+end Evaluation
+
+InitStates
+      -- Game state:
+      -- 0 W * * * W W * 
+      -- * W * W * * * * 
+      -- * * * * W W W * 
+      -- W W W * * * * * 
+      -- W W * * * W W W 
+      -- W * * W * * W W 
+      -- W * W W W * * W 
+      -- * * W W W W * 1 
+       Environment.x_p0 = 0 and Environment.y_p0 = 0 and Environment.xreward_0 = 2 and Environment.yreward_0 = 0 and Environment.reward_0 = avail and Environment.xreward_1 = 3 and Environment.yreward_1 = 0 and Environment.reward_1 = avail and Environment.xreward_2 = 4 and Environment.yreward_2 = 0 and Environment.reward_2 = avail and Environment.xreward_3 = 7 and Environment.yreward_3 = 0 and Environment.reward_3 = avail and Environment.xreward_4 = 0 and Environment.yreward_4 = 1 and Environment.reward_4 = avail and Environment.xreward_5 = 2 and Environment.yreward_5 = 1 and Environment.reward_5 = avail and Environment.xreward_6 = 4 and Environment.yreward_6 = 1 and Environment.reward_6 = avail and Environment.xreward_7 = 5 and Environment.yreward_7 = 1 and Environment.reward_7 = avail and Environment.xreward_8 = 6 and Environment.yreward_8 = 1 and Environment.reward_8 = avail and Environment.xreward_9 = 7 and Environment.yreward_9 = 1 and Environment.reward_9 = avail and Environment.xreward_10 = 0 and Environment.yreward_10 = 2 and Environment.reward_10 = avail and Environment.xreward_11 = 1 and Environment.yreward_11 = 2 and Environment.reward_11 = avail and Environment.xreward_12 = 2 and Environment.yreward_12 = 2 and Environment.reward_12 = avail and Environment.xreward_13 = 3 and Environment.yreward_13 = 2 and Environment.reward_13 = avail and Environment.xreward_14 = 7 and Environment.yreward_14 = 2 and Environment.reward_14 = avail and Environment.xreward_15 = 3 and Environment.yreward_15 = 3 and Environment.reward_15 = avail and Environment.xreward_16 = 4 and Environment.yreward_16 = 3 and Environment.reward_16 = avail and Environment.xreward_17 = 5 and Environment.yreward_17 = 3 and Environment.reward_17 = avail and Environment.xreward_18 = 6 and Environment.yreward_18 = 3 and Environment.reward_18 = avail and Environment.xreward_19 = 7 and Environment.yreward_19 = 3 and Environment.reward_19 = avail and Environment.xreward_20 = 2 and Environment.yreward_20 = 4 and Environment.reward_20 = avail and Environment.xreward_21 = 3 and Environment.yreward_21 = 4 and Environment.reward_21 = avail and Environment.xreward_22 = 4 and Environment.yreward_22 = 4 and Environment.reward_22 = avail and Environment.xreward_23 = 1 and Environment.yreward_23 = 5 and Environment.reward_23 = avail and Environment.xreward_24 = 2 and Environment.yreward_24 = 5 and Environment.reward_24 = avail and Environment.xreward_25 = 4 and Environment.yreward_25 = 5 and Environment.reward_25 = avail and Environment.xreward_26 = 5 and Environment.yreward_26 = 5 and Environment.reward_26 = avail and Environment.xreward_27 = 1 and Environment.yreward_27 = 6 and Environment.reward_27 = avail and Environment.xreward_28 = 5 and Environment.yreward_28 = 6 and Environment.reward_28 = avail and Environment.xreward_29 = 6 and Environment.yreward_29 = 6 and Environment.reward_29 = avail and Environment.xreward_30 = 0 and Environment.yreward_30 = 7 and Environment.reward_30 = avail and Environment.xreward_31 = 1 and Environment.yreward_31 = 7 and Environment.reward_31 = avail and Environment.xreward_32 = 6 and Environment.yreward_32 = 7 and Environment.reward_32 = avail and Environment.x_p1 = 7 and Environment.y_p1 = 7 and
+      Environment.points_p0 = 0 and Environment.points_p1 = 0
+       and Environment.turn = turn_p0;
+end InitStates
+
+Groups
+      Player0 = {Player0}; Player1 = {Player1};
+      All = {Player0, Player1};
+end Groups
+
+Formulae
+      <Player0> F (player0wins);
+end Formulae

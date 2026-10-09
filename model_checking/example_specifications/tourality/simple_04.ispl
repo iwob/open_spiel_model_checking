@@ -134,7 +134,7 @@ Groups
 end Groups
 
 Formulae
-      <Player1> F (player1wins);
       <Player0> F (player0wins);
+      <Player1> F (player1wins);
       <All> F (player0wins);
 end Formulae

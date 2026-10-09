@@ -441,10 +441,8 @@ class TouralityState(McmasModelState):
         # self.logic = self.reconstruct_board()
         text = "; ".join([f"{a.name}: {self.logic.player_points[i]}" for i, a in enumerate(self.model.agents)]) + "\n"
         text += visualize_board(self.logic.board)
-        text += "\n".join([f"{a}: {v}" for a, v in sorted(self.env_variables.items())])
+        # text += "\n".join([f"{a}: {v}" for a, v in sorted(self.env_variables.items())])
         return text
-
-
 
 
     def _execute_agent_actions_mcmas(self, actions):
@@ -618,6 +616,23 @@ if __name__ == "__main__":
         f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);"))
     with open("example_specifications/tourality/schlingloff_3_overlap.ispl", "w") as f:
         f.write(make_tourality_specification(board, history=None, player_to_move=0, can_players_overlap=True, formulae=f"<Player0> F (player0wins);"))
+
+    board = [
+        # 1  2  3  4  5  6  7  8
+        [10, 1, 2, 2, 2, 1, 1, 2],
+        [2, 1, 2, 1, 2, 2, 2, 2],
+        [2, 2, 2, 2, 1, 1, 1, 2],
+        [1, 1, 1, 2, 2, 2, 2, 2],
+        [1, 1, 2, 2, 2, 1, 1, 1],
+        [1, 2, 2, 1, 2, 2, 1, 1],
+        [1, 2, 1, 1, 1, 2, 2, 1],
+        [2, 2, 1, 1, 1, 1, 2, 11],
+    ]
+    with open("example_specifications/tourality/hard_01.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, formulae=f"<Player0> F (player0wins);"))
+    with open("example_specifications/tourality/hard_01_overlap.ispl", "w") as f:
+        f.write(make_tourality_specification(board, history=None, player_to_move=0, can_players_overlap=True, formulae=f"<Player0> F (player0wins);"))
+
 
     board = [
         [2, 0, 0, 10, 11, 0, 2, 2],

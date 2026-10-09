@@ -259,8 +259,8 @@ def generate_E4():
         "schlingloff_3" : 2 * 64,
     }
 
-    output_dir = "E4[tourality]_improved"
-    prefix = "E4[tourality]_improved"
+    output_dir = "E4[tourality]_improved2"
+    prefix = "E4[tourality]_improved2"
 
     def generate_config_run(config_name, benchmark_tup, action_selector, inital_sim, max_simulations, rollout_count, max_depth):
         benchmark_name, benchmark = benchmark_tup
@@ -277,7 +277,7 @@ def generate_E4():
     --use_mcts_outcome_information 1
     --use_reward_in_terminal_states
     --num_games 2
-    --timeout 3600""".replace("\n", " ")
+    --timeout 600""".replace("\n", " ")
 
     text = f"""#!/bin/bash
 
@@ -291,10 +291,10 @@ def generate_E4():
 
     for b in benchmarks_tourality:
         for a_s in action_selectors:
-            for inital_sim in [("in2000", 2000), ("in0", 0)]:
-                for max_sim in [("s200", 200), ("s5000", 5000)]:  # ("s200", 200), ("s5000", 5000)
-                    for d in [("depthRatio0.5", 0.5)]:
-                        for roll_count in [("r5", 5)]:
+            for inital_sim in [("in1000", 1000), ("in0", 0)]:
+                for max_sim in [("s20", 20), ("s50", 50)]:  # ("s200", 200), ("s5000", 5000)
+                    for d in [("depthRatio0.25", 0.25), ("depthRatio0.5", 0.5)]:
+                        for roll_count in [("r3", 3)]:
                             config_name = f"{prefix}_{b[0]}_{a_s[0]}_{d[0]}_{inital_sim[0]}{max_sim[0]}{roll_count[0]}"
                             text += "\n"
                             text += generate_config_run(config_name, b, a_s[1], inital_sim[1], max_sim[1], roll_count[1], d[1])

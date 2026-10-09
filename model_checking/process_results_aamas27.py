@@ -433,41 +433,41 @@ def process_final_E4(summary_folders, report_dir_path, report_name):
     data["table_full"] = get_latex_table_default(df)
     data["table_basic_time"] = get_latex_table_pivot1(df, index=["benchmark", "expected_results"],
                                                       values=["avg.time_total", "sum.result_0", "sum.result_1"],
-                                                      columns=["action_selector1", "initial_simulations", "max_simulations"])
+                                                      columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"])
 
     data["table_true_01_timeouts"] = get_latex_table_pivot1(df_true, index=["benchmark"],
                                                       values=["sum.timeouts"],
-                                                      columns=["action_selector1", "initial_simulations", "max_simulations"])
+                                                      columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"])
     data["table_true_01_time"] = get_latex_table_pivot1(df_true, index=["benchmark"],
                                                         values=["avg.time_total", "stddev.time_total"],
-                                                        columns=["action_selector1", "initial_simulations", "max_simulations"])
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"])
     drop_list = [("sum.result_0", "1-best"), ("sum.result_1", "all")]
     data["table_true_01_decision"] = get_latex_table_pivot1(df_true, index=["benchmark"],
                                                         values=["sum.result_0", "sum.result_1"],
-                                                        columns=["action_selector1", "initial_simulations", "max_simulations"],
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"],
                                                         drop_list=drop_list)
     # drop_list = [("avg.num_submodels", "1-best"), ("avg.num_submodels", "all")]
     data["table_true_01_submodels"] = get_latex_table_pivot1(df_true, index=["benchmark"],
                                                               values=["avg.num_submodels"],
                                                               columns=["action_selector1", "initial_simulations",
-                                                                       "max_simulations"])
+                                                                       "max_simulations", "max_game_depth"])
 
     # df_false_2 = df.copy()
     # df_false_2.drop(["expected_results"], axis=1, inplace=True)
     data["table_false_01_timeouts"] = get_latex_table_pivot1(df_false, index=["benchmark"],
                                                          values=["sum.timeouts"],
-                                                         columns=["action_selector1", "initial_simulations", "max_simulations"])
+                                                         columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"])
     data["table_false_01_time"] = get_latex_table_pivot1(df_false, index=["benchmark"],
                                                         values=["avg.time_total", "stddev.time_total"],
-                                                        columns=["action_selector1", "initial_simulations", "max_simulations"])
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"])
     drop_list = [("sum.result_0", "1-best"), ("sum.result_1", "all")]
     data["table_false_01_decision"] = get_latex_table_pivot1(df_false, index=["benchmark"],
                                                         values=["sum.result_0", "sum.result_1"],
-                                                        columns=["action_selector1", "initial_simulations", "max_simulations"],
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"],
                                                         drop_list=drop_list)
     data["table_false_01_submodels"] = get_latex_table_pivot1(df_false, index=["benchmark"],
                                                         values=["avg.num_submodels"],
-                                                        columns=["action_selector1", "initial_simulations", "max_simulations"])
+                                                        columns=["action_selector1", "initial_simulations", "max_simulations", "max_game_depth"])
 
     results_dir = report_dir_path
     if results_dir.exists():
@@ -503,7 +503,7 @@ def process_final_E4(summary_folders, report_dir_path, report_name):
     s1_exp1.add(ss1)
     s1_exp1.add(ss1_1)
     s1_exp1.add(ss1_2)
-    report.add(s0)
+    # report.add(s0)
     report.add(s1_exp1)
     f = results_dir / f"{report_name}.tex"
     report.save_and_compile(f, output_dir=f.parent)
@@ -525,8 +525,11 @@ def process_final_E4(summary_folders, report_dir_path, report_name):
 
 
 
-summary_folders = ["EXPERIMENTS_AAMAS27/E4[tourality]/summary"]
-process_final_E4(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E4"), report_name="final_report_E4")
+# summary_folders = ["EXPERIMENTS_AAMAS27/E4[tourality]/summary"]
+# process_final_E4(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E4"), report_name="final_report_E4")
+#
+# summary_folders = ["EXPERIMENTS_AAMAS27/E4[tourality]_improved/summary"]
+# process_final_E4(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E4_improved"), report_name="final_report_E4_improved")
 
-summary_folders = ["EXPERIMENTS_AAMAS27/E4[tourality]_improved/summary"]
-process_final_E4(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E4_improved"), report_name="final_report_E4_improved")
+summary_folders = ["EXPERIMENTS_AAMAS27/E4[tourality]_improved2/summary"]
+process_final_E4(summary_folders, report_dir_path=Path("EXPERIMENTS_AAMAS27/REPORTS/final_report_E4_improved2"), report_name="final_report_E4_improved2")

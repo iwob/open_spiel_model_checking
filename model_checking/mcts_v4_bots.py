@@ -42,7 +42,7 @@ try:
 except Exception:
     pass
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def killtree(pid, including_parent=True, silent=False):
@@ -326,44 +326,25 @@ def _debug_player_name(node: QueueNode):
         return str(node.state.current_player())
 
 
-def update_bots(bots, node: QueueNode, action_id: int, is_last_explored_action: bool=False, single_bot_setup: bool=False):
+def update_bots(bots, node: QueueNode, action_id: int, is_last_explored_action: bool=False):
     new_bots = []
-    if single_bot_setup:
-        if isinstance(bots[0], MCTSTreeReuseBot):
-            new_bot = bots[0].copy()
-            new_bot.update_current_root(action_id)
-            new_bots = [new_bot for _ in bots]
-
-            if is_last_explored_action:
+    for i, b in enumerate(bots):
+        if isinstance(b, MCTSTreeReuseBot):
+            new_bots.append(b.copy())
+            if is_last_explored_action:  # and node.current_player() == i
                 # If agent makes only a single action, we won't need other branches for both players.
-                bots[0].reset_search_tree()
-            else:
-                # Remove the action_id edge from the old parent's root - that branch won't be needed anymore
-                if bots[0].current_root is not None:
-                    for i, child in enumerate(bots[0].current_root.children):
-                        if child.action == action_id:
-                            del bots[0].current_root.children[i]
+                b.reset_search_tree()
         else:
-            new_bots = [b for b in bots]
-        # _inform_bots(new_bots, node.state, action_id)
-    else:
-        for i, b in enumerate(bots):
-            if isinstance(b, MCTSTreeReuseBot):
-                new_bots.append(b.copy())
-                if is_last_explored_action:  # and node.current_player() == i
-                    # If agent makes only a single action, we won't need other branches for both players.
-                    b.reset_search_tree()
-            else:
-                new_bots.append(b)
-        # _inform_bots(new_bots, node.state, action_id)
-        for b_old, b in zip(bots, new_bots):
-            if isinstance(b, MCTSTreeReuseBot):
-                b.update_current_root(action_id)
-                # Remove the action_id edge from the old parent's root - that branch won't be needed anymore
-                if b_old.current_root is not None:
-                    for i, child in enumerate(b_old.current_root.children):
-                        if child.action == action_id:
-                            del b_old.current_root.children[i]
+            new_bots.append(b)
+    _inform_bots(new_bots, node.state, action_id)
+    for b_old, b in zip(bots, new_bots):
+        if isinstance(b, MCTSTreeReuseBot):
+            b.update_current_root(action_id)
+            # Remove the action_id edge from the old parent's root - that branch won't be needed anymore
+            if b_old.current_root is not None:
+                for i, child in enumerate(b_old.current_root.children):
+                    if child.action == action_id:
+                        del b_old.current_root.children[i]
     return new_bots
 
 
@@ -384,7 +365,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                       bots: list, action_selector: ActionSelector, formula: str, coalition: set,
                       node: QueueNode, game_tree: GameTreeNode, run_results_dir, results_dict,
                       max_game_depth, use_reward_in_terminal_states, unroll_chance_nodes,
-                      use_mcts_outcome_information, construct_game_tree, single_bot_setup):
+                      use_mcts_outcome_information, construct_game_tree):
     debug_indent = "\t" * node.priority
     logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Processing state:\n{textwrap.indent(str(node.state), debug_indent)}")
 
@@ -419,7 +400,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             for action in node.state.legal_actions():
                 action_id = node.state.legal_actions(node.current_player())[0]
                 action_name = node.state.action_to_string(node.current_player(), action)
-                new_bots = update_bots(bots, node, action_id, single_bot_setup=single_bot_setup)
+                new_bots = update_bots(bots, node, action_id)
                 new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=None, construct_game_tree=construct_game_tree)
                 new_game_tree = game_tree[action_name] if construct_game_tree else None
                 logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Exploring new action: {action}")
@@ -430,8 +411,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                                         max_game_depth=max_game_depth,
                                         use_reward_in_terminal_states=use_reward_in_terminal_states,
                                         unroll_chance_nodes=unroll_chance_nodes,
-                                        use_mcts_outcome_information=use_mcts_outcome_information,
-                                        single_bot_setup=single_bot_setup)
+                                        use_mcts_outcome_information=use_mcts_outcome_information)
                 if not dec:
                     logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) Opponent has a path to prevent coalition from winning, move to the previous layer")
                     return 0
@@ -449,7 +429,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             action_id = node.state.legal_actions(current_player)[0]  # it is cached, so it is fast
             action_name = node.state.action_to_string(action_id)
             logger.debug(f"{debug_indent}Executing the only action '{action_name}' available to the agent")
-            new_bots = update_bots(bots, node, action_id, is_last_explored_action=True, single_bot_setup=single_bot_setup)
+            new_bots = update_bots(bots, node, action_id, is_last_explored_action=True)
             new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=None, construct_game_tree=construct_game_tree)
             new_game_tree = game_tree[action_name] if construct_game_tree else None
             dec = MCSA_combined_run(game_utils, solver, new_bots, action_selector, formula, coalition,
@@ -460,8 +440,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                                     use_reward_in_terminal_states=use_reward_in_terminal_states,
                                     unroll_chance_nodes=unroll_chance_nodes,
                                     use_mcts_outcome_information=use_mcts_outcome_information,
-                                    construct_game_tree=construct_game_tree,
-                                    single_bot_setup=single_bot_setup)
+                                    construct_game_tree=construct_game_tree)
             if current_player in coalition:
                 if dec:
                     logger.debug(f"{debug_indent}(Player: {_debug_player_name(node)}) [single-action] Proponent has a winning path, move to the previous layer")
@@ -508,8 +487,8 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             actions_list = [(get_outcome(line), get_value(line), get_name(line), None) for line in bot.my_policy.split("\n")]
             actions_list = sorted(actions_list, reverse=True)  # sort by value
             # logger.debug("Sorted actions list:")
-            # for a in actions_list:
-            #     logger.debug(str(a))
+            for action_name in actions_list:
+                logger.debug(str(action_name))
 
             if use_mcts_outcome_information:
                 if actions_list[0][0] == 1.0:  # The outcome of the first action for the current player is a proven victory
@@ -542,7 +521,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
 
             # print(f"cur_player: {current_player}")
             # print(f"old: {hex(id(bots[current_player]))}  (str: {str(bots[current_player].current_root)})")
-            new_bots = update_bots(bots, node, action_id, is_last_explored_action=(i == len(actions_to_explore) - 1), single_bot_setup=single_bot_setup)
+            new_bots = update_bots(bots, node, action_id, is_last_explored_action=(i == len(actions_to_explore) - 1))
             # print(f"new: {hex(id(new_bots[current_player]))}  (str: {str(new_bots[current_player].current_root)})")
 
             new_node = create_new_node(game_utils, node, action_id, game_tree, game_tree_val=val, construct_game_tree=construct_game_tree)
@@ -556,8 +535,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
                                     use_reward_in_terminal_states=use_reward_in_terminal_states,
                                     unroll_chance_nodes=unroll_chance_nodes,
                                     use_mcts_outcome_information=use_mcts_outcome_information,
-                                    construct_game_tree=construct_game_tree,
-                                    single_bot_setup=single_bot_setup)
+                                    construct_game_tree=construct_game_tree)
 
             # Here we implement a minmax part depending on the decision returned by the lower layers
             if current_player in coalition:
@@ -585,7 +563,7 @@ def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver,
                   action_selector: ActionSelector, formula: str, coalition: set, run_results_dir,
                   results_dict, initial_moves: str="", max_game_depth=5, use_reward_in_terminal_states=False,
                   unroll_chance_nodes=True, use_mcts_outcome_information=True, initial_simulations=0,
-                  construct_game_tree=False, single_bot_setup=False):
+                  construct_game_tree=False):
     global SPEC_FILE_COUNTER
     SPEC_FILE_COUNTER = 0
     results_dict["time_solver"] = 0.0
@@ -595,21 +573,25 @@ def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver,
     state = game.new_initial_state()
     _restart_bots(bots)
     _execute_initial_moves(state, bots, initial_moves)
+
     if initial_simulations > 0:
-        if single_bot_setup:
-            if isinstance(bots[0], MCTSTreeReuseBot):
-                ms = bots[0].max_simulations
-                bots[0].max_simulations = initial_simulations
-                bots[0].step(state)
-                bots[0].max_simulations = ms
-        else:
-            for b in bots:
-                # Initial tree pre-training
-                if isinstance(b, MCTSTreeReuseBot):
-                    ms = b.max_simulations
-                    b.max_simulations = initial_simulations
-                    b.step(state)
-                    b.max_simulations = ms
+        # for b in bots:
+        #     # Initial tree pre-training
+        #     if isinstance(b, MCTSTreeReuseBot):
+        #         ms = b.max_simulations
+        #         b.max_simulations = initial_simulations
+        #         b.step(state)
+        #         b.max_simulations = ms
+        for i, b in enumerate(bots):
+            # Initial tree pre-training
+            if isinstance(b, MCTSTreeReuseBot):
+                ms = b.max_simulations
+                b.max_simulations = initial_simulations
+                b.step(state)
+                b.max_simulations = ms
+            if i < len(bots)-1:
+                # Propagate tree
+                bots[i+1].set_current_root(b.current_root)
 
     # Initial nodes are not part of the game tree and are not taken into account when doing minmax.
     # The reason for that is that the initial moves form a single path without any branching, and the
@@ -627,8 +609,7 @@ def MCSA_combined(game_utils: GameInterface, game: pyspiel.Game, solver: Solver,
                             use_reward_in_terminal_states=use_reward_in_terminal_states,
                             unroll_chance_nodes=unroll_chance_nodes,
                             use_mcts_outcome_information=use_mcts_outcome_information,
-                            construct_game_tree=construct_game_tree,
-                            single_bot_setup=single_bot_setup)
+                            construct_game_tree=construct_game_tree)
     return dec, game_tree
 
 
@@ -805,21 +786,19 @@ def main(argv):
 
     initial_moves = "" if FLAGS.initial_moves is None else FLAGS.initial_moves
 
-    def run_subprocess(queue, results_dict, bots, single_bot_setup):
+    def run_subprocess(queue, results_dict, bots):
         result, game_tree = MCSA_combined(game_utils, game, solver, bots, action_selector, formula, coalition,
                       run_results_dir, results_dict, initial_moves,
                       max_game_depth=FLAGS.max_game_depth,
                       use_reward_in_terminal_states=FLAGS.use_reward_in_terminal_states,
                       use_mcts_outcome_information=FLAGS.use_mcts_outcome_information,
                       initial_simulations=FLAGS.initial_simulations,
-                      construct_game_tree=FLAGS.construct_game_tree,
-                      single_bot_setup=single_bot_setup,)
+                      construct_game_tree=FLAGS.construct_game_tree,)
         queue.put(results_dict)
         queue.put(game_tree)
         queue.put(result)
 
     start_time = time.time()
-    single_bot_setup = False
     for i in range(FLAGS.num_games):
         seed = int(start_time) + i if FLAGS.seed is None else FLAGS.seed
 
@@ -829,11 +808,7 @@ def main(argv):
                 _init_bot(FLAGS.player2, game, 1, seed=seed),
             ]
         else:
-            # The same bot for both players
-            single_bot_setup = True
-            bot = _init_bot(FLAGS.player, game, None, seed=seed)
-            bots = [bot for i in range(game.num_players())]
-            # bots = [_init_bot(FLAGS.player, game, i, seed=seed) for i in range(game.num_players())]
+            bots = [_init_bot(FLAGS.player, game, i, seed=seed) for i in range(game.num_players())]
 
         # if FLAGS.action_selector1 == "all" and isinstance(bots[0], (MCTSTreeReuseBot, mcts.MCTSBot)):
         #     bots[0].max_simulations = int(bots[0].max_simulations / 2)
@@ -859,7 +834,6 @@ def main(argv):
         results_dict["initial_simulations"] = FLAGS.initial_simulations
         results_dict["use_mcts_outcome_information"] = FLAGS.use_mcts_outcome_information
         results_dict["use_reward_in_terminal_states"] = FLAGS.use_reward_in_terminal_states
-        results_dict["single_bot_setup"] = single_bot_setup
         results_dict["game"] = FLAGS.game
         results_dict["player"] = FLAGS.player
         results_dict["timeout"] = timeout
@@ -872,7 +846,7 @@ def main(argv):
 
         # New multiprocessing function call with timeout check
         queue = Queue()
-        p = Process(target=run_subprocess, args=[queue, results_dict, bots, single_bot_setup], daemon=True)
+        p = Process(target=run_subprocess, args=[queue, results_dict, bots], daemon=True)
         p.start()
         p.join(timeout=timeout)
         end = time.time()
