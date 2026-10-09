@@ -148,6 +148,8 @@ def generate_E3():
         ("mnk8,8,3", "--game mnk -n 8 -m 8 -k 3"),
         ("nim1;4;5", "--game nim --piles \"1;4;5\""),  # losing position
         ("nim2;4;5", "--game nim --piles \"2;4;5\""),  # winning position
+        ("nim9;5;12", "--game nim --piles \"9;5;12\""),  # losing position
+        ("nim10;5;12", "--game nim --piles \"10;5;12\""),  # winning position
         ("nim2;19;16", "--game nim --piles \"2;19;16\""),  # winning position
         ("nim2;19;17", "--game nim --piles \"2;19;17\""),  # losing position
     ]
@@ -169,12 +171,14 @@ def generate_E3():
         "mnk8,8,3": 8*8,
         "nim1;4;5": 1+4+5,  # losing position
         "nim2;4;5": 2+4+5,  # winning position
+        "nim9;5;12": 9+5+12,  # losing position
+        "nim10;5;12": 10+5+12,  # winning position
         "nim2;19;16": 2+19+16,  # winning position
         "nim2;19;17": 2+19+17,  # losing position
     }
 
-    output_dir = "E3[mcsa]"
-    prefix = "E3[mcsa]"
+    output_dir = "E3[mcsa]_final"
+    prefix = "E3[mcsa]_final"
 
     def generate_config_run(config_name, benchmark_tup, action_selector, inital_sim, max_simulations, rollout_count, max_depth):
         benchmark_name, benchmark = benchmark_tup
@@ -205,8 +209,8 @@ def generate_E3():
 
     for b in benchmarks:
         for a_s in action_selectors:
-            for inital_sim in [("in0", 0)]:  #[("in2000", 2000), ("in0", 0)]:
-                for max_sim in [("s5000", 5000)]:  # ("s200", 200), ("s5000", 5000)
+            for inital_sim in [("in0", 0), ("in5000", 5000)]:  #[("in2000", 2000), ("in0", 0)]:
+                for max_sim in [("s200", 200), ("s5000", 5000)]:  # ("s200", 200), ("s5000", 5000)
                     for d in [("depthRatio0.5", 0.5)]:
                         for roll_count in [("r5", 5)]:
                             config_name = f"{prefix}_{b[0]}_{a_s[0]}_{d[0]}_{inital_sim[0]}{max_sim[0]}{roll_count[0]}"
@@ -308,5 +312,5 @@ def generate_E4():
 if __name__ == "__main__":
     # generate_E1()
     # generate_E2()
-    # generate_E3()
-    generate_E4()
+    generate_E3()
+    # generate_E4()
