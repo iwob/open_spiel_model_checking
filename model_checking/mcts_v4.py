@@ -494,7 +494,7 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
         def get_outcome(data_str: str) -> float:
             s = data_str.split(", outcome:")[1]
             f = s[:s.index(",")].strip()
-            return 0.0 if f == "none" else float(f)
+            return None if f == "none" else float(f)
         def get_value(data_str: str) -> float:
             value = float(my_policy_value_pattern.search(data_str).group(1))
             return value
@@ -506,37 +506,52 @@ def MCSA_combined_run(game_utils: GameInterface, solver: Solver,
             # Here we use a custom my_policy field, which is a custom modification of OpenSpiel which
             # doesn't give that information on the outside
             actions_list = [(get_outcome(line), get_value(line), get_name(line), None) for line in bot.my_policy.split("\n")]
-            actions_list = sorted(actions_list, reverse=True)  # sort by value
+            def sort_lambda(x):
+                if x[0] is None:
+                    return 0.01, x[1:]  # 0.01 is used so that None outcome actions are before those proven to be 0 (draw)
+                else:
+                    return x[0], x[1:]
+            actions_list = sorted(actions_list, reverse=True, key=sort_lambda)  # sort by value
             # logger.debug("Sorted actions list:")
-            # for a in actions_list:
-            #     logger.debug(str(a))
+            for action_name in actions_list:
+                logger.debug(str(action_name))
 
-            if use_mcts_outcome_information:
+            if use_mcts_outcome_information and actions_list[0][0] is not None:
                 if actions_list[0][0] == 1.0:  # The outcome of the first action for the current player is a proven victory
                     logger.debug(f"{debug_indent}[MCTS-Solver] Action '{actions_list[0][2]}' was found to be a guaranteed win for the current player ({_debug_player_name(node)})")
-                    # actions_to_explore = actions_list[:1]
                     if current_player in coalition:
                         return 1
                     else:
                         return 0
                 elif actions_list[0][0] == -1.0:  # All actions lead to a defeat
                     logger.debug(f"{debug_indent}[MCTS-Solver] All actions were found to be a guaranteed loss for the current player ({_debug_player_name(node)})")
-                    # actions_to_explore = actions_list[:1]
                     if current_player in coalition:
                         return 0
                     else:
                         return 1
                     # This whole elif block can be commented out to generate a valid game tree.
-                else:
-                    actions_to_explore = action_selector(actions_list, current_player, coalition)
+                else:  # Typically a draw result
+                    if current_player in coalition:
+                        logger.debug(f"{debug_indent}[MCTS-Solver] All actions were found to be a guaranteed loss (by draw) for the current coalition player ({_debug_player_name(node)})")
+                        return 0
+                    else:
+                        logger.debug(f"{debug_indent}[MCTS-Solver] All actions were found to be a guaranteed win (by draw) for the current anti-coalition player ({_debug_player_name(node)})")
+                        return 1
             else:
                 actions_to_explore = action_selector(actions_list, current_player, coalition)
             # Assumption: actions_to_explore are returned sorted by the action_selector
 
         for i, (outcome, val, action_name, a_id) in enumerate(actions_to_explore):
-            if use_mcts_outcome_information and outcome == -1.0:
-                logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {action_name}, which cannot benefit the current player")
-                continue
+            if use_mcts_outcome_information and outcome is not None:
+                if current_player in coalition:
+                    if outcome < 1.0:
+                        logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {action_name}, which cannot benefit the current coalition player")
+                        continue
+                else:
+                    if outcome == -1.0:
+                        logger.debug(f"{debug_indent}[MCTS-Solver] Skipping action {action_name}, which cannot benefit the current anti-coalition player")
+                        continue
+
                 # This whole if block can be commented out to generate a valid game tree.
             action_id = _get_action_id(node.state, action_name) if a_id is None else a_id
 
